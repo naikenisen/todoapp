@@ -104,7 +104,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 550,
     title: 'ISENAPP',
-    icon: path.join(__dirname, 'icon.png'),
+    icon: resourcePath('logo.svg'),
     frame: false,
     transparent: false,
     backgroundColor: '#1e1e2e',

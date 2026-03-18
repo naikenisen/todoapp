@@ -9,6 +9,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "icons:generate": "mkdir -p build && npx --yes icon-gen -i logo.svg -o build --ico --icns && mv -f build/app.icns build/icon.icns && mv -f build/app.ico build/icon.ico && rsvg-convert -w 512 -h 512 logo.svg -o build/icon.png",
     "build": "electron-builder --linux",
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
@@ -28,6 +29,10 @@
       "package.json"
     ],
     "extraResources": [
+      {
+        "from": "logo.svg",
+        "to": "logo.svg"
+      },
       {
         "from": "server.py",
         "to": "server.py"
@@ -51,14 +56,14 @@
         "deb"
       ],
       "category": "Office",
-      "icon": "icon.png"
+      "icon": "build/icon.png"
     },
     "mac": {
       "target": [
         "dmg",
         "zip"
       ],
-      "icon": "icon.png",
+      "icon": "build/icon.icns",
       "category": "public.app-category.productivity"
     },
     "win": {
@@ -66,7 +71,7 @@
         "nsis",
         "portable"
       ],
-      "icon": "icon.png"
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,

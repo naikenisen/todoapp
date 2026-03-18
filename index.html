@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ISENAPP</title>
+    <link rel="icon" type="image/svg+xml" href="/logo.svg">
+    <link rel="shortcut icon" href="/logo.svg">
+    <link rel="apple-touch-icon" href="/logo.svg">
+    <meta property="og:image" content="/logo.svg">
+    <meta name="twitter:image" content="/logo.svg">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@0.460.0/font/lucide.css">
     <style>
         /* ─── Obsidian / VSCode Dark Theme ────────────── */
@@ -77,6 +82,12 @@
             display: flex; align-items: center; justify-content: center;
             font-size: 12px;
             -webkit-app-region: no-drag;
+        }
+        .titlebar-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
         }
         .titlebar-title {
             font-size: 12px;
@@ -919,7 +930,7 @@
 
 <!-- ─── Custom Titlebar ────────────────────────── -->
 <div class="titlebar" id="titlebar">
-    <span class="titlebar-icon"><i class="icon-terminal"></i></span>
+    <span class="titlebar-icon"><img src="/logo.svg" alt="ISENAPP"></span>
     <span class="titlebar-title">ISENAPP</span>
     <div class="titlebar-controls">
         <button class="titlebar-btn" id="btn-minimize" title="Réduire">

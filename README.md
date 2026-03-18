@@ -6,17 +6,39 @@ Client email desktop multi-plateforme (Electron) avec gestion de tâches, relanc
 
 ## Table des matières
 
-- [Fonctionnalités](#fonctionnalités)
-- [Prérequis](#prérequis)
-- [Installation des dépendances](#installation-des-dépendances)
-- [Lancement en développement](#lancement-en-développement)
-- [Compilation](#compilation)
-- [Installation des binaires](#installation-des-binaires)
-- [Architecture du projet](#architecture-du-projet)
-- [Configuration des comptes email](#configuration-des-comptes-email)
-- [Raccourcis clavier](#raccourcis-clavier)
-- [Stockage des données](#stockage-des-données)
-- [Remarques](#remarques)
+- [ISENAPP](#isenapp)
+  - [Table des matières](#table-des-matières)
+  - [Fonctionnalités](#fonctionnalités)
+    - [📬 Client email complet](#-client-email-complet)
+    - [✅ Gestion de tâches](#-gestion-de-tâches)
+    - [📨 Workflow tâche → email → relance](#-workflow-tâche--email--relance)
+    - [🤖 Intelligence artificielle (Gemini)](#-intelligence-artificielle-gemini)
+    - [🔗 Intégration Obsidian](#-intégration-obsidian)
+    - [🎨 Interface](#-interface)
+  - [Prérequis](#prérequis)
+  - [Installation des dépendances](#installation-des-dépendances)
+    - [Node.js](#nodejs)
+    - [Python](#python)
+  - [Lancement en développement](#lancement-en-développement)
+  - [Compilation](#compilation)
+    - [Linux (AppImage + .deb)](#linux-appimage--deb)
+    - [macOS (DMG + ZIP)](#macos-dmg--zip)
+    - [Windows (NSIS installer + Portable)](#windows-nsis-installer--portable)
+    - [Toutes les plateformes](#toutes-les-plateformes)
+    - [Dossier décompressé uniquement (debug)](#dossier-décompressé-uniquement-debug)
+  - [Installation des binaires](#installation-des-binaires)
+    - [Linux — AppImage](#linux--appimage)
+    - [Linux — .deb](#linux--deb)
+    - [macOS — DMG](#macos--dmg)
+    - [Windows — Installateur](#windows--installateur)
+    - [Windows — Portable](#windows--portable)
+  - [Architecture du projet](#architecture-du-projet)
+  - [Configuration des comptes email](#configuration-des-comptes-email)
+    - [Autoconfiguration](#autoconfiguration)
+    - [Exemple Gmail](#exemple-gmail)
+  - [Raccourcis clavier](#raccourcis-clavier)
+  - [Stockage des données](#stockage-des-données)
+  - [Remarques](#remarques)
 
 ---
 
@@ -221,7 +243,10 @@ inbox_index.json         → Index des emails téléchargés (métadonnées)
 seen_uids.json           → UIDs déjà vus (dédoublonnage POP3/IMAP)
 contacts_complets_v2.csv → Carnet de contacts pour l'autocomplétion
 requirements-v3.txt      → Dépendances Python
-icon.png                 → Icône de l'application
+logo.svg                 → Source d'icône (UI + favicon)
+build/icon.png           → Icône Linux générée
+build/icon.ico           → Icône Windows générée
+build/icon.icns          → Icône macOS générée
 package.json             → Configuration npm + electron-builder
 ```
 
