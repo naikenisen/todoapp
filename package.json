@@ -30,6 +30,10 @@
     ],
     "extraResources": [
       {
+        "from": "index.html",
+        "to": "index.html"
+      },
+      {
         "from": "logo.svg",
         "to": "logo.svg"
       },

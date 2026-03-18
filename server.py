@@ -38,16 +38,72 @@ except ImportError:
 
 PORT = 8080
 DIR = os.path.dirname(os.path.abspath(__file__))
-DATA = os.path.join(DIR, "data.json")
-CONTACTS_CSV = os.path.join(DIR, "contacts_complets_v2.csv")
-LOG_FILE = os.path.join(DIR, "api_errors.log")
+
+
+def get_app_data_dir():
+    """Return a writable data directory for runtime files.
+
+    In dev mode we keep writing next to server.py. In packaged mode (AppImage/.deb),
+    resources are typically read-only so we switch to ~/.local/share/isenapp.
+    """
+    if os.access(DIR, os.W_OK):
+        return DIR
+    return os.path.join(str(Path.home()), ".local", "share", "isenapp")
+
+
+APP_DATA_DIR = get_app_data_dir()
+os.makedirs(APP_DATA_DIR, exist_ok=True)
+
+
+def bootstrap_file(filename):
+    """Copy bundled defaults to writable app data dir when missing."""
+    src = os.path.join(DIR, filename)
+    dst = os.path.join(APP_DATA_DIR, filename)
+    if os.path.isfile(src) and not os.path.exists(dst):
+        shutil.copy2(src, dst)
+    return dst if os.path.exists(dst) else src
+
+
+def read_json_with_backup(path, default_value):
+    """Read JSON file with fallback to <file>.bak if primary is unreadable."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        bak_path = f"{path}.bak"
+        try:
+            with open(bak_path, encoding="utf-8") as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return default_value
+
+
+def atomic_write_json(path, payload):
+    """Write JSON atomically and keep a one-file backup of previous content."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp_path = f"{path}.tmp"
+    bak_path = f"{path}.bak"
+
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+        f.flush()
+        os.fsync(f.fileno())
+
+    if os.path.exists(path):
+        shutil.copy2(path, bak_path)
+    os.replace(tmp_path, path)
+
+
+DATA = bootstrap_file("data.json")
+CONTACTS_CSV = bootstrap_file("contacts_complets_v2.csv")
+LOG_FILE = os.path.join(APP_DATA_DIR, "api_errors.log")
 DOWNLOADS = str(Path.home() / "Téléchargements")
 
 # ── Mail storage ──
 MAILS_DIR = str(Path.home() / "mails")
-SEEN_UIDS_FILE = os.path.join(DIR, "seen_uids.json")
-ACCOUNTS_FILE = os.path.join(DIR, "accounts.json")
-INBOX_INDEX_FILE = os.path.join(DIR, "inbox_index.json")
+SEEN_UIDS_FILE = os.path.join(APP_DATA_DIR, "seen_uids.json")
+ACCOUNTS_FILE = os.path.join(APP_DATA_DIR, "accounts.json")
+INBOX_INDEX_FILE = os.path.join(APP_DATA_DIR, "inbox_index.json")
 
 ISENAPP_DATA = str(Path.home() / "Documents" / "isenapp_mails")
 OBSIDIAN_MD_DIR = os.path.join(ISENAPP_DATA, "mails")
@@ -71,16 +127,11 @@ if not os.path.isdir(DOWNLOADS):
 
 
 def load():
-    try:
-        with open(DATA, encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {"sections": [], "settings": {}}
+    return read_json_with_backup(DATA, {"sections": [], "settings": {}})
 
 
 def save(data):
-    with open(DATA, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    atomic_write_json(DATA, data)
 
 
 def load_contacts():
@@ -190,48 +241,33 @@ def save_eml_to_downloads(from_addr, to_addr, subject, body_text):
 #  Accounts Management
 # ═══════════════════════════════════════════════════════
 def load_accounts():
-    try:
-        with open(ACCOUNTS_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
+    return read_json_with_backup(ACCOUNTS_FILE, [])
 
 
 def save_accounts(accounts):
-    with open(ACCOUNTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(accounts, f, ensure_ascii=False, indent=2)
+    atomic_write_json(ACCOUNTS_FILE, accounts)
 
 
 # ═══════════════════════════════════════════════════════
 #  Seen UIDs — deduplication
 # ═══════════════════════════════════════════════════════
 def load_seen_uids():
-    try:
-        with open(SEEN_UIDS_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
+    return read_json_with_backup(SEEN_UIDS_FILE, {})
 
 
 def save_seen_uids(seen):
-    with open(SEEN_UIDS_FILE, "w", encoding="utf-8") as f:
-        json.dump(seen, f, ensure_ascii=False, indent=2)
+    atomic_write_json(SEEN_UIDS_FILE, seen)
 
 
 # ═══════════════════════════════════════════════════════
 #  Inbox Index — local mail metadata
 # ═══════════════════════════════════════════════════════
 def load_inbox_index():
-    try:
-        with open(INBOX_INDEX_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
+    return read_json_with_backup(INBOX_INDEX_FILE, [])
 
 
 def save_inbox_index(index):
-    with open(INBOX_INDEX_FILE, "w", encoding="utf-8") as f:
-        json.dump(index, f, ensure_ascii=False, indent=2)
+    atomic_write_json(INBOX_INDEX_FILE, index)
 
 
 def compute_mail_id(raw_bytes):
