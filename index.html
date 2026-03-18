@@ -627,6 +627,169 @@
             background: rgba(155,125,240,0.15); color: var(--accent-purple); font-weight: 600;
         }
 
+        /* ─── Inbox Tab ──────────────────────────────── */
+        .inbox-layout {
+            display: flex; gap: 0; height: calc(100vh - 250px);
+            background: var(--card); border: 1px solid var(--card-border);
+            border-radius: 16px; overflow: hidden;
+        }
+        .inbox-list-panel {
+            width: 380px; min-width: 300px; border-right: 1px solid var(--card-border);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .inbox-reader-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .inbox-search {
+            padding: 0.75rem; border-bottom: 1px solid var(--card-border);
+        }
+        .inbox-search input {
+            width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--card-border);
+            border-radius: 8px; background: var(--progress-bg); color: var(--text);
+            font-size: 0.85rem; font-family: inherit;
+        }
+        .inbox-search input:focus { outline: none; border-color: var(--accent-blue); }
+        .inbox-filters {
+            display: flex; gap: 0; padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+        .inbox-filter-btn {
+            flex: 1; padding: 0.35rem 0.6rem; border: 1px solid var(--card-border);
+            background: transparent; color: var(--text-muted); cursor: pointer;
+            font-size: 0.75rem; font-weight: 600; transition: all 0.15s;
+        }
+        .inbox-filter-btn:first-child { border-radius: 6px 0 0 6px; }
+        .inbox-filter-btn:last-child { border-radius: 0 6px 6px 0; }
+        .inbox-filter-btn.active {
+            background: rgba(74,144,244,0.15); border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+        .inbox-list { flex: 1; overflow-y: auto; }
+        .inbox-item {
+            display: flex; align-items: center; gap: 0.6rem;
+            padding: 0.75rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.03);
+            cursor: pointer; transition: background 0.12s;
+        }
+        .inbox-item:hover { background: rgba(74,144,244,0.06); }
+        .inbox-item.selected { background: rgba(74,144,244,0.12); border-left: 3px solid var(--accent-blue); }
+        .inbox-item.unread .inbox-item-from,
+        .inbox-item.unread .inbox-item-subject { font-weight: 700; color: var(--text); }
+        .inbox-item-dot {
+            width: 8px; height: 8px; min-width: 8px; border-radius: 50%;
+            background: transparent;
+        }
+        .inbox-item.unread .inbox-item-dot { background: var(--accent-blue); }
+        .inbox-item-star {
+            cursor: pointer; font-size: 0.9rem; opacity: 0.3; transition: opacity 0.15s;
+        }
+        .inbox-item-star:hover { opacity: 0.8; }
+        .inbox-item-star.starred { opacity: 1; color: #f59e0b; }
+        .inbox-item-content { flex: 1; min-width: 0; }
+        .inbox-item-top { display: flex; justify-content: space-between; align-items: baseline; }
+        .inbox-item-from {
+            font-size: 0.85rem; color: var(--text-muted); white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis; max-width: 180px;
+        }
+        .inbox-item-date { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+        .inbox-item-subject {
+            font-size: 0.85rem; color: var(--text-muted); white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+        }
+        .inbox-item-preview {
+            font-size: 0.75rem; color: var(--text-muted); opacity: 0.6;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .inbox-item-attach {
+            font-size: 0.7rem; color: var(--text-muted); opacity: 0.5;
+        }
+        .inbox-reader {
+            flex: 1; overflow-y: auto; padding: 0;
+        }
+        .inbox-reader-empty {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; height: 100%; color: var(--text-muted);
+            gap: 0.5rem;
+        }
+        .inbox-reader-header {
+            padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--card-border);
+        }
+        .inbox-reader-subject {
+            font-size: 1.3rem; font-weight: 700; margin-bottom: 0.75rem;
+        }
+        .inbox-reader-meta {
+            display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem;
+            font-size: 0.85rem; color: var(--text-muted);
+        }
+        .inbox-reader-meta strong { color: var(--text); }
+        .inbox-reader-actions {
+            display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap;
+        }
+        .inbox-reader-actions button {
+            padding: 0.4rem 0.8rem; border: 1px solid var(--card-border); border-radius: 8px;
+            background: var(--progress-bg); color: var(--text-muted); cursor: pointer;
+            font-size: 0.8rem; font-weight: 600; transition: all 0.15s;
+        }
+        .inbox-reader-actions button:hover {
+            border-color: var(--accent-blue); color: var(--text);
+            background: rgba(74,144,244,0.1);
+        }
+        .inbox-reader-actions button.danger:hover {
+            border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.1);
+        }
+        .inbox-reader-body {
+            padding: 1.5rem; font-size: 0.9rem; line-height: 1.7;
+            white-space: pre-wrap; word-break: break-word;
+            color: var(--text); user-select: text; -webkit-user-select: text;
+        }
+        .inbox-reader-attach {
+            padding: 0 1.5rem 1.5rem;
+        }
+        .inbox-reader-attach h4 {
+            font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;
+        }
+        .inbox-reader-attach .att-item {
+            display: inline-block; padding: 0.3rem 0.6rem; margin: 0.2rem;
+            background: rgba(74,144,244,0.1); border-radius: 6px;
+            font-size: 0.75rem; color: var(--accent-blue);
+        }
+        .inbox-status {
+            padding: 0.75rem 1rem; border-radius: 10px; margin-bottom: 1rem;
+            font-size: 0.85rem; font-weight: 600;
+        }
+        .inbox-status.success { background: rgba(45,212,168,0.15); color: var(--accent-green); }
+        .inbox-status.error { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .inbox-status.loading { background: rgba(74,144,244,0.15); color: var(--accent-blue); }
+
+        /* ─── Account Form ────────────────────────────── */
+        .account-card {
+            background: var(--progress-bg); border: 1px solid var(--card-border);
+            border-radius: 12px; padding: 1rem; margin-bottom: 0.75rem; position: relative;
+        }
+        .account-card .account-delete {
+            position: absolute; top: 0.5rem; right: 0.5rem;
+            background: none; border: none; cursor: pointer; color: var(--text-muted);
+            font-size: 1rem; opacity: 0.5; transition: opacity 0.15s;
+        }
+        .account-card .account-delete:hover { opacity: 1; color: #ef4444; }
+        .account-card .form-group { margin-bottom: 0.75rem; }
+        .account-card .form-row {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
+        }
+        .account-card .form-group label {
+            display: block; font-size: 0.75rem; color: var(--text-muted);
+            margin-bottom: 0.2rem; font-weight: 600;
+        }
+        .account-card input[type="text"],
+        .account-card input[type="password"],
+        .account-card input[type="number"] {
+            width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--card-border);
+            border-radius: 6px; background: var(--card); color: var(--text);
+            font-size: 0.8rem; font-family: inherit;
+        }
+        .account-card input:focus { outline: none; border-color: var(--accent-blue); }
+        .account-card .account-toggle {
+            display: flex; align-items: center; gap: 0.5rem;
+            font-size: 0.8rem; color: var(--text-muted); cursor: pointer;
+        }
+
         /* ─── Responsive ─────────────────────────────── */
         @media (max-width: 600px) {
             body { padding: 1rem 0.5rem; }
@@ -665,12 +828,49 @@
     <!-- Tab Bar -->
     <div class="tab-bar">
         <button class="tab-btn active" onclick="switchTab('todo')">📋 Todo</button>
+        <button class="tab-btn" onclick="switchTab('inbox')">📥 Inbox</button>
         <button class="tab-btn" onclick="switchTab('mail')">📧 Mail</button>
     </div>
 
     <!-- TODO TAB -->
     <div class="tab-content active" id="tab-todo">
         <div id="app"></div>
+    </div>
+
+    <!-- INBOX TAB -->
+    <div class="tab-content" id="tab-inbox">
+        <header>
+            <h1>📥 Boîte de réception</h1>
+            <div class="header-actions">
+                <button onclick="fetchEmails()">🔄 Relever le courrier</button>
+                <button onclick="openAccountsModal()">👤 Comptes</button>
+                <button onclick="exportAllObsidian()">📓 Tout exporter → Obsidian</button>
+            </div>
+        </header>
+
+        <div id="inbox-status" style="display:none" class="inbox-status"></div>
+
+        <div class="inbox-layout">
+            <div class="inbox-list-panel" id="inboxListPanel">
+                <div class="inbox-search">
+                    <input type="text" id="inboxSearch" placeholder="🔍 Rechercher dans les mails…" oninput="filterInbox()">
+                </div>
+                <div class="inbox-filters">
+                    <button class="inbox-filter-btn active" onclick="setInboxFilter('all', this)">Tous</button>
+                    <button class="inbox-filter-btn" onclick="setInboxFilter('unread', this)">Non lus</button>
+                    <button class="inbox-filter-btn" onclick="setInboxFilter('starred', this)">⭐</button>
+                </div>
+                <div id="inboxList" class="inbox-list"></div>
+            </div>
+            <div class="inbox-reader-panel" id="inboxReaderPanel">
+                <div id="inboxReader" class="inbox-reader">
+                    <div class="inbox-reader-empty">
+                        <span style="font-size:3rem">📬</span>
+                        <p>Sélectionne un mail pour le lire</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- MAIL TAB -->
@@ -714,6 +914,7 @@
                 <textarea id="mailBody" placeholder="Rédigez votre mail ici…"></textarea>
             </div>
             <div class="mail-actions">
+                <button onclick="sendMailSMTP()" style="background:var(--accent-blue)!important;border-color:var(--accent-blue)!important;color:white!important">📤 Envoyer (SMTP)</button>
                 <button class="accent-purple" onclick="reformulateMail()">🤖 Reformuler</button>
                 <button class="accent-green" onclick="saveMailEml()">💾 Enregistrer (.eml)</button>
                 <button class="accent-orange" onclick="openInThunderbird()">🐦 Ouvrir dans Thunderbird</button>
@@ -811,6 +1012,36 @@
     </div>
 </div>
 
+<!-- Accounts Modal -->
+<div class="modal-overlay" id="accountsModal" onclick="if(event.target===this)closeAccountsModal()">
+    <div class="modal" style="max-width:650px">
+        <h2>👤 Comptes POP3 / SMTP</h2>
+        <div id="accountsList"></div>
+        <button class="add-task-btn" onclick="addAccountForm()" style="margin-bottom:1rem">+ Ajouter un compte</button>
+        <div class="modal-actions">
+            <button onclick="closeAccountsModal()">Annuler</button>
+            <button class="btn-primary" onclick="saveAccountsFromModal()">💾 Enregistrer</button>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="deleteMailModal" onclick="if(event.target===this)closeDeleteMailModal()">
+    <div class="modal" style="max-width:400px">
+        <h2>🗑️ Supprimer ce mail ?</h2>
+        <p style="color:var(--text-muted);margin-bottom:1rem" id="deleteMailSubject"></p>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="deleteOnServer"> Supprimer aussi sur le serveur POP3
+            </label>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeDeleteMailModal()">Annuler</button>
+            <button class="btn-danger" onclick="confirmDeleteMail()">🗑️ Supprimer</button>
+        </div>
+    </div>
+</div>
+
 <!-- Loading Overlay -->
 <div class="loading-overlay" id="loading">
     <div class="loading-spinner"></div>
@@ -862,11 +1093,16 @@ let modalColor = 'blue';
 function switchTab(tab) {
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach((b, i) => {
-        b.classList.toggle('active', (i === 0 && tab === 'todo') || (i === 1 && tab === 'mail'));
+        b.classList.toggle('active',
+            (i === 0 && tab === 'todo') ||
+            (i === 1 && tab === 'inbox') ||
+            (i === 2 && tab === 'mail')
+        );
     });
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.getElementById('tab-' + tab).classList.add('active');
     if (tab === 'mail') renderMailTab();
+    if (tab === 'inbox') loadInbox();
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -2238,6 +2474,511 @@ function launchConfetti() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   Inbox — State
+   ═══════════════════════════════════════════════════════ */
+let inboxMails = [];
+let selectedInboxId = null;
+let inboxFilter = 'all';
+let deleteMailTarget = null;
+
+/* ═══════════════════════════════════════════════════════
+   Inbox — Load & Render
+   ═══════════════════════════════════════════════════════ */
+async function loadInbox() {
+    try {
+        const r = await fetch('/api/inbox');
+        if (r.ok) inboxMails = await r.json();
+    } catch {}
+    renderInboxList();
+    updateInboxBadge();
+}
+
+function filterInbox() {
+    renderInboxList();
+}
+
+function setInboxFilter(filter, btn) {
+    inboxFilter = filter;
+    document.querySelectorAll('.inbox-filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderInboxList();
+}
+
+function getFilteredInbox() {
+    const query = (document.getElementById('inboxSearch')?.value || '').toLowerCase().trim();
+    let mails = [...inboxMails];
+
+    if (inboxFilter === 'unread') mails = mails.filter(m => !m.read);
+    if (inboxFilter === 'starred') mails = mails.filter(m => m.starred);
+
+    if (query) {
+        mails = mails.filter(m =>
+            (m.subject || '').toLowerCase().includes(query) ||
+            (m.from_name || '').toLowerCase().includes(query) ||
+            (m.from_email || '').toLowerCase().includes(query) ||
+            (m.body || '').toLowerCase().includes(query)
+        );
+    }
+
+    return mails;
+}
+
+function renderInboxList() {
+    const container = document.getElementById('inboxList');
+    if (!container) return;
+
+    const mails = getFilteredInbox();
+
+    if (!mails.length) {
+        container.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-muted)">
+            ${inboxMails.length ? 'Aucun résultat' : 'Boîte de réception vide. Clique sur 🔄 pour relever le courrier.'}
+        </div>`;
+        return;
+    }
+
+    container.innerHTML = mails.map(m => {
+        const isSelected = selectedInboxId === m.id;
+        const unread = !m.read ? 'unread' : '';
+        const fromDisplay = m.from_name || m.from_email || 'Inconnu';
+        const preview = (m.body || '').substring(0, 80).replace(/\n/g, ' ');
+        const hasAttach = m.attachments && m.attachments.length > 0;
+
+        return `
+        <div class="inbox-item ${unread} ${isSelected ? 'selected' : ''}" onclick="openInboxMail('${esc(m.id)}')">
+            <div class="inbox-item-dot"></div>
+            <span class="inbox-item-star ${m.starred ? 'starred' : ''}"
+                onclick="event.stopPropagation();toggleInboxStar('${esc(m.id)}')">★</span>
+            <div class="inbox-item-content">
+                <div class="inbox-item-top">
+                    <span class="inbox-item-from">${esc(fromDisplay)}</span>
+                    <span class="inbox-item-date">${esc(m.date || '')}</span>
+                </div>
+                <div class="inbox-item-subject">${esc(m.subject || 'Sans sujet')}</div>
+                <div class="inbox-item-preview">${esc(preview)}</div>
+                ${hasAttach ? '<div class="inbox-item-attach">📎 ' + m.attachments.length + ' pièce(s) jointe(s)</div>' : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════
+   Inbox — Read Mail
+   ═══════════════════════════════════════════════════════ */
+async function openInboxMail(mailId) {
+    selectedInboxId = mailId;
+    const mail = inboxMails.find(m => m.id === mailId);
+    if (!mail) return;
+
+    // Mark as read
+    if (!mail.read) {
+        mail.read = true;
+        fetch('/api/mail/mark-read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: mailId, read: true })
+        }).catch(() => {});
+        updateInboxBadge();
+    }
+
+    renderInboxList();
+    renderInboxReader(mail);
+}
+
+function renderInboxReader(mail) {
+    const reader = document.getElementById('inboxReader');
+    if (!reader) return;
+
+    const attachHtml = mail.attachments && mail.attachments.length > 0
+        ? `<div class="inbox-reader-attach">
+            <h4>📎 Pièces jointes</h4>
+            ${mail.attachments.map(a => `<span class="att-item">${esc(a)}</span>`).join('')}
+           </div>`
+        : '';
+
+    reader.innerHTML = `
+        <div class="inbox-reader-header">
+            <div class="inbox-reader-subject">${esc(mail.subject || 'Sans sujet')}</div>
+            <div class="inbox-reader-meta">
+                <span><strong>De :</strong> ${esc(mail.from_name || '')} &lt;${esc(mail.from_email || '')}&gt;</span>
+                <span><strong>À :</strong> ${esc(mail.to || '')}</span>
+                ${mail.cc ? `<span><strong>Cc :</strong> ${esc(mail.cc)}</span>` : ''}
+                <span><strong>Date :</strong> ${esc(mail.date || '')}</span>
+                <span><strong>Compte :</strong> ${esc(mail.account || '')}</span>
+            </div>
+            <div class="inbox-reader-actions">
+                <button onclick="replyToMail('${esc(mail.id)}')">↩️ Répondre</button>
+                <button onclick="forwardMail('${esc(mail.id)}')">↪️ Transférer</button>
+                <button onclick="exportMailObsidian('${esc(mail.id)}')">📓 Exporter → Obsidian</button>
+                <button onclick="toggleInboxRead('${esc(mail.id)}')">${mail.read ? '📩 Marquer non lu' : '📬 Marquer lu'}</button>
+                <button class="danger" onclick="openDeleteMailModal('${esc(mail.id)}')">🗑️ Supprimer</button>
+            </div>
+        </div>
+        <div class="inbox-reader-body">${esc(mail.body || '(aucun contenu)')}</div>
+        ${attachHtml}`;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Inbox — Actions
+   ═══════════════════════════════════════════════════════ */
+async function fetchEmails() {
+    const statusEl = document.getElementById('inbox-status');
+    statusEl.style.display = 'block';
+    statusEl.className = 'inbox-status loading';
+    statusEl.textContent = '🔄 Connexion aux serveurs POP3…';
+
+    try {
+        const r = await fetch('/api/fetch-emails', { method: 'POST' });
+        const result = await r.json();
+        if (result.error) {
+            statusEl.className = 'inbox-status error';
+            statusEl.textContent = '❌ ' + result.error;
+        } else {
+            await loadInbox();
+            const errStr = result.errors && result.errors.length
+                ? ` (${result.errors.length} erreur(s))`
+                : '';
+            statusEl.className = 'inbox-status success';
+            statusEl.textContent = `✅ ${result.new_count} nouveau(x) mail(s) récupéré(s)${errStr}`;
+        }
+    } catch (e) {
+        statusEl.className = 'inbox-status error';
+        statusEl.textContent = '❌ Erreur réseau : ' + e.message;
+    }
+
+    setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+}
+
+async function toggleInboxStar(mailId) {
+    const mail = inboxMails.find(m => m.id === mailId);
+    if (!mail) return;
+    mail.starred = !mail.starred;
+    // Persist star state
+    fetch('/api/mail/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: mailId, read: mail.read, starred: mail.starred })
+    }).catch(() => {});
+    renderInboxList();
+}
+
+async function toggleInboxRead(mailId) {
+    const mail = inboxMails.find(m => m.id === mailId);
+    if (!mail) return;
+    mail.read = !mail.read;
+    fetch('/api/mail/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: mailId, read: mail.read })
+    }).catch(() => {});
+    renderInboxList();
+    renderInboxReader(mail);
+    updateInboxBadge();
+}
+
+function replyToMail(mailId) {
+    const mail = inboxMails.find(m => m.id === mailId);
+    if (!mail) return;
+    switchTab('mail');
+    // Pre-fill composer
+    mailRecipients = mail.from_email ? [mail.from_email] : [];
+    renderMailTags();
+    document.getElementById('mailSubject').value = 'Re: ' + (mail.subject || '');
+    const quotedBody = '\n\n---\n' + (mail.body || '');
+    document.getElementById('mailBody').value = quotedBody;
+    // Try to match account
+    const fromSel = document.getElementById('mailFrom');
+    if (mail.account) {
+        for (let i = 0; i < fromSel.options.length; i++) {
+            if (fromSel.options[i].value === mail.account) { fromSel.selectedIndex = i; break; }
+        }
+    }
+}
+
+function forwardMail(mailId) {
+    const mail = inboxMails.find(m => m.id === mailId);
+    if (!mail) return;
+    switchTab('mail');
+    mailRecipients = [];
+    renderMailTags();
+    document.getElementById('mailSubject').value = 'Fwd: ' + (mail.subject || '');
+    const fwdBody = '\n\n--- Mail transféré ---\n'
+        + 'De : ' + (mail.from_name || '') + ' <' + (mail.from_email || '') + '>\n'
+        + 'Date : ' + (mail.date || '') + '\n'
+        + 'Sujet : ' + (mail.subject || '') + '\n\n'
+        + (mail.body || '');
+    document.getElementById('mailBody').value = fwdBody;
+    document.getElementById('mailToInput').focus();
+}
+
+async function exportMailObsidian(mailId) {
+    showLoading('Export vers Obsidian…');
+    try {
+        const r = await fetch('/api/mail/export-obsidian', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: mailId })
+        });
+        const result = await r.json();
+        if (result.ok) {
+            showToast('✅ Exporté vers Obsidian !', 'success', 3000);
+        } else {
+            showToast('❌ ' + (result.error || 'Erreur'), 'error', 5000);
+        }
+    } catch (e) {
+        showToast('❌ ' + e.message, 'error', 5000);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function exportAllObsidian() {
+    showLoading('Export de tous les mails vers Obsidian…');
+    try {
+        const r = await fetch('/api/mail/export-obsidian-all', { method: 'POST' });
+        const result = await r.json();
+        if (result.ok) {
+            const errStr = result.errors && result.errors.length
+                ? ` (${result.errors.length} erreur(s))`
+                : '';
+            showToast(`✅ ${result.exported} mail(s) exporté(s)${errStr}`, 'success', 3000);
+        } else {
+            showToast('❌ ' + (result.error || 'Erreur'), 'error', 5000);
+        }
+    } catch (e) {
+        showToast('❌ ' + e.message, 'error', 5000);
+    } finally {
+        hideLoading();
+    }
+}
+
+/* ═══════════════════════════════════════════════════════
+   Inbox — Delete
+   ═══════════════════════════════════════════════════════ */
+function openDeleteMailModal(mailId) {
+    deleteMailTarget = mailId;
+    const mail = inboxMails.find(m => m.id === mailId);
+    document.getElementById('deleteMailSubject').textContent = mail ? mail.subject : '';
+    document.getElementById('deleteOnServer').checked = false;
+    document.getElementById('deleteMailModal').classList.add('show');
+}
+
+function closeDeleteMailModal() {
+    document.getElementById('deleteMailModal').classList.remove('show');
+    deleteMailTarget = null;
+}
+
+async function confirmDeleteMail() {
+    if (!deleteMailTarget) return;
+    const deleteOnServer = document.getElementById('deleteOnServer').checked;
+    closeDeleteMailModal();
+    showLoading('Suppression du mail…');
+    try {
+        const r = await fetch('/api/mail/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: deleteMailTarget, delete_on_server: deleteOnServer })
+        });
+        const result = await r.json();
+        if (result.ok) {
+            inboxMails = inboxMails.filter(m => m.id !== deleteMailTarget);
+            if (selectedInboxId === deleteMailTarget) {
+                selectedInboxId = null;
+                document.getElementById('inboxReader').innerHTML = `
+                    <div class="inbox-reader-empty">
+                        <span style="font-size:3rem">📬</span>
+                        <p>Sélectionne un mail pour le lire</p>
+                    </div>`;
+            }
+            renderInboxList();
+            updateInboxBadge();
+            showToast('✅ Mail supprimé', 'success');
+        } else {
+            showToast('❌ ' + (result.error || 'Erreur'), 'error', 5000);
+        }
+    } catch (e) {
+        showToast('❌ ' + e.message, 'error', 5000);
+    } finally {
+        hideLoading();
+    }
+}
+
+/* ═══════════════════════════════════════════════════════
+   Inbox — Badge
+   ═══════════════════════════════════════════════════════ */
+function updateInboxBadge() {
+    const unread = inboxMails.filter(m => !m.read).length;
+    const tabBtn = document.querySelectorAll('.tab-btn')[1];
+    if (tabBtn) {
+        tabBtn.textContent = unread > 0 ? `📥 Inbox (${unread})` : '📥 Inbox';
+    }
+}
+
+/* ═══════════════════════════════════════════════════════
+   Accounts Modal
+   ═══════════════════════════════════════════════════════ */
+let accountsData = [];
+
+async function openAccountsModal() {
+    try {
+        const r = await fetch('/api/accounts');
+        if (r.ok) accountsData = await r.json();
+    } catch {}
+    renderAccountsList();
+    document.getElementById('accountsModal').classList.add('show');
+}
+
+function closeAccountsModal() {
+    document.getElementById('accountsModal').classList.remove('show');
+}
+
+function renderAccountsList() {
+    const container = document.getElementById('accountsList');
+    if (!accountsData.length) {
+        container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem">Aucun compte configuré.</p>';
+        return;
+    }
+    container.innerHTML = accountsData.map((acc, i) => `
+        <div class="account-card" data-idx="${i}">
+            <button class="account-delete" onclick="removeAccount(${i})" title="Supprimer">✕</button>
+            <div class="form-group">
+                <label>Adresse email</label>
+                <input type="text" value="${esc(acc.email || '')}" onchange="accountsData[${i}].email=this.value" placeholder="user@example.com">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Serveur POP3</label>
+                    <input type="text" value="${esc(acc.pop3_server || '')}" onchange="accountsData[${i}].pop3_server=this.value" placeholder="pop.example.com">
+                </div>
+                <div class="form-group">
+                    <label>Port POP3</label>
+                    <input type="number" value="${acc.pop3_port || 995}" onchange="accountsData[${i}].pop3_port=parseInt(this.value)">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Serveur SMTP</label>
+                    <input type="text" value="${esc(acc.smtp_server || '')}" onchange="accountsData[${i}].smtp_server=this.value" placeholder="smtp.example.com">
+                </div>
+                <div class="form-group">
+                    <label>Port SMTP</label>
+                    <input type="number" value="${acc.smtp_port || 587}" onchange="accountsData[${i}].smtp_port=parseInt(this.value)">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Identifiant</label>
+                    <input type="text" value="${esc(acc.username || '')}" onchange="accountsData[${i}].username=this.value" placeholder="user@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Mot de passe</label>
+                    <input type="password" value="${esc(acc.password || '')}" onchange="accountsData[${i}].password=this.value">
+                </div>
+            </div>
+            <div class="form-row">
+                <label class="account-toggle">
+                    <input type="checkbox" ${acc.pop3_ssl !== false ? 'checked' : ''} onchange="accountsData[${i}].pop3_ssl=this.checked">
+                    POP3 SSL
+                </label>
+                <label class="account-toggle">
+                    <input type="checkbox" ${acc.smtp_starttls !== false ? 'checked' : ''} onchange="accountsData[${i}].smtp_starttls=this.checked">
+                    SMTP STARTTLS
+                </label>
+                <label class="account-toggle">
+                    <input type="checkbox" ${acc.smtp_ssl ? 'checked' : ''} onchange="accountsData[${i}].smtp_ssl=this.checked">
+                    SMTP SSL
+                </label>
+                <label class="account-toggle">
+                    <input type="checkbox" ${acc.enabled !== false ? 'checked' : ''} onchange="accountsData[${i}].enabled=this.checked">
+                    Activé
+                </label>
+            </div>
+        </div>
+    `).join('');
+}
+
+function addAccountForm() {
+    accountsData.push({
+        email: '', pop3_server: '', pop3_port: 995, pop3_ssl: true,
+        smtp_server: '', smtp_port: 587, smtp_starttls: true, smtp_ssl: false,
+        username: '', password: '', enabled: true
+    });
+    renderAccountsList();
+}
+
+function removeAccount(idx) {
+    accountsData.splice(idx, 1);
+    renderAccountsList();
+}
+
+async function saveAccountsFromModal() {
+    try {
+        const r = await fetch('/api/accounts/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accounts: accountsData })
+        });
+        const result = await r.json();
+        if (result.ok) {
+            closeAccountsModal();
+            showToast('✅ Comptes enregistrés', 'success');
+            // Update the mail composer's From dropdown
+            updateMailFromOptions();
+        } else {
+            showToast('❌ ' + (result.error || 'Erreur'), 'error', 5000);
+        }
+    } catch (e) {
+        showToast('❌ ' + e.message, 'error', 5000);
+    }
+}
+
+function updateMailFromOptions() {
+    const select = document.getElementById('mailFrom');
+    if (!select) return;
+    // Keep existing options and add any new accounts
+    const existing = new Set();
+    for (let i = 0; i < select.options.length; i++) {
+        existing.add(select.options[i].value);
+    }
+    accountsData.forEach(acc => {
+        if (acc.email && !existing.has(acc.email)) {
+            const opt = document.createElement('option');
+            opt.value = acc.email;
+            opt.textContent = acc.email;
+            select.appendChild(opt);
+        }
+    });
+}
+
+/* ═══════════════════════════════════════════════════════
+   SMTP Send from Composer
+   ═══════════════════════════════════════════════════════ */
+async function sendMailSMTP() {
+    const from = document.getElementById('mailFrom').value;
+    const to = getMailToValue();
+    const subject = document.getElementById('mailSubject').value.trim();
+    const body = document.getElementById('mailBody').value.trim();
+    if (!to || !subject) { showToast('Remplis le(s) destinataire(s) et le sujet.', 'error'); return; }
+    showLoading('Envoi du mail via SMTP…');
+    try {
+        const r = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from, to, subject, body })
+        });
+        const result = await r.json();
+        if (result.ok) {
+            showToast('✅ Mail envoyé !', 'success', 3000);
+        } else {
+            showToast('❌ ' + (result.error || 'Erreur'), 'error', 5000);
+        }
+    } catch (e) {
+        showToast('❌ ' + e.message, 'error', 5000);
+    } finally {
+        hideLoading();
+    }
+}
+
+/* ═══════════════════════════════════════════════════════
    Periodic mail badge update
    ═══════════════════════════════════════════════════════ */
 setInterval(() => {
@@ -2252,6 +2993,14 @@ setInterval(() => {
     await Promise.all([loadState(), loadContacts()]);
     render();
     updateMailBadge();
+    loadInbox().then(() => {
+        updateInboxBadge();
+        // Populate From dropdown with account emails
+        fetch('/api/accounts').then(r => r.json()).then(accs => {
+            accountsData = accs;
+            updateMailFromOptions();
+        }).catch(() => {});
+    });
     if (currentTab === 'mail') renderMailTab();
 })();
 
@@ -2312,8 +3061,13 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault();
         switchTab('todo');
     }
-    // Ctrl+2 — switch to Mail tab
+    // Ctrl+2 — switch to Inbox tab
     if ((e.ctrlKey || e.metaKey) && e.key === '2') {
+        e.preventDefault();
+        switchTab('inbox');
+    }
+    // Ctrl+3 — switch to Mail tab
+    if ((e.ctrlKey || e.metaKey) && e.key === '3') {
         e.preventDefault();
         switchTab('mail');
     }
@@ -2327,6 +3081,12 @@ document.addEventListener('keydown', (e) => {
         closeSectionModal();
         closeSettings();
         if (typeof closeReminderModal === 'function') closeReminderModal();
+        if (typeof closeAccountsModal === 'function') closeAccountsModal();
+        if (typeof closeDeleteMailModal === 'function') closeDeleteMailModal();
+    }
+    // Delete — delete selected inbox mail
+    if (e.key === 'Delete' && currentTab === 'inbox' && selectedInboxId) {
+        openDeleteMailModal(selectedInboxId);
     }
 });
 </script>
