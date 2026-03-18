@@ -21,9 +21,11 @@ import ssl
 import subprocess
 import time
 import urllib.request
+from urllib.parse import parse_qs, urlparse
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from email import encoders
+from email import policy as email_policy
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -263,7 +265,25 @@ def save_seen_uids(seen):
 #  Inbox Index — local mail metadata
 # ═══════════════════════════════════════════════════════
 def load_inbox_index():
-    return read_json_with_backup(INBOX_INDEX_FILE, [])
+    index = read_json_with_backup(INBOX_INDEX_FILE, [])
+    if not isinstance(index, list):
+        return []
+
+    # Drop entries pointing to missing .eml files to avoid stale inbox rows.
+    filtered = []
+    changed = False
+    for m in index:
+        eml_file = m.get("eml_file", "")
+        if eml_file:
+            eml_path = os.path.join(MAILS_DIR, eml_file)
+            if not os.path.isfile(eml_path):
+                changed = True
+                continue
+        filtered.append(m)
+
+    if changed:
+        save_inbox_index(filtered)
+    return filtered
 
 
 def save_inbox_index(index):
@@ -296,9 +316,10 @@ def unique_eml_filename_from_subject(subject, prefix=""):
     return candidate
 
 
-def extract_text_body(msg):
-    """Extract text body from a parsed email message."""
-    body_content = ""
+def extract_bodies(msg):
+    """Extract plain-text and HTML bodies from a parsed email message."""
+    body_text = ""
+    body_html = ""
     h = None
     if HAS_HTML2TEXT:
         h = html2text.HTML2Text()
@@ -313,21 +334,73 @@ def extract_text_body(msg):
             continue
 
         if content_type == "text/plain":
-            if not body_content:
+            if not body_text:
                 try:
                     charset = part.get_content_charset('utf-8') or 'utf-8'
-                    body_content = part.get_payload(decode=True).decode(charset, errors='replace')
+                    body_text = part.get_payload(decode=True).decode(charset, errors='replace')
                 except Exception:
                     pass
-        elif content_type == "text/html" and h:
+        elif content_type == "text/html":
             try:
                 charset = part.get_content_charset('utf-8') or 'utf-8'
-                html_content = part.get_payload(decode=True).decode(charset, errors='replace')
-                body_content = h.handle(html_content)
+                body_html = part.get_payload(decode=True).decode(charset, errors='replace')
             except Exception:
                 pass
 
-    return body_content
+    if not body_text and body_html and h:
+        try:
+            body_text = h.handle(body_html)
+        except Exception:
+            body_text = ""
+
+    return body_text, body_html
+
+
+def get_attachment_payload(msg, index=None, filename=None):
+    """Return (bytes, filename, content_type) for an attachment by index or filename."""
+    found_idx = 0
+    for part in msg.walk():
+        content_disposition = str(part.get("Content-Disposition", ""))
+        part_filename = part.get_filename()
+        if not (("attachment" in content_disposition or part_filename) and part_filename):
+            continue
+
+        if index is not None:
+            if found_idx != index:
+                found_idx += 1
+                continue
+        elif filename is not None and part_filename != filename:
+            found_idx += 1
+            continue
+
+        payload = part.get_payload(decode=True)
+        if payload is None:
+            return None, None, None
+        return payload, part_filename, part.get_content_type() or "application/octet-stream"
+
+    return None, None, None
+
+
+def enrich_mail_from_eml(mail):
+    """Populate body/body_html/attachments from local .eml when available."""
+    eml_file = mail.get("eml_file", "")
+    if not eml_file:
+        return mail
+    eml_path = os.path.join(MAILS_DIR, eml_file)
+    if not os.path.isfile(eml_path):
+        return mail
+
+    try:
+        with open(eml_path, "rb") as f:
+            raw_bytes = f.read()
+        parsed = parse_email_metadata(raw_bytes, mail.get("account", ""))
+        mail["body"] = parsed.get("body", mail.get("body", ""))
+        mail["body_html"] = parsed.get("body_html", "")
+        mail["attachments"] = parsed.get("attachments", mail.get("attachments", []))
+    except Exception:
+        pass
+
+    return mail
 
 
 def extract_attachments_info(msg):
@@ -343,7 +416,7 @@ def extract_attachments_info(msg):
 
 def parse_email_metadata(raw_bytes, account_email=""):
     """Parse raw email bytes into metadata dict."""
-    msg = email_lib.message_from_bytes(raw_bytes, policy=email_lib.policy.default)
+    msg = email_lib.message_from_bytes(raw_bytes, policy=email_policy.default)
 
     subject = msg.get('Subject', 'Sans sujet') or 'Sans sujet'
     from_hdr = msg.get('From', '')
@@ -371,7 +444,7 @@ def parse_email_metadata(raw_bytes, account_email=""):
         date_ts = int(time.time() * 1000)
         date_display = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    body = extract_text_body(msg)
+    body_text, body_html = extract_bodies(msg)
     attachments = extract_attachments_info(msg)
 
     return {
@@ -383,7 +456,8 @@ def parse_email_metadata(raw_bytes, account_email=""):
         "date": date_display,
         "date_ts": date_ts,
         "message_id": message_id,
-        "body": body,
+        "body": body_text,
+        "body_html": body_html,
         "attachments": attachments,
         "account": account_email,
     }
@@ -1001,7 +1075,7 @@ def export_email_to_obsidian(mail_meta):
     with open(eml_path, "rb") as f:
         raw_bytes = f.read()
 
-    msg = email_lib.message_from_bytes(raw_bytes, policy=email_lib.policy.default)
+    msg = email_lib.message_from_bytes(raw_bytes, policy=email_policy.default)
 
     subject = msg.get('Subject', 'Sans_Sujet') or 'Sans_Sujet'
     from_hdr = msg.get('From', '')
@@ -1183,11 +1257,51 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             sent = [m for m in inbox if m.get("folder") == "sent" and not m.get("deleted")]
             sent.sort(key=lambda m: m.get("date_ts", 0), reverse=True)
             return self._json(sent)
+        if self.path.startswith("/api/mail/attachment?"):
+            try:
+                qs = parse_qs(urlparse(self.path).query)
+                mail_id = qs.get("id", [""])[0]
+                idx_raw = qs.get("idx", [None])[0]
+                filename = qs.get("name", [None])[0]
+                idx = int(idx_raw) if idx_raw is not None else None
+
+                inbox = load_inbox_index()
+                mail = next((m for m in inbox if m.get("id") == mail_id), None)
+                if not mail:
+                    self.send_error(404)
+                    return
+
+                eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
+                if not os.path.isfile(eml_path):
+                    self.send_error(404)
+                    return
+
+                with open(eml_path, "rb") as f:
+                    raw_bytes = f.read()
+                msg = email_lib.message_from_bytes(raw_bytes, policy=email_policy.default)
+                payload, resolved_name, content_type = get_attachment_payload(msg, index=idx, filename=filename)
+                if payload is None:
+                    self.send_error(404)
+                    return
+                content_type = content_type or "application/octet-stream"
+
+                self.send_response(200)
+                self.send_header("Content-Type", content_type)
+                self.send_header("Content-Disposition", f'inline; filename="{resolved_name}"')
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+                return
+            except Exception:
+                self.send_error(500)
+                return
+
         if self.path.startswith("/api/mail/"):
             mail_id = self.path.split("/api/mail/")[1]
             inbox = load_inbox_index()
             mail = next((m for m in inbox if m.get("id") == mail_id), None)
             if mail:
+                mail = enrich_mail_from_eml(mail)
                 return self._json(mail)
             self.send_error(404)
             return
@@ -1198,7 +1312,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self._json({"error": str(e)}, 500)
         if self.path.startswith("/api/vault/read?"):
             try:
-                from urllib.parse import urlparse, parse_qs
                 qs = parse_qs(urlparse(self.path).query)
                 relpath = qs.get('path', [''])[0]
                 content = read_vault_file(relpath)

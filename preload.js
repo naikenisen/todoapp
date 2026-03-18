@@ -6,6 +6,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximize: () => ipcRenderer.send('window:maximize'),
   close: () => ipcRenderer.send('window:close'),
   isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+  zoomIn: () => ipcRenderer.invoke('window:zoomIn'),
+  zoomOut: () => ipcRenderer.invoke('window:zoomOut'),
+  zoomReset: () => ipcRenderer.invoke('window:zoomReset'),
 
   // ── Native Dialogs ──────────────────────────
   openFileDialog: (options) => ipcRenderer.invoke('dialog:openFile', options),

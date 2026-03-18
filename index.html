@@ -754,6 +754,18 @@
             white-space: pre-wrap; word-break: break-word;
             color: var(--text); user-select: text; -webkit-user-select: text;
         }
+        .inbox-reader-html {
+            padding: 1rem 1.5rem;
+            background: var(--bg-surface);
+            border-top: 1px solid var(--card-border);
+        }
+        .inbox-reader-html iframe {
+            width: 100%;
+            min-height: 480px;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            background: #fff;
+        }
         .inbox-reader-attach {
             padding: 0 1.5rem 1.5rem;
         }
@@ -764,6 +776,23 @@
             display: inline-block; padding: 0.3rem 0.6rem; margin: 0.2rem;
             background: rgba(74,144,244,0.1); border-radius: 6px;
             font-size: 0.75rem; color: var(--accent-blue);
+        }
+        .inbox-reader-attach .att-item-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.65rem;
+            margin: 0.2rem;
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            background: rgba(74,144,244,0.08);
+            color: var(--accent-blue);
+            cursor: pointer;
+            font-size: 0.75rem;
+        }
+        .inbox-reader-attach .att-item-btn:hover {
+            border-color: var(--accent-blue);
+            background: rgba(74,144,244,0.14);
         }
         .inbox-status {
             padding: 0.75rem 1rem; border-radius: 10px; margin-bottom: 1rem;
@@ -954,7 +983,7 @@
     <div class="tab-bar">
         <button class="tab-btn active" onclick="switchTab('todo')"><i class="icon-list-checks"></i> Todo</button>
         <button class="tab-btn" onclick="switchTab('inbox')"><i class="icon-inbox"></i> Inbox</button>
-        <button class="tab-btn" onclick="switchTab('mail')"><i class="icon-send"></i> Mail</button>
+        <button class="tab-btn" onclick="switchTab('mail')"><i class="icon-send"></i> Rédiger</button>
         <button class="tab-btn" onclick="switchTab('graph')"><i class="icon-network"></i> Graph</button>
     </div>
 
@@ -971,11 +1000,13 @@
                 <button onclick="fetchEmails()"><i class="icon-refresh-cw"></i> Relever les mails</button>
                 <button onclick="openAccountsModal()"><i class="icon-user"></i> Comptes</button>
                 <button onclick="toggleInboxFolder()" id="inboxFolderBtn"><i class="icon-inbox"></i> Reçus</button>
+                <button onclick="runV3()"><i class="icon-play"></i> Exécuter v3.py</button>
                 <button onclick="exportAllObsidian()"><i class="icon-book-open"></i> Exporter Obsidian</button>
             </div>
         </header>
 
         <div id="inbox-status" style="display:none" class="inbox-status"></div>
+        <div class="terminal-output" id="v3output" style="display:none"></div>
 
         <div class="inbox-layout">
             <div class="inbox-list-panel" id="inboxListPanel">
@@ -1066,14 +1097,6 @@
             <div class="mail-actions" id="mailSentActions" style="margin-top:0.5rem; display:none"></div>
         </div>
 
-        <!-- v3.py execution -->
-        <div class="mail-composer">
-            <h2><i class="icon-download"></i> Importer des mails (v3.py)</h2>
-            <div class="mail-actions">
-                <button onclick="runV3()"><i class="icon-play"></i> Exécuter v3.py</button>
-            </div>
-            <div class="terminal-output" id="v3output" style="display:none"></div>
-        </div>
     </div>
 </div>
 
@@ -1996,6 +2019,7 @@ async function runV3() {
         const result = await r.json();
         if (result.ok) {
             outEl.textContent = result.output || 'Terminé (aucune sortie)';
+            await loadInbox();
             showToast('v3.py exécuté avec succès !', 'success');
         } else {
             outEl.textContent = 'Erreur :\n' + (result.error || result.output || 'Erreur inconnue');
@@ -2691,9 +2715,11 @@ function updateMailBadge() {
     const pending = getAllMailTasks().filter(m => !m.sentAt);
     const dueReminders = (state.reminders || []).filter(r => r.status === 'pending' && r.remindAt <= now);
     const total = pending.length + dueReminders.length;
-    const tabBtn = document.querySelectorAll('.tab-btn')[1];
+    const tabBtn = document.querySelectorAll('.tab-btn')[2];
     if (tabBtn) {
-        tabBtn.innerHTML = total > 0 ? `<i class="icon-send"></i> Mail <span style="font-size:0.7em;color:var(--accent-orange)">● ${total}</span>` : '<i class="icon-send"></i> Mail';
+        tabBtn.innerHTML = total > 0
+            ? `<i class="icon-send"></i> Rédiger <span style="font-size:0.7em;color:var(--accent-orange)">● ${total}</span>`
+            : '<i class="icon-send"></i> Rédiger';
     }
 }
 
@@ -2874,8 +2900,19 @@ function renderInboxList() {
    ═══════════════════════════════════════════════════════ */
 async function openInboxMail(mailId) {
     selectedInboxId = mailId;
-    const mail = inboxMails.find(m => m.id === mailId);
+    let mail = inboxMails.find(m => m.id === mailId);
     if (!mail) return;
+
+    // Refresh selected mail details (HTML body, attachments) from backend.
+    try {
+        const r = await fetch('/api/mail/' + encodeURIComponent(mailId));
+        if (r.ok) {
+            const fresh = await r.json();
+            const idx = inboxMails.findIndex(m => m.id === mailId);
+            if (idx !== -1) inboxMails[idx] = fresh;
+            mail = fresh;
+        }
+    } catch {}
 
     // Mark as read
     if (!mail.read) {
@@ -2899,9 +2936,18 @@ function renderInboxReader(mail) {
     const attachHtml = mail.attachments && mail.attachments.length > 0
         ? `<div class="inbox-reader-attach">
             <h4><i class="icon-paperclip"></i> Pièces jointes</h4>
-            ${mail.attachments.map(a => `<span class="att-item">${esc(a)}</span>`).join('')}
+            ${mail.attachments.map((a, i) =>
+                `<button class="att-item-btn" onclick="openInboxAttachment('${esc(mail.id)}', ${i}, '${esc(a)}')">
+                    <i class="icon-paperclip"></i> ${esc(a)}
+                </button>`
+            ).join('')}
            </div>`
         : '';
+
+    const hasHtml = !!(mail.body_html && mail.body_html.trim());
+    const htmlContainer = hasHtml
+        ? `<div class="inbox-reader-html"><iframe id="mailHtmlFrame" sandbox=""></iframe></div>`
+        : `<div class="inbox-reader-body">${esc(mail.body || '(aucun contenu)')}</div>`;
 
     reader.innerHTML = `
         <div class="inbox-reader-header">
@@ -2923,8 +2969,18 @@ function renderInboxReader(mail) {
                 <button class="danger" onclick="openDeleteMailModal('${esc(mail.id)}')"><i class="icon-trash-2"></i> Supprimer</button>
             </div>
         </div>
-        <div class="inbox-reader-body">${esc(mail.body || '(aucun contenu)')}</div>
+        ${htmlContainer}
         ${attachHtml}`;
+
+    if (hasHtml) {
+        const frame = document.getElementById('mailHtmlFrame');
+        if (frame) frame.srcdoc = mail.body_html;
+    }
+}
+
+function openInboxAttachment(mailId, idx, name) {
+    const url = `/api/mail/attachment?id=${encodeURIComponent(mailId)}&idx=${idx}&name=${encodeURIComponent(name)}`;
+    window.open(url, '_blank', 'noopener');
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -3562,6 +3618,23 @@ if (window.electronAPI) {
         if (typeof deleteTask === 'function') deleteTask(sid, tid);
     });
 }
+
+// VS Code-like zoom shortcuts: Ctrl/Cmd +/- and Ctrl/Cmd 0
+document.addEventListener('keydown', (e) => {
+    const api = window.electronAPI;
+    if (!api || !(e.ctrlKey || e.metaKey)) return;
+
+    if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
+        e.preventDefault();
+        api.zoomIn();
+    } else if (e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract') {
+        e.preventDefault();
+        api.zoomOut();
+    } else if (e.key === '0') {
+        e.preventDefault();
+        api.zoomReset();
+    }
+});
 
 /* ═══════════════════════════════════════════════════════
    Vault Graph (D3.js force-directed — local IPC scan)

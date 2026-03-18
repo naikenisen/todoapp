@@ -155,6 +155,26 @@ ipcMain.handle('window:isMaximized', () => {
   return mainWindow ? mainWindow.isMaximized() : false;
 });
 
+ipcMain.handle('window:zoomIn', () => {
+  if (!mainWindow) return false;
+  const wc = mainWindow.webContents;
+  wc.setZoomLevel(wc.getZoomLevel() + 0.2);
+  return true;
+});
+
+ipcMain.handle('window:zoomOut', () => {
+  if (!mainWindow) return false;
+  const wc = mainWindow.webContents;
+  wc.setZoomLevel(wc.getZoomLevel() - 0.2);
+  return true;
+});
+
+ipcMain.handle('window:zoomReset', () => {
+  if (!mainWindow) return false;
+  mainWindow.webContents.setZoomLevel(0);
+  return true;
+});
+
 /* ═══════════════════════════════════════════════════════
    IPC Handlers — Native Dialogs
    ═══════════════════════════════════════════════════════ */
