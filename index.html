@@ -461,13 +461,171 @@
             background: transparent; color: var(--text-muted); border-color: var(--card-border);
         }
 
-        /* ─── Mail Flag Toggle ───────────────────────── */
-        .mail-flag {
-            font-size: 0.8rem; padding: 0.15rem 0.4rem; border-radius: 6px;
-            cursor: pointer; border: 1px solid transparent; transition: all 0.2s;
+        /* ─── Mail Pending List ──────────────────────── */
+        .mail-pending-list {
+            background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
+            margin-bottom: 1.5rem; overflow: hidden;
         }
-        .mail-flag.active { background: rgba(108,138,255,0.2); border-color: var(--accent-blue); }
-        .mail-flag:hover { background: rgba(108,138,255,0.1); }
+        .mail-pending-list h2 {
+            padding: 1.25rem 1.5rem; font-size: 1.1rem; font-weight: 700;
+            color: var(--accent-blue); border-bottom: 1px solid var(--card-border); margin: 0;
+        }
+        .mail-pending-empty {
+            padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.9rem;
+        }
+        .mail-group-label {
+            padding: 0.5rem 1.5rem 0; font-size: 0.7rem; color: var(--text-muted);
+            font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .mail-item {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.75rem 1.5rem; border-bottom: 1px solid var(--card-border);
+            cursor: pointer; transition: background 0.15s;
+        }
+        .mail-item:last-child { border-bottom: none; }
+        .mail-item:hover { background: rgba(74,144,244,0.06); }
+        .mail-item.selected { background: rgba(74,144,244,0.12); border-left: 3px solid var(--accent-blue); }
+        .mail-item.is-sent { opacity: 0.7; }
+        .mail-item-check {
+            width: 20px; height: 20px; min-width: 20px;
+            border: 2px solid var(--card-border); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .mail-item-check:hover { border-color: var(--accent-green); }
+        .mail-item-check.done { background: var(--accent-green); border-color: var(--accent-green); }
+        .mail-item-check.done svg { opacity: 1; }
+        .mail-item-check svg { width: 12px; height: 12px; opacity: 0; stroke: white; stroke-width: 3; fill: none; }
+        .mail-item-info { flex: 1; min-width: 0; }
+        .mail-item-label { font-size: 0.9rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mail-item-section { font-size: 0.75rem; color: var(--text-muted); }
+        .mail-item-status {
+            font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 99px; font-weight: 600; white-space: nowrap;
+        }
+        .mail-item-status.pending { background: rgba(74,144,244,0.15); color: var(--accent-blue); }
+        .mail-item-status.sent { background: rgba(45,212,168,0.15); color: var(--accent-green); }
+        .mail-item-status.waiting { background: rgba(240,160,48,0.15); color: var(--accent-orange); }
+        .mail-item-status.responded { background: rgba(155,125,240,0.15); color: var(--accent-purple); }
+        .mail-item-actions { display: flex; gap: 0.3rem; }
+        .mail-item-actions button {
+            background: none; border: none; cursor: pointer; font-size: 0.8rem;
+            padding: 0.2rem 0.4rem; border-radius: 4px; transition: background 0.15s; opacity: 0.5;
+        }
+        .mail-item-actions button:hover { opacity: 1; background: rgba(255,255,255,0.05); }
+
+        /* ─── Timeline ──────────────────────────────── */
+        .timeline-container {
+            background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
+            margin-bottom: 1.5rem; overflow: hidden;
+        }
+        .timeline-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 1rem 1.5rem; border-bottom: 1px solid var(--card-border);
+        }
+        .timeline-header h2 { font-size: 1.1rem; font-weight: 700; color: var(--accent-purple); margin: 0; }
+        .timeline-nav { display: flex; gap: 0.5rem; }
+        .timeline-nav button {
+            background: var(--progress-bg); border: 1px solid var(--card-border); border-radius: 6px;
+            color: var(--text-muted); cursor: pointer; padding: 0.25rem 0.6rem; font-size: 0.8rem;
+            transition: all 0.15s;
+        }
+        .timeline-nav button:hover { border-color: var(--accent-blue); color: var(--text); }
+        .timeline-scroll { overflow-x: auto; padding: 1.5rem 1rem 1rem; }
+        .timeline-track {
+            display: flex; position: relative; min-width: max-content; padding-bottom: 0.5rem;
+        }
+        .timeline-day {
+            display: flex; flex-direction: column; align-items: center; min-width: 44px; position: relative;
+        }
+        .timeline-day-label {
+            font-size: 0.6rem; color: var(--text-muted); margin-bottom: 0.5rem;
+            font-weight: 600; text-align: center; line-height: 1.3;
+        }
+        .timeline-line {
+            position: absolute; top: 34px; left: 0; right: 0; height: 2px;
+            background: var(--card-border); z-index: 0;
+        }
+        .timeline-dot {
+            width: 14px; height: 14px; border-radius: 50%; position: relative; z-index: 1;
+            cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border: 2px solid transparent;
+        }
+        .timeline-dot:hover { transform: scale(1.4); }
+        .timeline-dot.empty { width: 6px; height: 6px; background: var(--card-border); cursor: default; border: none; }
+        .timeline-dot.empty:hover { transform: none; }
+        .timeline-dot.sent { background: var(--accent-blue); border-color: var(--accent-blue); }
+        .timeline-dot.reminder-pending { background: var(--accent-slate); border-color: var(--accent-slate); }
+        .timeline-dot.reminder-due {
+            background: #ef4444; border-color: #ef4444;
+            box-shadow: 0 0 8px rgba(239,68,68,0.5);
+            animation: pulse-red 1.5s ease-in-out infinite;
+        }
+        .timeline-dot.reminder-sent { background: var(--accent-orange); border-color: var(--accent-orange); }
+        .timeline-dot.response { background: var(--accent-green); border-color: var(--accent-green); }
+        .timeline-dot.today-marker {
+            width: 10px; height: 10px; background: var(--accent-blue);
+            border: 2px solid white; box-shadow: 0 0 6px var(--accent-blue);
+        }
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 4px rgba(239,68,68,0.4); }
+            50% { box-shadow: 0 0 14px rgba(239,68,68,0.8); }
+        }
+        .timeline-event-label {
+            font-size: 0.55rem; color: var(--text-muted); max-width: 80px;
+            text-align: center; margin-top: 0.4rem; line-height: 1.2;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .timeline-today-col .timeline-day-label { color: var(--accent-blue); font-weight: 700; }
+        .timeline-popover {
+            position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+            background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
+            padding: 0.75rem; min-width: 200px; z-index: 200;
+            box-shadow: var(--shadow-lg); display: none;
+        }
+        .timeline-popover.show { display: block; }
+        .timeline-popover-title { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .timeline-popover-actions { display: flex; flex-direction: column; gap: 0.3rem; }
+        .timeline-popover-actions button {
+            padding: 0.35rem 0.6rem; border: 1px solid var(--card-border); border-radius: 6px;
+            background: var(--progress-bg); color: var(--text); cursor: pointer;
+            font-size: 0.75rem; text-align: left; transition: all 0.15s;
+        }
+        .timeline-popover-actions button:hover { border-color: var(--accent-blue); background: rgba(74,144,244,0.1); }
+        .timeline-popover-actions button.danger:hover { border-color: #ef4444; background: rgba(239,68,68,0.1); color: #ef4444; }
+
+        /* ─── Add Task Buttons (two-button layout) ──── */
+        .add-task-buttons { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+        .add-task-buttons button {
+            flex: 1; padding: 0.5rem; border: 1px dashed var(--card-border);
+            border-radius: 10px; background: transparent; color: var(--text-muted);
+            cursor: pointer; font-size: 0.8rem; transition: all 0.2s; font-weight: 600;
+        }
+        .add-task-buttons button:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+        .add-task-buttons button.mail-btn:hover { border-color: var(--accent-purple); color: var(--accent-purple); }
+
+        /* ─── Mail Composer (selected state) ──────────── */
+        .mail-composer.has-selection { border-color: var(--accent-blue); }
+        .selected-task-banner {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.5rem 0.75rem; background: rgba(74,144,244,0.1);
+            border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem;
+        }
+        .selected-task-banner .deselect-btn {
+            margin-left: auto; background: none; border: none; cursor: pointer;
+            color: var(--text-muted); font-size: 0.9rem;
+        }
+        .selected-task-banner .deselect-btn:hover { color: var(--text); }
+        .btn-sent-confirm {
+            background: var(--accent-green) !important; border-color: var(--accent-green) !important;
+            color: #0f1117 !important; font-weight: 700;
+        }
+        .btn-response-received {
+            background: var(--accent-purple) !important; border-color: var(--accent-purple) !important;
+            color: white !important;
+        }
+        .task-type-badge {
+            font-size: 0.7rem; padding: 0.1rem 0.35rem; border-radius: 4px;
+            background: rgba(155,125,240,0.15); color: var(--accent-purple); font-weight: 600;
+        }
 
         /* ─── Responsive ─────────────────────────────── */
         @media (max-width: 600px) {
@@ -517,8 +675,15 @@
 
     <!-- MAIL TAB -->
     <div class="tab-content" id="tab-mail">
-        <div id="mail-reminders"></div>
-        <div class="mail-composer">
+        <!-- Timeline -->
+        <div class="timeline-container" id="timeline-container"></div>
+
+        <!-- Pending Mail List -->
+        <div class="mail-pending-list" id="mail-pending-list"></div>
+
+        <!-- Mail Composer -->
+        <div class="mail-composer" id="mailComposer">
+            <div id="selectedTaskBanner"></div>
             <h2>📧 Rédiger un mail</h2>
             <div class="mail-field">
                 <label>Expéditeur</label>
@@ -553,6 +718,7 @@
                 <button class="accent-green" onclick="saveMailEml()">💾 Enregistrer (.eml)</button>
                 <button class="accent-orange" onclick="openInThunderbird()">🐦 Ouvrir dans Thunderbird</button>
             </div>
+            <div class="mail-actions" id="mailSentActions" style="margin-top:0.5rem; display:none"></div>
         </div>
 
         <!-- v3.py execution -->
@@ -634,8 +800,13 @@
         </div>
         <div class="modal-actions">
             <button onclick="closeReminderModal()">Annuler</button>
-            <button class="accent-green" onclick="saveReminderEml()">💾 Enregistrer (.eml)</button>
+            <button class="accent-purple" onclick="reformulateReminder()">🤖 Reformuler</button>
+            <button class="accent-green" onclick="saveReminderEml()">💾 .eml</button>
             <button class="accent-orange" onclick="sendReminderThunderbird()">🐦 Thunderbird</button>
+        </div>
+        <div class="modal-actions" style="margin-top:0.5rem;">
+            <button class="btn-sent-confirm" onclick="confirmReminderSent()">✅ Rappel envoyé</button>
+            <button class="btn-response-received" onclick="confirmReminderResponseReceived()">📨 Réponse reçue</button>
         </div>
     </div>
 </div>
@@ -653,13 +824,15 @@
 /* ═══════════════════════════════════════════════════════
    State & Config
    ═══════════════════════════════════════════════════════ */
-let state = { sections: [], settings: { geminiKey: '' }, reminders: [] };
+let state = { sections: [], settings: { geminiKey: '' }, reminders: [], mailEvents: [] };
 let editMode = false;
 let editingSectionId = null;
 let dragData = null;
 let contacts = [];
 let currentTab = 'todo';
 let currentReminder = null;
+let selectedMailTask = null;
+let timelineMonth = new Date();
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const esc = s => String(s)
@@ -693,7 +866,7 @@ function switchTab(tab) {
     });
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.getElementById('tab-' + tab).classList.add('active');
-    if (tab === 'mail') renderReminders();
+    if (tab === 'mail') renderMailTab();
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -717,6 +890,17 @@ async function loadState() {
     if (!state.sections) state.sections = [];
     if (!state.settings) state.settings = { geminiKey: '' };
     if (!state.reminders) state.reminders = [];
+    if (!state.mailEvents) state.mailEvents = [];
+    // Migration: convert old isMail flag to type field, old dismissed to status
+    state.sections.forEach(s => {
+        s.tasks.forEach(t => {
+            if (!t.type) t.type = t.isMail ? 'mail' : 'task';
+        });
+    });
+    state.reminders.forEach(r => {
+        if (!r.status) r.status = r.dismissed ? 'dismissed' : 'pending';
+        if (!r.cycle) r.cycle = 1;
+    });
 }
 
 async function loadContacts() {
@@ -791,8 +975,11 @@ function renderSections() {
         const desc = s.description
             ? `<p class="section-desc" data-desc="${s.id}" ${s.collapsed ? 'style="display:none"' : ''}>${esc(s.description)}</p>`
             : '';
-        const addBtn = editMode
-            ? `<button class="add-task-btn" onclick="addTask('${s.id}')">+ Nouvelle tâche</button>`
+        const addBtns = editMode
+            ? `<div class="add-task-buttons">
+                <button onclick="addTask('${s.id}','task')">+ Tâche</button>
+                <button class="mail-btn" onclick="addTask('${s.id}','mail')">📧 + Mail</button>
+               </div>`
             : '';
         return `
         <div class="section" data-color="${esc(s.color)}" data-sid="${s.id}">
@@ -812,7 +999,7 @@ function renderSections() {
             ${desc}
             <div class="task-list" data-slist="${s.id}" ${s.collapsed ? 'style="display:none"' : ''}>
                 ${tasksHtml}
-                ${addBtn}
+                ${addBtns}
             </div>
         </div>`;
     }).join('');
@@ -823,14 +1010,16 @@ function renderTask(t, sid) {
         'task-item',
         t.done ? 'checked' : '',
         t.indent ? 'sub-task' : '',
-        t.isMail ? 'is-mail' : ''
+        (t.type === 'mail' || t.isMail) ? 'is-mail' : ''
     ].filter(Boolean).join(' ');
 
     const check = `<div class="custom-check" onclick="toggleTask('${sid}','${t.id}')">
         <svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg></div>`;
 
     if (editMode) {
-        const mailFlagCls = t.isMail ? 'mail-flag active' : 'mail-flag';
+        const typeBadge = (t.type === 'mail' || t.isMail)
+            ? '<span class="task-type-badge">📧 Mail</span>'
+            : '';
         return `
         <div class="${cls}" data-sid="${sid}" data-tid="${t.id}" draggable="true">
             ${check}
@@ -844,7 +1033,7 @@ function renderTask(t, sid) {
                     onkeydown="if(event.key==='Enter'){this.blur()}">
             </div>
             <div class="edit-actions">
-                <span class="${mailFlagCls}" onclick="toggleMailFlag('${sid}','${t.id}')" title="Marquer comme mail à envoyer">📧</span>
+                ${typeBadge}
                 <button class="btn-icon" onclick="toggleIndent('${sid}','${t.id}')" title="Indenter / Désindenter">↔</button>
                 <button class="btn-icon" onclick="deleteTask('${sid}','${t.id}')" title="Supprimer">🗑️</button>
             </div>
@@ -896,34 +1085,20 @@ function toggleTask(sid, tid) {
     if (!t) return;
     t.done = !t.done;
 
-    // If marking a mail-task as done, create a reminder for 3 days later
-    if (t.done && t.isMail) {
-        const now = Date.now();
-        const remindAt = now + 3 * 24 * 60 * 60 * 1000; // 3 days
-        state.reminders = state.reminders || [];
-        state.reminders.push({
-            id: uid(),
-            taskId: tid,
-            sectionId: sid,
-            label: t.label,
-            note: t.note || '',
-            mailTo: t.mailTo || '',
-            mailSubject: t.mailSubject || t.label,
-            mailBody: t.mailBody || '',
-            createdAt: now,
-            remindAt: remindAt,
-            dismissed: false
-        });
-    }
-    // If unchecking a mail-task, remove its pending reminder
-    if (!t.done && t.isMail && state.reminders) {
-        state.reminders = state.reminders.filter(r => r.taskId !== tid || r.dismissed);
+    // For mail tasks, sync with sent status
+    if (t.type === 'mail' || t.isMail) {
+        if (t.done && !t.sentAt) {
+            markMailTaskSent(sid, tid);
+        } else if (!t.done && t.sentAt) {
+            unmarkMailTaskSent(sid, tid);
+        }
     }
 
     const el = document.querySelector(`[data-sid="${sid}"][data-tid="${tid}"]`);
     if (el) el.classList.toggle('checked', t.done);
     updateProgress();
     autoSave();
+    if (currentTab === 'mail') renderMailTab();
 }
 
 function updateTask(sid, tid, field, value) {
@@ -935,10 +1110,16 @@ function updateTask(sid, tid, field, value) {
     autoSave();
 }
 
-function addTask(sid) {
+function addTask(sid, type) {
+    type = type || 'task';
     const s = state.sections.find(x => x.id === sid);
     if (!s) return;
-    s.tasks.push({ id: uid(), label: '', note: '', done: false, indent: 0, isMail: false });
+    s.tasks.push({
+        id: uid(), label: '', note: '', done: false, indent: 0,
+        type: type, isMail: type === 'mail',
+        mailTo: '', mailFrom: '', mailSubject: '', mailBody: '',
+        sentAt: null, respondedAt: null
+    });
     render();
     autoSave();
     const inputs = document.querySelectorAll(`[data-sid="${sid}"] .task-input`);
@@ -959,16 +1140,6 @@ function toggleIndent(sid, tid) {
     const t = s.tasks.find(x => x.id === tid);
     if (!t) return;
     t.indent = t.indent ? 0 : 1;
-    render();
-    autoSave();
-}
-
-function toggleMailFlag(sid, tid) {
-    const s = state.sections.find(x => x.id === sid);
-    if (!s) return;
-    const t = s.tasks.find(x => x.id === tid);
-    if (!t) return;
-    t.isMail = !t.isMail;
     render();
     autoSave();
 }
@@ -1323,40 +1494,486 @@ async function runV3() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   Reminders (3-day follow-up for mail tasks)
+   Mail Tab — Helpers
    ═══════════════════════════════════════════════════════ */
-function renderReminders() {
-    const container = document.getElementById('mail-reminders');
+function getAllMailTasks() {
+    const mails = [];
+    state.sections.forEach(s => {
+        s.tasks.forEach(t => {
+            if (t.type === 'mail' || t.isMail) {
+                mails.push({ ...t, sectionId: s.id, sectionTitle: s.title, sectionEmoji: s.emoji });
+            }
+        });
+    });
+    return mails;
+}
+
+function getMailTaskStatus(t) {
+    if (t.respondedAt) return 'responded';
+    if (t.sentAt) {
+        const hasActiveReminder = (state.reminders || []).some(r =>
+            r.taskId === t.id && r.status === 'pending'
+        );
+        return hasActiveReminder ? 'waiting' : 'sent';
+    }
+    return 'pending';
+}
+
+function getMailStatusLabel(status) {
+    switch(status) {
+        case 'pending': return 'À envoyer';
+        case 'sent': return 'Envoyé';
+        case 'waiting': return 'En attente';
+        case 'responded': return 'Répondu';
+        default: return '';
+    }
+}
+
+/* ═══════════════════════════════════════════════════════
+   Mail Tab — Main Render
+   ═══════════════════════════════════════════════════════ */
+function renderMailTab() {
+    renderTimeline();
+    renderMailList();
+    updateMailComposerState();
+    updateMailBadge();
+}
+
+function renderMailList() {
+    const container = document.getElementById('mail-pending-list');
     if (!container) return;
-    const now = Date.now();
-    const due = (state.reminders || []).filter(r => !r.dismissed && r.remindAt <= now);
-    if (!due.length) { container.innerHTML = ''; return; }
-    container.innerHTML = due.map(r => `
-        <div class="reminder-banner">
-            <span class="reminder-text">
-                ⏰ <strong>Rappel :</strong> « ${esc(r.label)} » envoyé il y a 3 jours — pas de réponse ?
-            </span>
-            <button onclick="generateReminder('${r.id}')">🤖 Générer relance IA</button>
-            <button class="btn-dismiss" onclick="dismissReminder('${r.id}')">✖ Ignorer</button>
-        </div>
-    `).join('');
+    const mails = getAllMailTasks();
+
+    if (!mails.length) {
+        container.innerHTML = `
+            <h2>📬 Mails à traiter</h2>
+            <div class="mail-pending-empty">
+                Aucun mail à traiter. Crée un mail depuis l'onglet Todo<br>(mode édition → <strong>📧 + Mail</strong>).
+            </div>`;
+        return;
+    }
+
+    const pending = mails.filter(m => !m.sentAt && !m.respondedAt);
+    const waiting = mails.filter(m => m.sentAt && !m.respondedAt);
+    const responded = mails.filter(m => m.respondedAt);
+
+    let html = '<h2>📬 Mails à traiter</h2>';
+    if (pending.length) html += renderMailGroup('À envoyer', pending);
+    if (waiting.length) html += renderMailGroup('En attente de réponse', waiting);
+    if (responded.length) html += renderMailGroup('Terminés', responded);
+
+    container.innerHTML = html;
 }
 
-function dismissReminder(rid) {
-    const r = (state.reminders || []).find(x => x.id === rid);
-    if (r) r.dismissed = true;
+function renderMailGroup(title, mails) {
+    let html = `<div class="mail-group-label">${esc(title)}</div>`;
+    html += mails.map(m => {
+        const status = getMailTaskStatus(m);
+        const statusLabel = getMailStatusLabel(status);
+        const isSelected = selectedMailTask && selectedMailTask.tid === m.id;
+        const cls = ['mail-item', isSelected ? 'selected' : '', m.sentAt ? 'is-sent' : ''].filter(Boolean).join(' ');
+        const checkDone = m.sentAt ? 'done' : '';
+
+        let actionsHtml = '';
+        if (status === 'sent' || status === 'waiting') {
+            actionsHtml += `<button onclick="event.stopPropagation();markResponseReceived('${m.sectionId}','${m.id}')" title="Réponse reçue">✅</button>`;
+        }
+
+        return `
+        <div class="${cls}" onclick="selectMailForCompose('${m.sectionId}','${m.id}')">
+            <div class="mail-item-check ${checkDone}" onclick="event.stopPropagation();toggleMailSentFromList('${m.sectionId}','${m.id}')">
+                <svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg>
+            </div>
+            <div class="mail-item-info">
+                <div class="mail-item-label">${m.sectionEmoji} ${esc(m.label || 'Sans titre')}</div>
+                <div class="mail-item-section">${esc(m.sectionTitle)}${m.mailTo ? ' → ' + esc(m.mailTo) : ''}</div>
+            </div>
+            <span class="mail-item-status ${status}">${statusLabel}</span>
+            <div class="mail-item-actions">${actionsHtml}</div>
+        </div>`;
+    }).join('');
+    return html;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Mail Tab — Composer Integration
+   ═══════════════════════════════════════════════════════ */
+function selectMailForCompose(sid, tid) {
+    const s = state.sections.find(x => x.id === sid);
+    if (!s) return;
+    const t = s.tasks.find(x => x.id === tid);
+    if (!t) return;
+
+    selectedMailTask = { sid, tid };
+
+    mailRecipients = t.mailTo ? t.mailTo.split(',').map(e => e.trim()).filter(Boolean) : [];
+    renderMailTags();
+    document.getElementById('mailSubject').value = t.mailSubject || t.label || '';
+    document.getElementById('mailBody').value = t.mailBody || '';
+    if (t.mailFrom) {
+        const sel = document.getElementById('mailFrom');
+        for (let i = 0; i < sel.options.length; i++) {
+            if (sel.options[i].value === t.mailFrom) { sel.selectedIndex = i; break; }
+        }
+    }
+
+    updateMailComposerState();
+    renderMailList();
+    document.getElementById('mailComposer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function deselectMailTask() {
+    selectedMailTask = null;
+    mailRecipients = [];
+    renderMailTags();
+    document.getElementById('mailSubject').value = '';
+    document.getElementById('mailBody').value = '';
+    updateMailComposerState();
+    renderMailList();
+}
+
+function updateMailComposerState() {
+    const composer = document.getElementById('mailComposer');
+    const banner = document.getElementById('selectedTaskBanner');
+    const sentActions = document.getElementById('mailSentActions');
+    if (!composer || !banner) return;
+
+    if (selectedMailTask) {
+        const s = state.sections.find(x => x.id === selectedMailTask.sid);
+        const t = s ? s.tasks.find(x => x.id === selectedMailTask.tid) : null;
+        if (t) {
+            composer.classList.add('has-selection');
+            const status = getMailTaskStatus(t);
+            banner.innerHTML = `
+                <div class="selected-task-banner">
+                    <span>📧 <strong>${esc(t.label || 'Sans titre')}</strong></span>
+                    ${status !== 'pending' ? `<span class="mail-item-status ${status}" style="margin-left:0.5rem">${getMailStatusLabel(status)}</span>` : ''}
+                    <button class="deselect-btn" onclick="deselectMailTask()">✕</button>
+                </div>`;
+            if (sentActions) {
+                if (!t.sentAt) {
+                    sentActions.style.display = '';
+                    sentActions.innerHTML = `<button class="btn-sent-confirm" onclick="markCurrentMailSent()">✅ Marquer comme envoyé</button>`;
+                } else if (!t.respondedAt) {
+                    sentActions.style.display = '';
+                    sentActions.innerHTML = `<button class="btn-response-received" onclick="markCurrentResponseReceived()">📨 Réponse reçue</button>`;
+                } else {
+                    sentActions.style.display = 'none';
+                }
+            }
+            return;
+        }
+    }
+
+    composer.classList.remove('has-selection');
+    banner.innerHTML = '';
+    if (sentActions) sentActions.style.display = 'none';
+}
+
+function saveMailFieldsToTask() {
+    if (!selectedMailTask) return;
+    const s = state.sections.find(x => x.id === selectedMailTask.sid);
+    if (!s) return;
+    const t = s.tasks.find(x => x.id === selectedMailTask.tid);
+    if (!t) return;
+    t.mailTo = getMailToValue();
+    t.mailFrom = document.getElementById('mailFrom').value;
+    t.mailSubject = document.getElementById('mailSubject').value.trim();
+    t.mailBody = document.getElementById('mailBody').value.trim();
+    if (!t.label && t.mailSubject) t.label = t.mailSubject;
     autoSave();
-    renderReminders();
 }
 
-async function generateReminder(rid) {
+function markCurrentMailSent() {
+    if (!selectedMailTask) return;
+    saveMailFieldsToTask();
+    markMailTaskSent(selectedMailTask.sid, selectedMailTask.tid);
+    autoSave();
+    renderMailTab();
+    render();
+    showToast('Mail marqué comme envoyé ! Rappel dans 3 jours.', 'success', 3000);
+}
+
+function markCurrentResponseReceived() {
+    if (!selectedMailTask) return;
+    markResponseReceived(selectedMailTask.sid, selectedMailTask.tid);
+}
+
+/* ═══════════════════════════════════════════════════════
+   Mail Sent / Response Tracking
+   ═══════════════════════════════════════════════════════ */
+function markMailTaskSent(sid, tid) {
+    const s = state.sections.find(x => x.id === sid);
+    if (!s) return;
+    const t = s.tasks.find(x => x.id === tid);
+    if (!t || t.sentAt) return;
+
+    const now = Date.now();
+    t.sentAt = now;
+    t.done = true;
+
+    state.mailEvents = state.mailEvents || [];
+    state.mailEvents.push({
+        id: uid(), taskId: tid, sectionId: sid,
+        type: 'sent', date: now,
+        label: t.mailSubject || t.label, to: t.mailTo
+    });
+
+    state.reminders = state.reminders || [];
+    state.reminders.push({
+        id: uid(), taskId: tid, sectionId: sid,
+        label: t.mailSubject || t.label,
+        mailTo: t.mailTo || '', mailSubject: t.mailSubject || t.label,
+        mailBody: t.mailBody || '', mailFrom: t.mailFrom || '',
+        createdAt: now,
+        remindAt: now + 3 * 24 * 60 * 60 * 1000,
+        cycle: 1, status: 'pending'
+    });
+}
+
+function unmarkMailTaskSent(sid, tid) {
+    const s = state.sections.find(x => x.id === sid);
+    if (!s) return;
+    const t = s.tasks.find(x => x.id === tid);
+    if (!t) return;
+    t.sentAt = null;
+    t.respondedAt = null;
+    state.mailEvents = (state.mailEvents || []).filter(e => e.taskId !== tid);
+    state.reminders = (state.reminders || []).filter(r => r.taskId !== tid || r.status === 'sent');
+}
+
+function markResponseReceived(sid, tid) {
+    const s = state.sections.find(x => x.id === sid);
+    if (!s) return;
+    const t = s.tasks.find(x => x.id === tid);
+    if (!t) return;
+
+    const now = Date.now();
+    t.respondedAt = now;
+
+    state.mailEvents = state.mailEvents || [];
+    state.mailEvents.push({
+        id: uid(), taskId: tid, sectionId: sid,
+        type: 'response', date: now, label: t.mailSubject || t.label
+    });
+
+    (state.reminders || []).forEach(r => {
+        if (r.taskId === tid && r.status === 'pending') r.status = 'responded';
+    });
+
+    autoSave();
+    if (currentTab === 'mail') renderMailTab();
+    showToast('Réponse reçue ! Rappels annulés.', 'success');
+}
+
+function toggleMailSentFromList(sid, tid) {
+    const s = state.sections.find(x => x.id === sid);
+    if (!s) return;
+    const t = s.tasks.find(x => x.id === tid);
+    if (!t) return;
+
+    if (!t.sentAt) {
+        if (!t.mailSubject && !t.label) {
+            selectMailForCompose(sid, tid);
+            showToast('Remplis d\'abord les détails du mail.', 'error');
+            return;
+        }
+        markMailTaskSent(sid, tid);
+        showToast('Mail marqué comme envoyé !', 'success');
+    } else {
+        unmarkMailTaskSent(sid, tid);
+        t.done = false;
+        showToast('Envoi annulé.', 'success');
+    }
+
+    autoSave();
+    render();
+    renderMailTab();
+}
+
+/* ═══════════════════════════════════════════════════════
+   Timeline
+   ═══════════════════════════════════════════════════════ */
+function renderTimeline() {
+    const container = document.getElementById('timeline-container');
+    if (!container) return;
+
+    const now = new Date();
+    const year = timelineMonth.getFullYear();
+    const month = timelineMonth.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthName = timelineMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+
+    const events = getTimelineEvents(year, month);
+
+    let html = `
+        <div class="timeline-header">
+            <h2>📅 ${esc(monthName.charAt(0).toUpperCase() + monthName.slice(1))}</h2>
+            <div class="timeline-nav">
+                <button onclick="navigateTimeline(-1)">◀</button>
+                <button onclick="navigateTimeline(0)">Aujourd'hui</button>
+                <button onclick="navigateTimeline(1)">▶</button>
+            </div>
+        </div>
+        <div class="timeline-scroll">
+            <div class="timeline-track">
+                <div class="timeline-line"></div>`;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const date = new Date(year, month, d);
+        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const isToday = (d === now.getDate() && month === now.getMonth() && year === now.getFullYear());
+        const dayEvents = events.filter(e => e.dateStr === dateStr);
+        const dayName = date.toLocaleDateString('fr-FR', { weekday: 'short' }).slice(0, 2);
+
+        const colClass = isToday ? 'timeline-day timeline-today-col' : 'timeline-day';
+        html += `<div class="${colClass}" data-date="${dateStr}">`;
+        html += `<div class="timeline-day-label">${dayName}<br>${d}</div>`;
+
+        if (dayEvents.length > 0) {
+            const order = { 'reminder-due': 0, 'sent': 1, 'reminder-sent': 2, 'reminder-pending': 3, 'response': 4 };
+            const sorted = [...dayEvents].sort((a, b) => (order[a.dotClass] || 5) - (order[b.dotClass] || 5));
+            const primary = sorted[0];
+            html += `<div class="timeline-dot ${primary.dotClass}"
+                onclick="showTimelinePopover(event, '${dateStr}')"
+                title="${esc(primary.tooltip)}"></div>`;
+            html += `<div class="timeline-event-label">${dayEvents.length > 1 ? dayEvents.length + ' évén.' : esc(primary.shortLabel)}</div>`;
+        } else if (isToday) {
+            html += `<div class="timeline-dot today-marker"></div>`;
+            html += `<div class="timeline-event-label">Auj.</div>`;
+        } else {
+            html += `<div class="timeline-dot empty"></div>`;
+        }
+
+        html += '</div>';
+    }
+
+    html += `</div></div>`;
+    container.innerHTML = html;
+
+    if (month === now.getMonth() && year === now.getFullYear()) {
+        const todayCol = container.querySelector('.timeline-today-col');
+        if (todayCol) {
+            const scroll = container.querySelector('.timeline-scroll');
+            scroll.scrollLeft = todayCol.offsetLeft - scroll.clientWidth / 2;
+        }
+    }
+}
+
+function getTimelineEvents(year, month) {
+    const events = [];
+    const now = Date.now();
+    const monthStart = new Date(year, month, 1).getTime();
+    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59).getTime();
+
+    (state.mailEvents || []).forEach(e => {
+        if (e.date >= monthStart && e.date <= monthEnd) {
+            const d = new Date(e.date);
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            let dotClass, tooltip, shortLabel;
+            switch (e.type) {
+                case 'sent':
+                    dotClass = 'sent'; tooltip = `Envoyé : ${e.label}`; shortLabel = e.label || 'Mail'; break;
+                case 'reminder_sent':
+                    dotClass = 'reminder-sent'; tooltip = `Relance #${e.cycle || '?'} : ${e.label}`; shortLabel = `Relance #${e.cycle || '?'}`; break;
+                case 'response':
+                    dotClass = 'response'; tooltip = `Réponse : ${e.label}`; shortLabel = 'Réponse'; break;
+                default: return;
+            }
+            events.push({ ...e, dateStr, dotClass, tooltip, shortLabel });
+        }
+    });
+
+    (state.reminders || []).forEach(r => {
+        if (r.status === 'dismissed' || r.status === 'responded' || r.status === 'sent') return;
+        if (r.remindAt >= monthStart && r.remindAt <= monthEnd) {
+            const d = new Date(r.remindAt);
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+            const isDue = r.remindAt <= now;
+            const dotClass = isDue ? 'reminder-due' : 'reminder-pending';
+            const tooltip = isDue ? `⚠ Rappel dû : ${r.label}` : `Rappel prévu : ${r.label}`;
+            const shortLabel = isDue ? '⚠ Rappel' : `J+${r.cycle * 3}`;
+            events.push({ ...r, dateStr, dotClass, tooltip, shortLabel, isReminder: true, reminderId: r.id });
+        }
+    });
+
+    return events;
+}
+
+function navigateTimeline(direction) {
+    if (direction === 0) {
+        timelineMonth = new Date();
+    } else {
+        timelineMonth = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() + direction, 1);
+    }
+    renderTimeline();
+}
+
+function showTimelinePopover(evt, dateStr) {
+    document.querySelectorAll('.timeline-popover').forEach(p => p.remove());
+
+    const year = timelineMonth.getFullYear();
+    const month = timelineMonth.getMonth();
+    const dayEvents = getTimelineEvents(year, month).filter(e => e.dateStr === dateStr);
+    if (!dayEvents.length) return;
+
+    const dot = evt.target;
+    const popover = document.createElement('div');
+    popover.className = 'timeline-popover show';
+
+    let html = '';
+    dayEvents.forEach(e => {
+        html += `<div style="margin-bottom:0.5rem;">`;
+        html += `<div class="timeline-popover-title">${esc(e.tooltip)}</div>`;
+        html += `<div class="timeline-popover-actions">`;
+
+        if (e.isReminder && e.dotClass === 'reminder-due') {
+            html += `<button onclick="handleDueReminder('${e.reminderId}')">🤖 Générer relance IA</button>`;
+            html += `<button onclick="markReminderResponseReceived('${e.reminderId}')">✅ Réponse reçue</button>`;
+            html += `<button onclick="editReminderDate('${e.reminderId}')">📅 Modifier la date</button>`;
+            html += `<button class="danger" onclick="dismissReminderFromTimeline('${e.reminderId}')">🗑 Supprimer</button>`;
+        } else if (e.isReminder && e.dotClass === 'reminder-pending') {
+            html += `<button onclick="handleDueReminder('${e.reminderId}')">🤖 Traiter maintenant</button>`;
+            html += `<button onclick="markReminderResponseReceived('${e.reminderId}')">✅ Réponse reçue</button>`;
+            html += `<button onclick="editReminderDate('${e.reminderId}')">📅 Modifier la date</button>`;
+            html += `<button class="danger" onclick="dismissReminderFromTimeline('${e.reminderId}')">🗑 Supprimer</button>`;
+        } else if (e.type === 'sent' || e.type === 'reminder_sent') {
+            html += `<button onclick="selectMailForCompose('${e.sectionId}','${e.taskId}')">📧 Voir le mail</button>`;
+        }
+
+        html += `</div></div>`;
+    });
+
+    popover.innerHTML = html;
+    dot.parentElement.style.position = 'relative';
+    dot.parentElement.appendChild(popover);
+
+    setTimeout(() => {
+        const close = (ev) => {
+            if (!popover.contains(ev.target) && ev.target !== dot) {
+                popover.remove();
+                document.removeEventListener('click', close);
+            }
+        };
+        document.addEventListener('click', close);
+    }, 10);
+}
+
+/* ═══════════════════════════════════════════════════════
+   Reminder Workflow (cycles)
+   ═══════════════════════════════════════════════════════ */
+async function handleDueReminder(rid) {
     const r = (state.reminders || []).find(x => x.id === rid);
     if (!r) return;
+
+    document.querySelectorAll('.timeline-popover').forEach(p => p.remove());
+
     if (!state.settings.geminiKey) {
         showToast('Configure ta clé API Gemini dans ⚙️', 'error', 3000);
         openSettings();
         return;
     }
+
     showLoading('L\'IA génère une relance…');
     try {
         const res = await fetch('/api/generate-reminder', {
@@ -1366,12 +1983,13 @@ async function generateReminder(rid) {
                 token: state.settings.geminiKey,
                 to: r.mailTo,
                 subject: r.mailSubject || r.label,
-                body: r.mailBody || r.note || r.label
+                body: r.mailBody || r.label,
+                cycle: r.cycle
             })
         });
         const result = await res.json();
         if (result.ok && result.reminder) {
-            currentReminder = { rid, ...result.reminder, to: r.mailTo };
+            currentReminder = { rid, ...result.reminder, to: r.mailTo, from: r.mailFrom };
             document.getElementById('reminderTo').value = r.mailTo || '';
             document.getElementById('reminderSubject').value = result.reminder.subject || '';
             document.getElementById('reminderBody').value = result.reminder.body || '';
@@ -1387,9 +2005,117 @@ async function generateReminder(rid) {
     }
 }
 
+function markReminderSent(rid) {
+    const r = (state.reminders || []).find(x => x.id === rid);
+    if (!r) return;
+
+    const now = Date.now();
+    r.status = 'sent';
+    r.sentAt = now;
+
+    state.mailEvents = state.mailEvents || [];
+    state.mailEvents.push({
+        id: uid(), taskId: r.taskId, sectionId: r.sectionId,
+        type: 'reminder_sent', date: now,
+        label: r.mailSubject || r.label, to: r.mailTo, cycle: r.cycle
+    });
+
+    state.reminders.push({
+        id: uid(), taskId: r.taskId, sectionId: r.sectionId,
+        label: r.label, mailTo: r.mailTo,
+        mailSubject: r.mailSubject, mailBody: r.mailBody, mailFrom: r.mailFrom || '',
+        createdAt: now,
+        remindAt: now + 3 * 24 * 60 * 60 * 1000,
+        cycle: r.cycle + 1, status: 'pending'
+    });
+
+    autoSave();
+    renderMailTab();
+}
+
+function confirmReminderSent() {
+    if (!currentReminder) return;
+    markReminderSent(currentReminder.rid);
+    closeReminderModal();
+    showToast('Rappel envoyé. Prochain cycle dans 3 jours.', 'success', 3000);
+}
+
+function confirmReminderResponseReceived() {
+    if (!currentReminder) return;
+    markReminderResponseReceived(currentReminder.rid);
+    closeReminderModal();
+}
+
+function markReminderResponseReceived(rid) {
+    const r = (state.reminders || []).find(x => x.id === rid);
+    if (!r) return;
+    document.querySelectorAll('.timeline-popover').forEach(p => p.remove());
+    markResponseReceived(r.sectionId, r.taskId);
+}
+
+function dismissReminderFromTimeline(rid) {
+    const r = (state.reminders || []).find(x => x.id === rid);
+    if (!r) return;
+    document.querySelectorAll('.timeline-popover').forEach(p => p.remove());
+    r.status = 'dismissed';
+    autoSave();
+    renderMailTab();
+    showToast('Rappel supprimé.', 'success');
+}
+
+function editReminderDate(rid) {
+    const r = (state.reminders || []).find(x => x.id === rid);
+    if (!r) return;
+    document.querySelectorAll('.timeline-popover').forEach(p => p.remove());
+
+    const currentDate = new Date(r.remindAt);
+    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(currentDate.getDate()).padStart(2,'0')}`;
+    const newDateStr = prompt('Nouvelle date du rappel (AAAA-MM-JJ) :', dateStr);
+    if (!newDateStr) return;
+
+    const parsed = new Date(newDateStr + 'T09:00:00');
+    if (isNaN(parsed.getTime())) {
+        showToast('Date invalide.', 'error');
+        return;
+    }
+
+    r.remindAt = parsed.getTime();
+    autoSave();
+    renderTimeline();
+    showToast('Date du rappel modifiée.', 'success');
+}
+
 function closeReminderModal() {
     document.getElementById('reminderModal').classList.remove('show');
     currentReminder = null;
+}
+
+async function reformulateReminder() {
+    const body = document.getElementById('reminderBody').value.trim();
+    if (!body) { showToast('Écris un message d\'abord.', 'error'); return; }
+    if (!state.settings.geminiKey) {
+        showToast('Configure ta clé API Gemini dans ⚙️', 'error', 3000);
+        return;
+    }
+    showLoading('L\'IA reformule la relance…');
+    try {
+        const r = await fetch('/api/reformulate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: state.settings.geminiKey, text: body })
+        });
+        const result = await r.json();
+        if (result.text) {
+            document.getElementById('reminderBody').value = result.text;
+            showToast('Relance reformulée !', 'success');
+        } else {
+            showToast('Erreur IA : ' + (result.error || 'Échec'), 'error', 5000);
+        }
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 5000);
+    } finally {
+        hideLoading();
+    }
 }
 
 async function saveReminderEml() {
@@ -1406,8 +2132,6 @@ async function saveReminderEml() {
         const result = await r.json();
         if (result.ok) {
             showToast('Relance enregistrée (.eml) !', 'success', 3000);
-            if (currentReminder) dismissReminder(currentReminder.rid);
-            closeReminderModal();
         } else {
             showToast('Erreur : ' + (result.error || 'Échec'), 'error', 5000);
         }
@@ -1430,13 +2154,22 @@ async function sendReminderThunderbird() {
         const result = await r.json();
         if (result.ok) {
             showToast('Thunderbird ouvert !', 'success');
-            if (currentReminder) dismissReminder(currentReminder.rid);
-            closeReminderModal();
         } else {
             showToast('Erreur : ' + (result.error || 'Échec'), 'error', 5000);
         }
     } catch (e) {
         showToast('Erreur : ' + e.message, 'error', 5000);
+    }
+}
+
+function updateMailBadge() {
+    const now = Date.now();
+    const pending = getAllMailTasks().filter(m => !m.sentAt);
+    const dueReminders = (state.reminders || []).filter(r => r.status === 'pending' && r.remindAt <= now);
+    const total = pending.length + dueReminders.length;
+    const tabBtn = document.querySelectorAll('.tab-btn')[1];
+    if (tabBtn) {
+        tabBtn.textContent = total > 0 ? `📧 Mail ● ${total}` : '📧 Mail';
     }
 }
 
@@ -1505,22 +2238,11 @@ function launchConfetti() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   Check reminders periodically
+   Periodic mail badge update
    ═══════════════════════════════════════════════════════ */
 setInterval(() => {
-    if (currentTab === 'mail') renderReminders();
-    // Also check if on todo tab and there are due reminders — show a subtle notification
-    const now = Date.now();
-    const due = (state.reminders || []).filter(r => !r.dismissed && r.remindAt <= now);
-    if (due.length > 0 && currentTab === 'todo') {
-        const tabBtn = document.querySelectorAll('.tab-btn')[1];
-        if (tabBtn && !tabBtn.textContent.includes('●')) {
-            tabBtn.textContent = '📧 Mail ● ' + due.length;
-        }
-    } else {
-        const tabBtn = document.querySelectorAll('.tab-btn')[1];
-        if (tabBtn) tabBtn.textContent = '📧 Mail';
-    }
+    updateMailBadge();
+    if (currentTab === 'mail') renderTimeline();
 }, 30000);
 
 /* ═══════════════════════════════════════════════════════
@@ -1529,14 +2251,8 @@ setInterval(() => {
 (async function init() {
     await Promise.all([loadState(), loadContacts()]);
     render();
-    renderReminders();
-    // Check for due reminders on startup
-    const now = Date.now();
-    const due = (state.reminders || []).filter(r => !r.dismissed && r.remindAt <= now);
-    if (due.length > 0) {
-        const tabBtn = document.querySelectorAll('.tab-btn')[1];
-        if (tabBtn) tabBtn.textContent = '📧 Mail ● ' + due.length;
-    }
+    updateMailBadge();
+    if (currentTab === 'mail') renderMailTab();
 })();
 
 /* ═══════════════════════════════════════════════════════
