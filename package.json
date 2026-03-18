@@ -1,14 +1,59 @@
 {
-  "name": "todoapp",
+  "name": "nexomail",
   "version": "1.0.0",
-  "description": "Todo & Mail — application Electron",
+  "description": "NexoMail — Electron email client with todo tracking",
+  "author": {
+    "name": "Isen Naiken",
+    "email": "isen.naiken@nexomedis.com"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder --linux",
+    "build:dir": "electron-builder --linux --dir"
+  },
+  "build": {
+    "appId": "com.nexomedis.nexomail",
+    "productName": "NexoMail",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "server.py",
+        "to": "server.py"
+      },
+      {
+        "from": "v3.py",
+        "to": "v3.py"
+      },
+      {
+        "from": "data.json",
+        "to": "data.json"
+      },
+      {
+        "from": "contacts_complets_v2.csv",
+        "to": "contacts_complets_v2.csv"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Office",
+      "icon": "icon.png"
+    }
   },
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
   },
   "dependencies": {
     "electron-window-state": "^5.0.3"

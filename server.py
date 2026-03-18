@@ -44,6 +44,7 @@ INBOX_INDEX_FILE = os.path.join(DIR, "inbox_index.json")
 
 OBSIDIAN_MD_DIR = "/home/naiken/Documents/obsidian_coffres/isen/mails"
 OBSIDIAN_ATT_DIR = "/home/naiken/Documents/obsidian_coffres/isen/attachements"
+OBSIDIAN_VAULT = "/home/naiken/Documents/obsidian_coffres/isen"
 
 os.makedirs(MAILS_DIR, exist_ok=True)
 
@@ -520,6 +521,114 @@ def delete_mail_on_server(account, uid_to_delete):
 # ═══════════════════════════════════════════════════════
 MOTS_CLES = ['projet', 'stage', 'facture', 'urgent', 'réunion', 'candidature', 'rapport', 'admin', 'examen']
 
+WIKILINK_RE = re.compile(r'\[\[([^\]|]+?)(?:\|[^\]]*)?\]\]')
+
+
+def scan_vault_graph():
+    """Scan Obsidian vault, extract nodes (md files + attachments) and edges (wikilinks)."""
+    vault = OBSIDIAN_VAULT
+    nodes = {}  # name -> {id, label, path, type, tags, group}
+    edges = []  # [{source, target}]
+
+    # Collect all files
+    for root, dirs, files in os.walk(vault):
+        # Skip .obsidian config
+        dirs[:] = [d for d in dirs if d != '.obsidian']
+        for fname in files:
+            fpath = os.path.join(root, fname)
+            relpath = os.path.relpath(fpath, vault)
+            name_no_ext = os.path.splitext(fname)[0]
+
+            if fname.lower().endswith('.md'):
+                # Parse frontmatter for tags
+                tags = []
+                try:
+                    with open(fpath, 'r', encoding='utf-8', errors='replace') as f:
+                        content = f.read(4096)  # Read just enough for frontmatter
+                    if content.startswith('---'):
+                        end = content.find('---', 3)
+                        if end != -1:
+                            fm = content[3:end]
+                            for line in fm.split('\n'):
+                                line = line.strip()
+                                if line.startswith('- '):
+                                    tags.append(line[2:].strip())
+                except Exception:
+                    pass
+
+                # Determine group from path
+                group = 'mail' if '/mails/' in relpath or relpath.startswith('mails/') else 'note'
+
+                nodes[name_no_ext] = {
+                    'id': name_no_ext,
+                    'label': name_no_ext,
+                    'path': relpath,
+                    'type': 'md',
+                    'tags': tags,
+                    'group': group,
+                }
+            else:
+                # Attachment (pdf, jpg, etc.)
+                ext = os.path.splitext(fname)[1].lower()
+                if ext in ('.png', '.jpg', '.jpeg', '.gif', '.svg', '.pdf',
+                           '.docx', '.xlsx', '.pptx', '.odt', '.csv', '.zip'):
+                    nodes[fname] = {
+                        'id': fname,
+                        'label': fname,
+                        'path': relpath,
+                        'type': 'attachment',
+                        'tags': [],
+                        'group': 'attachment',
+                    }
+
+    # Extract edges from wikilinks in md files
+    for name, node in list(nodes.items()):
+        if node['type'] != 'md':
+            continue
+        fpath = os.path.join(vault, node['path'])
+        try:
+            with open(fpath, 'r', encoding='utf-8', errors='replace') as f:
+                content = f.read()
+            links = WIKILINK_RE.findall(content)
+            for link in links:
+                link = link.strip()
+                if link in nodes:
+                    edges.append({'source': name, 'target': link})
+                # Also try with known extensions for attachments
+                elif link + '.md' in nodes:
+                    pass  # wikilinks usually reference without .md
+                else:
+                    # Target might not exist yet — create an "orphan" node
+                    if link not in nodes:
+                        nodes[link] = {
+                            'id': link,
+                            'label': link,
+                            'path': '',
+                            'type': 'orphan',
+                            'tags': [],
+                            'group': 'orphan',
+                        }
+                    edges.append({'source': name, 'target': link})
+        except Exception:
+            pass
+
+    return {'nodes': list(nodes.values()), 'edges': edges}
+
+
+def read_vault_file(relpath):
+    """Read a file from the Obsidian vault by relative path."""
+    # Sanitize: prevent directory traversal
+    safe = os.path.normpath(relpath)
+    if safe.startswith('..') or os.path.isabs(safe):
+        raise ValueError('Invalid path')
+    fpath = os.path.join(OBSIDIAN_VAULT, safe)
+    if not fpath.startswith(OBSIDIAN_VAULT):
+        raise ValueError('Path outside vault')
+    if not os.path.isfile(fpath):
+        raise FileNotFoundError('File not found')
+    with open(fpath, 'r', encoding='utf-8', errors='replace') as f:
+        return f.read()
+
 
 def export_email_to_obsidian(mail_meta):
     """Export a single email to Obsidian markdown, replicating v3.py logic."""
@@ -718,6 +827,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self._json(mail)
             self.send_error(404)
             return
+        if self.path == "/api/vault/graph":
+            try:
+                return self._json(scan_vault_graph())
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+        if self.path.startswith("/api/vault/read?"):
+            try:
+                from urllib.parse import urlparse, parse_qs
+                qs = parse_qs(urlparse(self.path).query)
+                relpath = qs.get('path', [''])[0]
+                content = read_vault_file(relpath)
+                return self._json({"ok": True, "content": content, "path": relpath})
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
         super().do_GET()
 
     def do_POST(self):

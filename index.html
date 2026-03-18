@@ -3,34 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Todo & Mail</title>
+    <title>NexoMail</title>
+    <link rel="stylesheet" href="https://unpkg.com/lucide-static@0.460.0/font/lucide.min.css">
     <style>
-        /* ─── Deep Medical Theme — Variables & Reset ──── */
+        /* ─── Obsidian / VSCode Dark Theme ────────────── */
         :root {
-            --bg: #0d0f14;
-            --bg-surface: #12151c;
-            --card: #171b26;
-            --card-border: #1f2533;
-            --card-hover: #1c2130;
-            --text: #e4e7ef;
-            --text-muted: #6b7394;
-            --accent-blue: #4a90f4;
-            --accent-blue-glow: rgba(74, 144, 244, 0.15);
-            --accent-green: #2dd4a8;
-            --accent-orange: #f0a030;
-            --accent-purple: #9b7df0;
-            --accent-pink: #e86ca0;
-            --accent-slate: #7e8ba8;
-            --progress-bg: #1a1f2e;
-            --checked: #2dd4a8;
-            --titlebar-bg: #0a0c10;
-            --titlebar-border: #1a1e2a;
+            --bg: #1e1e2e;
+            --bg-surface: #181825;
+            --card: #1e1e2e;
+            --card-border: #313244;
+            --card-hover: #262637;
+            --text: #cdd6f4;
+            --text-muted: #6c7086;
+            --accent-blue: #89b4fa;
+            --accent-blue-glow: rgba(137, 180, 250, 0.08);
+            --accent-green: #a6e3a1;
+            --accent-orange: #fab387;
+            --accent-purple: #cba6f7;
+            --accent-pink: #f38ba8;
+            --accent-slate: #9399b2;
+            --progress-bg: #11111b;
+            --checked: #a6e3a1;
+            --titlebar-bg: #11111b;
+            --titlebar-border: #313244;
             --titlebar-btn-hover: rgba(255,255,255,0.06);
             --titlebar-close-hover: #e04040;
-            --shadow-lg: 0 8px 32px rgba(0,0,0,0.45);
-            --radius-sm: 6px;
-            --radius-md: 10px;
-            --radius-lg: 14px;
+            --shadow-lg: 0 4px 16px rgba(0,0,0,0.3);
+            --radius-sm: 4px;
+            --radius-md: 6px;
+            --radius-lg: 8px;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -119,7 +120,7 @@
             height: calc(100vh - 38px);
             overflow-y: auto;
             overflow-x: hidden;
-            padding: 2rem 1rem;
+            padding: 1rem 0.75rem;
         }
 
         /* ─── Layout ─────────────────────────────────── */
@@ -127,46 +128,47 @@
 
         /* ─── Tabs ───────────────────────────────────── */
         .tab-bar {
-            display: flex; gap: 0; justify-content: center; margin-bottom: 2rem;
-            background: var(--card); border: 1px solid var(--card-border); border-radius: 12px;
-            overflow: hidden;
+            display: flex; gap: 0; margin-bottom: 1.5rem;
+            background: var(--bg-surface); border-bottom: 1px solid var(--card-border);
         }
         .tab-btn {
-            flex: 1; padding: 0.85rem 1.5rem; border: none; background: transparent;
-            color: var(--text-muted); cursor: pointer; font-size: 1rem; font-weight: 600;
-            transition: all 0.2s; text-align: center;
+            padding: 0.6rem 1.2rem; border: none; background: transparent;
+            color: var(--text-muted); cursor: pointer; font-size: 0.82rem; font-weight: 500;
+            transition: all 0.15s; text-align: center; position: relative;
+            display: flex; align-items: center; gap: 0.45rem; letter-spacing: 0.01em;
         }
-        .tab-btn:hover { background: rgba(108,138,255,0.08); color: var(--text); }
+        .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.03); }
         .tab-btn.active {
-            background: rgba(108,138,255,0.2); color: var(--accent-blue);
-            box-shadow: inset 0 -3px 0 var(--accent-blue);
+            color: var(--text);
+            box-shadow: inset 0 -2px 0 var(--accent-blue);
         }
+        .tab-btn .lucide, .tab-btn i { font-size: 14px; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
         /* ─── Header ─────────────────────────────────── */
-        header { text-align: center; margin-bottom: 2.5rem; }
-        header h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.5rem; }
+        header { text-align: center; margin-bottom: 1.5rem; }
+        header h1 { font-size: 1.3rem; font-weight: 600; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.5rem; justify-content: center; }
         .header-actions {
             display: flex; gap: 0.5rem; justify-content: center; margin-top: 0.75rem; flex-wrap: wrap;
         }
         .header-actions button, .mail-actions button {
-            padding: 0.5rem 1rem; border: 1px solid var(--card-border); border-radius: 10px;
-            background: var(--card); color: var(--text-muted); cursor: pointer;
-            font-size: 0.85rem; font-weight: 600; transition: all 0.2s;
+            padding: 0.4rem 0.8rem; border: 1px solid var(--card-border); border-radius: var(--radius-sm);
+            background: transparent; color: var(--text-muted); cursor: pointer;
+            font-size: 0.8rem; font-weight: 500; transition: all 0.15s;
+            display: inline-flex; align-items: center; gap: 0.35rem;
         }
         .header-actions button:hover, .mail-actions button:hover {
-            background: rgba(108,138,255,0.15); border-color: var(--accent-blue); color: var(--text);
+            background: rgba(137,180,250,0.08); color: var(--text);
         }
         .header-actions button.active {
-            background: rgba(108,138,255,0.2); border-color: var(--accent-blue); color: var(--accent-blue);
+            background: rgba(137,180,250,0.1); color: var(--accent-blue);
         }
 
         /* ─── Global Progress ────────────────────────── */
         .global-progress {
-            background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
-            padding: 1.5rem 2rem; margin-bottom: 2.5rem; position: sticky; top: 0; z-index: 100;
-            backdrop-filter: blur(12px);
+            background: var(--bg-surface); border: 1px solid var(--card-border); border-radius: var(--radius-md);
+            padding: 1rem 1.25rem; margin-bottom: 1.5rem; position: sticky; top: 0; z-index: 100;
         }
         .global-progress-header {
             display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.75rem;
@@ -175,22 +177,22 @@
         .global-progress-header .counter { font-size: 0.9rem; color: var(--text-muted); }
         .global-progress-header .counter strong { color: var(--accent-green); }
         .progress-bar-track {
-            width: 100%; height: 10px; background: var(--progress-bg);
-            border-radius: 99px; overflow: hidden;
+            width: 100%; height: 3px; background: var(--progress-bg);
+            border-radius: 2px; overflow: hidden;
         }
         .progress-bar-fill {
-            height: 100%; border-radius: 99px;
+            height: 100%; border-radius: 2px;
             background: linear-gradient(90deg, var(--accent-blue), var(--accent-green));
-            transition: width 0.5s ease; width: 0%;
+            transition: width 0.4s ease; width: 0%;
         }
         .progress-percent { text-align: right; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.35rem; }
 
         /* ─── Section ────────────────────────────────── */
         .section {
-            background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
-            margin-bottom: 1.5rem; overflow: hidden; transition: box-shadow 0.3s, outline 0.2s;
+            background: var(--bg-surface); border: 1px solid var(--card-border); border-radius: var(--radius-md);
+            margin-bottom: 1rem; overflow: hidden; transition: background 0.15s;
         }
-        .section:hover { box-shadow: 0 0 30px var(--accent-blue-glow); }
+        .section:hover { background: var(--card-hover); }
         .section-header {
             padding: 1.25rem 1.5rem; display: flex; justify-content: space-between;
             align-items: center; cursor: pointer; user-select: none;
@@ -200,7 +202,7 @@
         body.edit-mode .section-header:hover { background: transparent; }
         .section-title { font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
         .section-badge {
-            font-size: 0.75rem; padding: 0.15rem 0.6rem; border-radius: 99px; font-weight: 600;
+            font-size: 0.7rem; padding: 0.1rem 0.5rem; border-radius: 3px; font-weight: 500;
         }
         .section-desc {
             padding: 0 1.5rem; font-size: 0.85rem; color: var(--text-muted);
@@ -208,10 +210,10 @@
         }
         .section-header-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
         .section-progress-mini { width: 120px; display: flex; align-items: center; gap: 0.6rem; }
-        .section-progress-mini .mini-bar {
-            flex: 1; height: 5px; background: var(--progress-bg); border-radius: 99px; overflow: hidden;
+        .mini-bar {
+            flex: 1; height: 3px; background: var(--progress-bg); border-radius: 2px; overflow: hidden;
         }
-        .section-progress-mini .mini-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; width: 0%; }
+        .section-progress-mini .mini-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; width: 0%; }
         .section-progress-mini .mini-text { font-size: 0.75rem; color: var(--text-muted); min-width: 32px; text-align: right; }
 
         /* ─── Colors Per Section ─────────────────────── */
@@ -237,31 +239,31 @@
         /* ─── Tasks ──────────────────────────────────── */
         .task-list { padding: 0 1rem 1rem; }
         .task-item {
-            display: flex; align-items: flex-start; gap: 0.75rem;
-            padding: 0.7rem 0.75rem; border-radius: 10px; transition: background 0.15s;
+            display: flex; align-items: flex-start; gap: 0.6rem;
+            padding: 0.5rem 0.6rem; border-radius: var(--radius-sm); transition: background 0.1s;
         }
-        .task-item:hover { background: rgba(255,255,255,0.025); }
+        .task-item:hover { background: rgba(255,255,255,0.02); }
         .task-item.checked .task-label { text-decoration: line-through; color: var(--text-muted); }
         .task-item.checked .custom-check { background: var(--checked); border-color: var(--checked); }
         .task-item.checked .custom-check svg { opacity: 1; }
         .task-item.sub-task { margin-left: 2rem; }
-        .task-item.is-mail .task-label::before { content: '📧 '; }
+        .task-item.is-mail .task-label::before { content: ''; }
         .custom-check {
-            width: 22px; height: 22px; min-width: 22px; border: 2px solid var(--card-border);
-            border-radius: 6px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: all 0.2s; margin-top: 2px;
+            width: 18px; height: 18px; min-width: 18px; border: 1.5px solid var(--card-border);
+            border-radius: 3px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.15s; margin-top: 2px;
         }
         .custom-check:hover { border-color: var(--accent-blue); }
         .custom-check svg { width: 14px; height: 14px; opacity: 0; transition: opacity 0.2s; stroke: white; stroke-width: 3; fill: none; }
-        .task-label { font-size: 0.95rem; cursor: pointer; flex: 1; transition: color 0.3s; }
+        .task-label { font-size: 0.88rem; cursor: pointer; flex: 1; transition: color 0.2s; }
         .task-note { display: block; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem; font-style: italic; }
 
         /* ─── Edit Mode ──────────────────────────────── */
         .task-edit-fields { flex: 1; display: flex; flex-direction: column; gap: 0.25rem; }
         .task-input, .task-note-input {
             width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--card-border);
-            border-radius: 8px; background: var(--progress-bg); color: var(--text);
-            font-size: 0.9rem; font-family: inherit;
+            border-radius: var(--radius-sm); background: var(--progress-bg); color: var(--text);
+            font-size: 0.85rem; font-family: inherit;
         }
         .task-note-input { font-size: 0.8rem; color: var(--text-muted); }
         .task-input:focus, .task-note-input:focus { outline: none; border-color: var(--accent-blue); }
@@ -272,15 +274,15 @@
         .btn-icon:hover { opacity: 1; }
         .edit-actions { display: flex; gap: 0.2rem; align-items: flex-start; margin-top: 2px; }
         .add-task-btn {
-            width: 100%; padding: 0.6rem; border: 1px dashed var(--card-border);
-            border-radius: 10px; background: transparent; color: var(--text-muted);
-            cursor: pointer; font-size: 0.85rem; transition: all 0.2s; margin-top: 0.5rem;
+            width: 100%; padding: 0.5rem; border: 1px dashed var(--card-border);
+            border-radius: var(--radius-sm); background: transparent; color: var(--text-muted);
+            cursor: pointer; font-size: 0.8rem; transition: all 0.15s; margin-top: 0.5rem;
         }
         .add-task-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
         .add-section-btn {
-            width: 100%; padding: 1rem; border: 1px dashed var(--card-border);
-            border-radius: 16px; background: transparent; color: var(--text-muted);
-            cursor: pointer; font-size: 1rem; transition: all 0.2s; margin-top: 1rem;
+            width: 100%; padding: 0.8rem; border: 1px dashed var(--card-border);
+            border-radius: var(--radius-md); background: transparent; color: var(--text-muted);
+            cursor: pointer; font-size: 0.85rem; transition: all 0.15s; margin-top: 0.75rem;
         }
         .add-section-btn:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
 
@@ -296,24 +298,25 @@
         }
         .modal-overlay.show { display: flex; }
         .modal {
-            background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
-            padding: 2rem; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;
+            background: var(--bg-surface); border: 1px solid var(--card-border); border-radius: var(--radius-lg);
+            padding: 1.5rem; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto;
         }
         .modal h2 { margin-bottom: 1.5rem; font-size: 1.2rem; }
         .form-group { margin-bottom: 1.25rem; }
         .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600; }
         .form-group input[type="text"], .form-group input[type="password"] {
-            width: 100%; padding: 0.6rem 0.8rem; border: 1px solid var(--card-border);
-            border-radius: 10px; background: var(--progress-bg); color: var(--text);
-            font-size: 0.9rem; font-family: inherit;
+            width: 100%; padding: 0.5rem 0.7rem; border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm); background: var(--progress-bg); color: var(--text);
+            font-size: 0.85rem; font-family: inherit;
         }
         .form-group input:focus { outline: none; border-color: var(--accent-blue); }
         .form-group small { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem; }
         .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 1.5rem; }
         .modal-actions button {
-            padding: 0.6rem 1.2rem; border: 1px solid var(--card-border); border-radius: 10px;
+            padding: 0.45rem 1rem; border: 1px solid var(--card-border); border-radius: var(--radius-sm);
             background: var(--progress-bg); color: var(--text-muted); cursor: pointer;
-            font-size: 0.85rem; font-weight: 600; transition: all 0.2s;
+            font-size: 0.8rem; font-weight: 500; transition: all 0.15s;
+            display: inline-flex; align-items: center; gap: 0.3rem;
         }
         .modal-actions button:hover { border-color: var(--accent-blue); color: var(--text); }
         .btn-primary { background: var(--accent-blue) !important; border-color: var(--accent-blue) !important; color: white !important; }
@@ -355,11 +358,11 @@
 
         /* ─── Toast ──────────────────────────────────── */
         .toast {
-            position: fixed; bottom: 2rem; left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            padding: 0.6rem 1.5rem; border-radius: 10px;
-            font-weight: 600; font-size: 0.85rem; opacity: 0;
-            transition: all 0.4s ease; z-index: 10000; pointer-events: none;
+            position: fixed; bottom: 1.5rem; left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            padding: 0.5rem 1.2rem; border-radius: var(--radius-sm);
+            font-weight: 500; font-size: 0.8rem; opacity: 0;
+            transition: all 0.3s ease; z-index: 10000; pointer-events: none;
         }
         .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
         .toast.success { background: var(--accent-green); color: #0f1117; }
@@ -370,22 +373,22 @@
 
         /* ─── Mail Tab ───────────────────────────────── */
         .mail-composer {
-            background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
-            padding: 1.5rem; margin-bottom: 1.5rem;
+            background: var(--bg-surface); border: 1px solid var(--card-border); border-radius: var(--radius-md);
+            padding: 1.25rem; margin-bottom: 1rem;
         }
-        .mail-composer h2 { font-size: 1.2rem; margin-bottom: 1.25rem; color: var(--accent-blue); }
+        .mail-composer h2 { font-size: 1.05rem; margin-bottom: 1rem; color: var(--accent-blue); font-weight: 600; display: flex; align-items: center; gap: 0.4rem; }
         .mail-field { margin-bottom: 1rem; }
         .mail-field label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 600; }
         .mail-field select {
-            width: 100%; background: var(--card); border: 1px solid var(--card-border);
-            border-radius: 10px; padding: 0.6rem 0.8rem; color: var(--text);
-            font-size: 0.9rem; cursor: pointer;
+            width: 100%; background: var(--bg-surface); border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm); padding: 0.5rem 0.7rem; color: var(--text);
+            font-size: 0.85rem; cursor: pointer;
         }
         .mail-field select:focus { outline: none; border-color: var(--accent-blue); }
         .mail-field input, .mail-field textarea {
-            width: 100%; padding: 0.6rem 0.8rem; border: 1px solid var(--card-border);
-            border-radius: 10px; background: var(--progress-bg); color: var(--text);
-            font-size: 0.9rem; font-family: inherit; resize: vertical;
+            width: 100%; padding: 0.5rem 0.7rem; border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm); background: var(--progress-bg); color: var(--text);
+            font-size: 0.85rem; font-family: inherit; resize: vertical;
         }
         .mail-field textarea { min-height: 180px; line-height: 1.6; }
         .mail-field input:focus, .mail-field textarea:focus { outline: none; border-color: var(--accent-blue); }
@@ -398,31 +401,31 @@
         .autocomplete-wrapper { position: relative; }
         .autocomplete-list {
             position: absolute; top: 100%; left: 0; right: 0;
-            background: var(--card); border: 1px solid var(--card-border);
-            border-radius: 10px; max-height: 180px; overflow-y: auto;
+            background: var(--bg-surface); border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm); max-height: 180px; overflow-y: auto;
             z-index: 500; display: none;
         }
         .autocomplete-list.show { display: block; }
         .autocomplete-item {
-            padding: 0.5rem 0.8rem; cursor: pointer; font-size: 0.85rem;
-            transition: background 0.15s; display: flex; justify-content: space-between;
+            padding: 0.4rem 0.7rem; cursor: pointer; font-size: 0.8rem;
+            transition: background 0.1s; display: flex; justify-content: space-between;
         }
-        .autocomplete-item:hover { background: rgba(108,138,255,0.15); }
+        .autocomplete-item:hover { background: rgba(137,180,250,0.08); }
         .autocomplete-item .ac-name { color: var(--text); }
         .autocomplete-item .ac-email { color: var(--text-muted); font-size: 0.8rem; }
 
         /* ─── Email Tags (multi-recipient) ────────────── */
         .email-tags-container {
             display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem;
-            width: 100%; background: var(--card); border: 1px solid var(--card-border);
-            border-radius: 10px; padding: 0.45rem 0.6rem; min-height: 42px;
-            cursor: text; transition: border-color 0.2s;
+            width: 100%; background: var(--bg-surface); border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm); padding: 0.4rem 0.5rem; min-height: 36px;
+            cursor: text; transition: border-color 0.15s;
         }
         .email-tags-container:focus-within { border-color: var(--accent-blue); }
         .email-tag {
             display: inline-flex; align-items: center; gap: 0.3rem;
-            background: rgba(108,138,255,0.18); color: var(--accent-blue);
-            border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.8rem;
+            background: rgba(137,180,250,0.12); color: var(--accent-blue);
+            border-radius: 3px; padding: 0.15rem 0.4rem; font-size: 0.75rem;
             max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .email-tag .tag-remove {
@@ -439,17 +442,17 @@
 
         /* ─── Terminal Output ────────────────────────── */
         .terminal-output {
-            background: #0d0d0d; border: 1px solid var(--card-border); border-radius: 12px;
-            padding: 1rem; font-family: 'Fira Code', 'Cascadia Code', monospace;
-            font-size: 0.8rem; color: #34d399; max-height: 400px; overflow-y: auto;
-            white-space: pre-wrap; word-break: break-all; margin-top: 1rem;
+            background: #11111b; border: 1px solid var(--card-border); border-radius: var(--radius-sm);
+            padding: 0.75rem; font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+            font-size: 0.78rem; color: #a6e3a1; max-height: 400px; overflow-y: auto;
+            white-space: pre-wrap; word-break: break-all; margin-top: 0.75rem;
         }
 
         /* ─── Reminder Banner ────────────────────────── */
         .reminder-banner {
-            background: rgba(245,158,11,0.15); border: 1px solid var(--accent-orange);
-            border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem;
-            display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+            background: rgba(250,179,135,0.08); border: 1px solid rgba(250,179,135,0.3);
+            border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 0.75rem;
+            display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
         }
         .reminder-banner .reminder-text { flex: 1; font-size: 0.9rem; color: var(--accent-orange); }
         .reminder-banner button {
@@ -463,8 +466,8 @@
 
         /* ─── Mail Pending List ──────────────────────── */
         .mail-pending-list {
-            background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
-            margin-bottom: 1.5rem; overflow: hidden;
+            background: var(--bg-surface); border: 1px solid var(--card-border); border-radius: var(--radius-md);
+            margin-bottom: 1rem; overflow: hidden;
         }
         .mail-pending-list h2 {
             padding: 1.25rem 1.5rem; font-size: 1.1rem; font-weight: 700;
@@ -483,8 +486,8 @@
             cursor: pointer; transition: background 0.15s;
         }
         .mail-item:last-child { border-bottom: none; }
-        .mail-item:hover { background: rgba(74,144,244,0.06); }
-        .mail-item.selected { background: rgba(74,144,244,0.12); border-left: 3px solid var(--accent-blue); }
+        .mail-item:hover { background: rgba(137,180,250,0.04); }
+        .mail-item.selected { background: rgba(137,180,250,0.08); border-left: 2px solid var(--accent-blue); }
         .mail-item.is-sent { opacity: 0.7; }
         .mail-item-check {
             width: 20px; height: 20px; min-width: 20px;
@@ -515,8 +518,8 @@
 
         /* ─── Timeline ──────────────────────────────── */
         .timeline-container {
-            background: var(--card); border: 1px solid var(--card-border); border-radius: 16px;
-            margin-bottom: 1.5rem; overflow: hidden;
+            background: var(--bg-surface); border: 1px solid var(--card-border); border-radius: var(--radius-md);
+            margin-bottom: 1rem; overflow: hidden;
         }
         .timeline-header {
             display: flex; justify-content: space-between; align-items: center;
@@ -577,8 +580,8 @@
         .timeline-today-col .timeline-day-label { color: var(--accent-blue); font-weight: 700; }
         .timeline-popover {
             position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
-            background: var(--card); border: 1px solid var(--card-border); border-radius: 10px;
-            padding: 0.75rem; min-width: 200px; z-index: 200;
+            background: var(--bg-surface); border: 1px solid var(--card-border); border-radius: var(--radius-md);
+            padding: 0.6rem; min-width: 200px; z-index: 200;
             box-shadow: var(--shadow-lg); display: none;
         }
         .timeline-popover.show { display: block; }
@@ -629,9 +632,9 @@
 
         /* ─── Inbox Tab ──────────────────────────────── */
         .inbox-layout {
-            display: flex; gap: 0; height: calc(100vh - 250px);
-            background: var(--card); border: 1px solid var(--card-border);
-            border-radius: 16px; overflow: hidden;
+            display: flex; gap: 0; height: calc(100vh - 230px);
+            background: var(--bg-surface); border: 1px solid var(--card-border);
+            border-radius: var(--radius-md); overflow: hidden;
         }
         .inbox-list-panel {
             width: 380px; min-width: 300px; border-right: 1px solid var(--card-border);
@@ -642,9 +645,9 @@
             padding: 0.75rem; border-bottom: 1px solid var(--card-border);
         }
         .inbox-search input {
-            width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--card-border);
-            border-radius: 8px; background: var(--progress-bg); color: var(--text);
-            font-size: 0.85rem; font-family: inherit;
+            width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm); background: var(--progress-bg); color: var(--text);
+            font-size: 0.8rem; font-family: inherit;
         }
         .inbox-search input:focus { outline: none; border-color: var(--accent-blue); }
         .inbox-filters {
@@ -656,10 +659,10 @@
             background: transparent; color: var(--text-muted); cursor: pointer;
             font-size: 0.75rem; font-weight: 600; transition: all 0.15s;
         }
-        .inbox-filter-btn:first-child { border-radius: 6px 0 0 6px; }
-        .inbox-filter-btn:last-child { border-radius: 0 6px 6px 0; }
+        .inbox-filter-btn:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+        .inbox-filter-btn:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
         .inbox-filter-btn.active {
-            background: rgba(74,144,244,0.15); border-color: var(--accent-blue);
+            background: rgba(137,180,250,0.1); border-color: var(--accent-blue);
             color: var(--accent-blue);
         }
         .inbox-list { flex: 1; overflow-y: auto; }
@@ -668,8 +671,8 @@
             padding: 0.75rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.03);
             cursor: pointer; transition: background 0.12s;
         }
-        .inbox-item:hover { background: rgba(74,144,244,0.06); }
-        .inbox-item.selected { background: rgba(74,144,244,0.12); border-left: 3px solid var(--accent-blue); }
+        .inbox-item:hover { background: rgba(137,180,250,0.04); }
+        .inbox-item.selected { background: rgba(137,180,250,0.08); border-left: 2px solid var(--accent-blue); }
         .inbox-item.unread .inbox-item-from,
         .inbox-item.unread .inbox-item-subject { font-weight: 700; color: var(--text); }
         .inbox-item-dot {
@@ -761,7 +764,7 @@
         /* ─── Account Form ────────────────────────────── */
         .account-card {
             background: var(--progress-bg); border: 1px solid var(--card-border);
-            border-radius: 12px; padding: 1rem; margin-bottom: 0.75rem; position: relative;
+            border-radius: var(--radius-sm); padding: 0.75rem; margin-bottom: 0.5rem; position: relative;
         }
         .account-card .account-delete {
             position: absolute; top: 0.5rem; right: 0.5rem;
@@ -780,9 +783,9 @@
         .account-card input[type="text"],
         .account-card input[type="password"],
         .account-card input[type="number"] {
-            width: 100%; padding: 0.4rem 0.6rem; border: 1px solid var(--card-border);
-            border-radius: 6px; background: var(--card); color: var(--text);
-            font-size: 0.8rem; font-family: inherit;
+            width: 100%; padding: 0.35rem 0.5rem; border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm); background: var(--bg-surface); color: var(--text);
+            font-size: 0.78rem; font-family: inherit;
         }
         .account-card input:focus { outline: none; border-color: var(--accent-blue); }
         .account-card .account-toggle {
@@ -801,13 +804,14 @@
             .tab-btn { font-size: 0.85rem; padding: 0.7rem 0.5rem; }
         }
     </style>
+    <script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
 </head>
 <body>
 
 <!-- ─── Custom Titlebar ────────────────────────── -->
 <div class="titlebar" id="titlebar">
-    <span class="titlebar-icon">🩺</span>
-    <span class="titlebar-title">Todo & Mail</span>
+    <span class="titlebar-icon"><i class="lucide-terminal"></i></span>
+    <span class="titlebar-title">NexoMail</span>
     <div class="titlebar-controls">
         <button class="titlebar-btn" id="btn-minimize" title="Réduire">
             <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -827,9 +831,10 @@
 <div class="container">
     <!-- Tab Bar -->
     <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('todo')">📋 Todo</button>
-        <button class="tab-btn" onclick="switchTab('inbox')">📥 Inbox</button>
-        <button class="tab-btn" onclick="switchTab('mail')">📧 Mail</button>
+        <button class="tab-btn active" onclick="switchTab('todo')"><i class="lucide-list-checks"></i> Todo</button>
+        <button class="tab-btn" onclick="switchTab('inbox')"><i class="lucide-inbox"></i> Inbox</button>
+        <button class="tab-btn" onclick="switchTab('mail')"><i class="lucide-send"></i> Mail</button>
+        <button class="tab-btn" onclick="switchTab('graph')"><i class="lucide-network"></i> Graph</button>
     </div>
 
     <!-- TODO TAB -->
@@ -840,11 +845,11 @@
     <!-- INBOX TAB -->
     <div class="tab-content" id="tab-inbox">
         <header>
-            <h1>📥 Boîte de réception</h1>
+            <h1><i class="lucide-inbox"></i> Boîte de réception</h1>
             <div class="header-actions">
-                <button onclick="fetchEmails()">🔄 Relever le courrier</button>
-                <button onclick="openAccountsModal()">👤 Comptes</button>
-                <button onclick="exportAllObsidian()">📓 Tout exporter → Obsidian</button>
+                <button onclick="fetchEmails()"><i class="lucide-refresh-cw"></i> Relever</button>
+                <button onclick="openAccountsModal()"><i class="lucide-user"></i> Comptes</button>
+                <button onclick="exportAllObsidian()"><i class="lucide-book-open"></i> Exporter Obsidian</button>
             </div>
         </header>
 
@@ -853,19 +858,19 @@
         <div class="inbox-layout">
             <div class="inbox-list-panel" id="inboxListPanel">
                 <div class="inbox-search">
-                    <input type="text" id="inboxSearch" placeholder="🔍 Rechercher dans les mails…" oninput="filterInbox()">
+                    <input type="text" id="inboxSearch" placeholder="Rechercher dans les mails…" oninput="filterInbox()">
                 </div>
                 <div class="inbox-filters">
                     <button class="inbox-filter-btn active" onclick="setInboxFilter('all', this)">Tous</button>
                     <button class="inbox-filter-btn" onclick="setInboxFilter('unread', this)">Non lus</button>
-                    <button class="inbox-filter-btn" onclick="setInboxFilter('starred', this)">⭐</button>
+                    <button class="inbox-filter-btn" onclick="setInboxFilter('starred', this)"><i class="lucide-star"></i></button>
                 </div>
                 <div id="inboxList" class="inbox-list"></div>
             </div>
             <div class="inbox-reader-panel" id="inboxReaderPanel">
                 <div id="inboxReader" class="inbox-reader">
                     <div class="inbox-reader-empty">
-                        <span style="font-size:3rem">📬</span>
+                        <i class="lucide-mail-open" style="font-size:2.5rem;color:var(--text-muted)"></i>
                         <p>Sélectionne un mail pour le lire</p>
                     </div>
                 </div>
@@ -884,7 +889,7 @@
         <!-- Mail Composer -->
         <div class="mail-composer" id="mailComposer">
             <div id="selectedTaskBanner"></div>
-            <h2>📧 Rédiger un mail</h2>
+            <h2><i class="lucide-pen-line"></i> Rédiger un mail</h2>
             <div class="mail-field">
                 <label>Expéditeur</label>
                 <select id="mailFrom">
@@ -914,24 +919,55 @@
                 <textarea id="mailBody" placeholder="Rédigez votre mail ici…"></textarea>
             </div>
             <div class="mail-actions">
-                <button onclick="sendMailSMTP()" style="background:var(--accent-blue)!important;border-color:var(--accent-blue)!important;color:white!important">📤 Envoyer (SMTP)</button>
-                <button class="accent-purple" onclick="reformulateMail()">🤖 Reformuler</button>
-                <button class="accent-green" onclick="saveMailEml()">💾 Enregistrer (.eml)</button>
-                <button class="accent-orange" onclick="openInThunderbird()">🐦 Ouvrir dans Thunderbird</button>
+                <button onclick="sendMailSMTP()" style="background:var(--accent-blue)!important;border-color:var(--accent-blue)!important;color:white!important"><i class="lucide-send"></i> Envoyer</button>
+                <button class="accent-purple" onclick="reformulateMail()"><i class="lucide-sparkles"></i> Reformuler</button>
+                <button class="accent-green" onclick="saveMailEml()"><i class="lucide-save"></i> Enregistrer</button>
+                <button class="accent-orange" onclick="openInThunderbird()"><i class="lucide-external-link"></i> Thunderbird</button>
             </div>
             <div class="mail-actions" id="mailSentActions" style="margin-top:0.5rem; display:none"></div>
         </div>
 
         <!-- v3.py execution -->
         <div class="mail-composer">
-            <h2>📬 Importer des mails (v3.py)</h2>
+            <h2><i class="lucide-download"></i> Importer des mails (v3.py)</h2>
             <div class="mail-actions">
-                <button onclick="runV3()">▶️ Exécuter v3.py</button>
+                <button onclick="runV3()"><i class="lucide-play"></i> Exécuter v3.py</button>
             </div>
             <div class="terminal-output" id="v3output" style="display:none"></div>
         </div>
     </div>
 </div>
+
+    <!-- GRAPH TAB -->
+    <div class="tab-content" id="tab-graph">
+        <div class="graph-sidebar">
+            <div class="graph-search">
+                <input type="text" id="graphSearchInput" placeholder="Rechercher un noeud…" oninput="filterGraphNodes(this.value)">
+            </div>
+            <div class="graph-filters">
+                <label><input type="checkbox" checked data-group="md" onchange="toggleGraphGroup(this)"> <i class="lucide-file-text"></i> Notes</label>
+                <label><input type="checkbox" checked data-group="mail" onchange="toggleGraphGroup(this)"> <i class="lucide-mail"></i> Mails</label>
+                <label><input type="checkbox" checked data-group="attachment" onchange="toggleGraphGroup(this)"> <i class="lucide-paperclip"></i> Fichiers</label>
+                <label><input type="checkbox" checked data-group="orphan" onchange="toggleGraphGroup(this)"> <i class="lucide-circle-dashed"></i> Orphelins</label>
+            </div>
+            <div class="graph-node-list" id="graphNodeList"></div>
+        </div>
+        <div class="graph-canvas-wrap">
+            <div id="cy"></div>
+            <div class="graph-zoom-controls">
+                <button onclick="cyInstance&&cyInstance.zoom(cyInstance.zoom()*1.2)" title="Zoom in">+</button>
+                <button onclick="cyInstance&&cyInstance.zoom(cyInstance.zoom()/1.2)" title="Zoom out">−</button>
+                <button onclick="cyInstance&&cyInstance.fit(undefined,40)" title="Fit">⊡</button>
+            </div>
+        </div>
+        <div class="graph-reader" id="graphReader">
+            <div class="graph-reader-header">
+                <h3 id="graphReaderTitle">—</h3>
+                <button onclick="closeGraphReader()">✕</button>
+            </div>
+            <div class="graph-reader-body" id="graphReaderBody"></div>
+        </div>
+    </div>
 
 </div><!-- end .container -->
 </div><!-- end .app-content -->
@@ -970,7 +1006,7 @@
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settingsModal" onclick="if(event.target===this)closeSettings()">
     <div class="modal">
-        <h2>⚙️ Paramètres</h2>
+        <h2><i class="lucide-settings"></i> Paramètres</h2>
         <div class="form-group">
             <label>Clé API Gemini</label>
             <input type="password" id="geminiKeyInput" placeholder="AIza...">
@@ -986,7 +1022,7 @@
 <!-- Reminder Modal -->
 <div class="modal-overlay" id="reminderModal" onclick="if(event.target===this)closeReminderModal()">
     <div class="modal" style="max-width:600px">
-        <h2 id="reminderModalTitle">📧 Relance générée par IA</h2>
+        <h2 id="reminderModalTitle"><i class="lucide-sparkles"></i> Relance générée par IA</h2>
         <div class="mail-field">
             <label>Destinataire</label>
             <input type="text" id="reminderTo" readonly>
@@ -1001,13 +1037,13 @@
         </div>
         <div class="modal-actions">
             <button onclick="closeReminderModal()">Annuler</button>
-            <button class="accent-purple" onclick="reformulateReminder()">🤖 Reformuler</button>
-            <button class="accent-green" onclick="saveReminderEml()">💾 .eml</button>
-            <button class="accent-orange" onclick="sendReminderThunderbird()">🐦 Thunderbird</button>
+            <button class="accent-purple" onclick="reformulateReminder()"><i class="lucide-sparkles"></i> Reformuler</button>
+            <button class="accent-green" onclick="saveReminderEml()"><i class="lucide-save"></i> .eml</button>
+            <button class="accent-orange" onclick="sendReminderThunderbird()"><i class="lucide-external-link"></i> Thunderbird</button>
         </div>
         <div class="modal-actions" style="margin-top:0.5rem;">
-            <button class="btn-sent-confirm" onclick="confirmReminderSent()">✅ Rappel envoyé</button>
-            <button class="btn-response-received" onclick="confirmReminderResponseReceived()">📨 Réponse reçue</button>
+            <button class="btn-sent-confirm" onclick="confirmReminderSent()"><i class="lucide-check"></i> Rappel envoyé</button>
+            <button class="btn-response-received" onclick="confirmReminderResponseReceived()"><i class="lucide-mail-check"></i> Réponse reçue</button>
         </div>
     </div>
 </div>
@@ -1015,12 +1051,12 @@
 <!-- Accounts Modal -->
 <div class="modal-overlay" id="accountsModal" onclick="if(event.target===this)closeAccountsModal()">
     <div class="modal" style="max-width:650px">
-        <h2>👤 Comptes POP3 / SMTP</h2>
+        <h2><i class="lucide-user"></i> Comptes POP3 / SMTP</h2>
         <div id="accountsList"></div>
         <button class="add-task-btn" onclick="addAccountForm()" style="margin-bottom:1rem">+ Ajouter un compte</button>
         <div class="modal-actions">
             <button onclick="closeAccountsModal()">Annuler</button>
-            <button class="btn-primary" onclick="saveAccountsFromModal()">💾 Enregistrer</button>
+            <button class="btn-primary" onclick="saveAccountsFromModal()"><i class="lucide-save"></i> Enregistrer</button>
         </div>
     </div>
 </div>
@@ -1028,7 +1064,7 @@
 <!-- Delete Confirm Modal -->
 <div class="modal-overlay" id="deleteMailModal" onclick="if(event.target===this)closeDeleteMailModal()">
     <div class="modal" style="max-width:400px">
-        <h2>🗑️ Supprimer ce mail ?</h2>
+        <h2><i class="lucide-trash-2"></i> Supprimer ce mail ?</h2>
         <p style="color:var(--text-muted);margin-bottom:1rem" id="deleteMailSubject"></p>
         <div class="form-group">
             <label>
@@ -1037,7 +1073,7 @@
         </div>
         <div class="modal-actions">
             <button onclick="closeDeleteMailModal()">Annuler</button>
-            <button class="btn-danger" onclick="confirmDeleteMail()">🗑️ Supprimer</button>
+            <button class="btn-danger" onclick="confirmDeleteMail()"><i class="lucide-trash-2"></i> Supprimer</button>
         </div>
     </div>
 </div>
@@ -1096,13 +1132,15 @@ function switchTab(tab) {
         b.classList.toggle('active',
             (i === 0 && tab === 'todo') ||
             (i === 1 && tab === 'inbox') ||
-            (i === 2 && tab === 'mail')
+            (i === 2 && tab === 'mail') ||
+            (i === 3 && tab === 'graph')
         );
     });
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.getElementById('tab-' + tab).classList.add('active');
     if (tab === 'mail') renderMailTab();
     if (tab === 'inbox') loadInbox();
+    if (tab === 'graph') initGraphIfNeeded();
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1177,12 +1215,12 @@ function render() {
 function renderHeader() {
     return `
     <header>
-        <h1>📋 Plan d'action</h1>
+        <h1><i class="lucide-list-checks"></i> Plan d'action</h1>
         <div class="header-actions">
             <button onclick="toggleEdit()" class="${editMode ? 'active' : ''}">
-                ${editMode ? '✅ Terminer' : '✏️ Éditer'}
+                ${editMode ? '<i class="lucide-check"></i> Terminer' : '<i class="lucide-pencil"></i> Éditer'}
             </button>
-            <button onclick="openSettings()">⚙️</button>
+            <button onclick="openSettings()"><i class="lucide-settings"></i></button>
         </div>
     </header>`;
 }
@@ -1205,8 +1243,8 @@ function renderSections() {
     return state.sections.map(s => {
         const tasksHtml = s.tasks.map(t => renderTask(t, s.id)).join('');
         const editBtns = editMode ? `
-            <button class="btn-icon" onclick="event.stopPropagation();openSectionModal('${s.id}')" title="Modifier">✏️</button>
-            <button class="btn-icon" onclick="event.stopPropagation();deleteSection('${s.id}')" title="Supprimer">🗑️</button>
+            <button class="btn-icon" onclick="event.stopPropagation();openSectionModal('${s.id}')" title="Modifier"><i class="lucide-pencil"></i></button>
+            <button class="btn-icon" onclick="event.stopPropagation();deleteSection('${s.id}')" title="Supprimer"><i class="lucide-trash-2"></i></button>
         ` : '';
         const desc = s.description
             ? `<p class="section-desc" data-desc="${s.id}" ${s.collapsed ? 'style="display:none"' : ''}>${esc(s.description)}</p>`
@@ -1214,7 +1252,7 @@ function renderSections() {
         const addBtns = editMode
             ? `<div class="add-task-buttons">
                 <button onclick="addTask('${s.id}','task')">+ Tâche</button>
-                <button class="mail-btn" onclick="addTask('${s.id}','mail')">📧 + Mail</button>
+                <button class="mail-btn" onclick="addTask('${s.id}','mail')"><i class="lucide-mail"></i> + Mail</button>
                </div>`
             : '';
         return `
@@ -1254,7 +1292,7 @@ function renderTask(t, sid) {
 
     if (editMode) {
         const typeBadge = (t.type === 'mail' || t.isMail)
-            ? '<span class="task-type-badge">📧 Mail</span>'
+            ? '<span class="task-type-badge"><i class="lucide-mail"></i> Mail</span>'
             : '';
         return `
         <div class="${cls}" data-sid="${sid}" data-tid="${t.id}" draggable="true">
@@ -1271,7 +1309,7 @@ function renderTask(t, sid) {
             <div class="edit-actions">
                 ${typeBadge}
                 <button class="btn-icon" onclick="toggleIndent('${sid}','${t.id}')" title="Indenter / Désindenter">↔</button>
-                <button class="btn-icon" onclick="deleteTask('${sid}','${t.id}')" title="Supprimer">🗑️</button>
+                <button class="btn-icon" onclick="deleteTask('${sid}','${t.id}')" title="Supprimer"><i class="lucide-trash-2"></i></button>
             </div>
         </div>`;
     }
@@ -1635,7 +1673,7 @@ async function reformulateMail() {
     const body = document.getElementById('mailBody').value.trim();
     if (!body) { showToast('Écris un message d\'abord.', 'error'); return; }
     if (!state.settings.geminiKey) {
-        showToast('Configure ta clé API Gemini dans ⚙️', 'error', 3000);
+        showToast('Configure ta clé API Gemini dans les paramètres', 'error', 3000);
         openSettings();
         return;
     }
@@ -1717,14 +1755,14 @@ async function runV3() {
         const r = await fetch('/api/run-v3', { method: 'POST' });
         const result = await r.json();
         if (result.ok) {
-            outEl.textContent = result.output || '✅ Terminé (aucune sortie)';
+            outEl.textContent = result.output || 'Terminé (aucune sortie)';
             showToast('v3.py exécuté avec succès !', 'success');
         } else {
-            outEl.textContent = '❌ Erreur :\n' + (result.error || result.output || 'Erreur inconnue');
+            outEl.textContent = 'rreur :\n' + (result.error || result.output || 'Erreur inconnue');
             showToast('Erreur v3.py', 'error', 3000);
         }
     } catch (e) {
-        outEl.textContent = '❌ Erreur réseau : ' + e.message;
+        outEl.textContent = 'rreur réseau : ' + e.message;
         showToast('Erreur : ' + e.message, 'error', 5000);
     }
 }
@@ -1782,9 +1820,9 @@ function renderMailList() {
 
     if (!mails.length) {
         container.innerHTML = `
-            <h2>📬 Mails à traiter</h2>
+            <h2><i class="lucide-mail"></i> Mails à traiter</h2>
             <div class="mail-pending-empty">
-                Aucun mail à traiter. Crée un mail depuis l'onglet Todo<br>(mode édition → <strong>📧 + Mail</strong>).
+                Aucun mail à traiter. Crée un mail depuis l'onglet Todo<br>(mode édition → <strong><i class="lucide-mail"></i> + Mail</strong>).
             </div>`;
         return;
     }
@@ -1793,7 +1831,7 @@ function renderMailList() {
     const waiting = mails.filter(m => m.sentAt && !m.respondedAt);
     const responded = mails.filter(m => m.respondedAt);
 
-    let html = '<h2>📬 Mails à traiter</h2>';
+    let html = '<h2><i class="lucide-mail"></i> Mails à traiter</h2>';
     if (pending.length) html += renderMailGroup('À envoyer', pending);
     if (waiting.length) html += renderMailGroup('En attente de réponse', waiting);
     if (responded.length) html += renderMailGroup('Terminés', responded);
@@ -1812,7 +1850,7 @@ function renderMailGroup(title, mails) {
 
         let actionsHtml = '';
         if (status === 'sent' || status === 'waiting') {
-            actionsHtml += `<button onclick="event.stopPropagation();markResponseReceived('${m.sectionId}','${m.id}')" title="Réponse reçue">✅</button>`;
+            actionsHtml += `<button onclick="event.stopPropagation();markResponseReceived('${m.sectionId}','${m.id}')" title="Réponse reçue"><i class="lucide-check"></i></button>`;
         }
 
         return `
@@ -1882,17 +1920,17 @@ function updateMailComposerState() {
             const status = getMailTaskStatus(t);
             banner.innerHTML = `
                 <div class="selected-task-banner">
-                    <span>📧 <strong>${esc(t.label || 'Sans titre')}</strong></span>
+                    <span><i class="lucide-mail"></i> <strong>${esc(t.label || 'Sans titre')}</strong></span>
                     ${status !== 'pending' ? `<span class="mail-item-status ${status}" style="margin-left:0.5rem">${getMailStatusLabel(status)}</span>` : ''}
                     <button class="deselect-btn" onclick="deselectMailTask()">✕</button>
                 </div>`;
             if (sentActions) {
                 if (!t.sentAt) {
                     sentActions.style.display = '';
-                    sentActions.innerHTML = `<button class="btn-sent-confirm" onclick="markCurrentMailSent()">✅ Marquer comme envoyé</button>`;
+                    sentActions.innerHTML = `<button class="btn-sent-confirm" onclick="markCurrentMailSent()"><i class="lucide-check"></i> Marquer comme envoyé</button>`;
                 } else if (!t.respondedAt) {
                     sentActions.style.display = '';
-                    sentActions.innerHTML = `<button class="btn-response-received" onclick="markCurrentResponseReceived()">📨 Réponse reçue</button>`;
+                    sentActions.innerHTML = `<button class="btn-response-received" onclick="markCurrentResponseReceived()"><i class="lucide-mail-check"></i> Réponse reçue</button>`;
                 } else {
                     sentActions.style.display = 'none';
                 }
@@ -2044,7 +2082,7 @@ function renderTimeline() {
 
     let html = `
         <div class="timeline-header">
-            <h2>📅 ${esc(monthName.charAt(0).toUpperCase() + monthName.slice(1))}</h2>
+            <h2><i class="lucide-calendar"></i> ${esc(monthName.charAt(0).toUpperCase() + monthName.slice(1))}</h2>
             <div class="timeline-nav">
                 <button onclick="navigateTimeline(-1)">◀</button>
                 <button onclick="navigateTimeline(0)">Aujourd'hui</button>
@@ -2164,17 +2202,17 @@ function showTimelinePopover(evt, dateStr) {
         html += `<div class="timeline-popover-actions">`;
 
         if (e.isReminder && e.dotClass === 'reminder-due') {
-            html += `<button onclick="handleDueReminder('${e.reminderId}')">🤖 Générer relance IA</button>`;
-            html += `<button onclick="markReminderResponseReceived('${e.reminderId}')">✅ Réponse reçue</button>`;
-            html += `<button onclick="editReminderDate('${e.reminderId}')">📅 Modifier la date</button>`;
-            html += `<button class="danger" onclick="dismissReminderFromTimeline('${e.reminderId}')">🗑 Supprimer</button>`;
+            html += `<button onclick="handleDueReminder('${e.reminderId}')"><i class="lucide-sparkles"></i> Générer relance IA</button>`;
+            html += `<button onclick="markReminderResponseReceived('${e.reminderId}')"><i class="lucide-check"></i> Réponse reçue</button>`;
+            html += `<button onclick="editReminderDate('${e.reminderId}')"><i class="lucide-calendar"></i> Modifier la date</button>`;
+            html += `<button class="danger" onclick="dismissReminderFromTimeline('${e.reminderId}')"><i class="lucide-trash-2"></i> Supprimer</button>`;
         } else if (e.isReminder && e.dotClass === 'reminder-pending') {
-            html += `<button onclick="handleDueReminder('${e.reminderId}')">🤖 Traiter maintenant</button>`;
-            html += `<button onclick="markReminderResponseReceived('${e.reminderId}')">✅ Réponse reçue</button>`;
-            html += `<button onclick="editReminderDate('${e.reminderId}')">📅 Modifier la date</button>`;
-            html += `<button class="danger" onclick="dismissReminderFromTimeline('${e.reminderId}')">🗑 Supprimer</button>`;
+            html += `<button onclick="handleDueReminder('${e.reminderId}')"><i class="lucide-sparkles"></i> Traiter maintenant</button>`;
+            html += `<button onclick="markReminderResponseReceived('${e.reminderId}')"><i class="lucide-check"></i> Réponse reçue</button>`;
+            html += `<button onclick="editReminderDate('${e.reminderId}')"><i class="lucide-calendar"></i> Modifier la date</button>`;
+            html += `<button class="danger" onclick="dismissReminderFromTimeline('${e.reminderId}')"><i class="lucide-trash-2"></i> Supprimer</button>`;
         } else if (e.type === 'sent' || e.type === 'reminder_sent') {
-            html += `<button onclick="selectMailForCompose('${e.sectionId}','${e.taskId}')">📧 Voir le mail</button>`;
+            html += `<button onclick="selectMailForCompose('${e.sectionId}','${e.taskId}')"><i class="lucide-mail"></i> Voir le mail</button>`;
         }
 
         html += `</div></div>`;
@@ -2205,7 +2243,7 @@ async function handleDueReminder(rid) {
     document.querySelectorAll('.timeline-popover').forEach(p => p.remove());
 
     if (!state.settings.geminiKey) {
-        showToast('Configure ta clé API Gemini dans ⚙️', 'error', 3000);
+        showToast('Configure ta clé API Gemini dans les paramètres', 'error', 3000);
         openSettings();
         return;
     }
@@ -2330,7 +2368,7 @@ async function reformulateReminder() {
     const body = document.getElementById('reminderBody').value.trim();
     if (!body) { showToast('Écris un message d\'abord.', 'error'); return; }
     if (!state.settings.geminiKey) {
-        showToast('Configure ta clé API Gemini dans ⚙️', 'error', 3000);
+        showToast('Configure ta clé API Gemini dans les paramètres', 'error', 3000);
         return;
     }
     showLoading('L\'IA reformule la relance…');
@@ -2405,7 +2443,7 @@ function updateMailBadge() {
     const total = pending.length + dueReminders.length;
     const tabBtn = document.querySelectorAll('.tab-btn')[1];
     if (tabBtn) {
-        tabBtn.textContent = total > 0 ? `📧 Mail ● ${total}` : '📧 Mail';
+        tabBtn.innerHTML = total > 0 ? `<i class="lucide-send"></i> Mail <span style="font-size:0.7em;color:var(--accent-orange)">● ${total}</span>` : '<i class="lucide-send"></i> Mail';
     }
 }
 
@@ -2531,7 +2569,7 @@ function renderInboxList() {
 
     if (!mails.length) {
         container.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-muted)">
-            ${inboxMails.length ? 'Aucun résultat' : 'Boîte de réception vide. Clique sur 🔄 pour relever le courrier.'}
+            ${inboxMails.length ? 'Aucun résultat' : 'Boîte de réception vide. Clique sur Relever pour récupérer le courrier.'}
         </div>`;
         return;
     }
@@ -2555,7 +2593,7 @@ function renderInboxList() {
                 </div>
                 <div class="inbox-item-subject">${esc(m.subject || 'Sans sujet')}</div>
                 <div class="inbox-item-preview">${esc(preview)}</div>
-                ${hasAttach ? '<div class="inbox-item-attach">📎 ' + m.attachments.length + ' pièce(s) jointe(s)</div>' : ''}
+                ${hasAttach ? '<div class="inbox-item-attach"><i class="lucide-paperclip"></i> ' + m.attachments.length + ' pièce(s) jointe(s)</div>' : ''}
             </div>
         </div>`;
     }).join('');
@@ -2590,7 +2628,7 @@ function renderInboxReader(mail) {
 
     const attachHtml = mail.attachments && mail.attachments.length > 0
         ? `<div class="inbox-reader-attach">
-            <h4>📎 Pièces jointes</h4>
+            <h4><i class="lucide-paperclip"></i> Pièces jointes</h4>
             ${mail.attachments.map(a => `<span class="att-item">${esc(a)}</span>`).join('')}
            </div>`
         : '';
@@ -2606,11 +2644,11 @@ function renderInboxReader(mail) {
                 <span><strong>Compte :</strong> ${esc(mail.account || '')}</span>
             </div>
             <div class="inbox-reader-actions">
-                <button onclick="replyToMail('${esc(mail.id)}')">↩️ Répondre</button>
-                <button onclick="forwardMail('${esc(mail.id)}')">↪️ Transférer</button>
-                <button onclick="exportMailObsidian('${esc(mail.id)}')">📓 Exporter → Obsidian</button>
-                <button onclick="toggleInboxRead('${esc(mail.id)}')">${mail.read ? '📩 Marquer non lu' : '📬 Marquer lu'}</button>
-                <button class="danger" onclick="openDeleteMailModal('${esc(mail.id)}')">🗑️ Supprimer</button>
+                <button onclick="replyToMail('${esc(mail.id)}')"><i class="lucide-reply"></i> Répondre</button>
+                <button onclick="forwardMail('${esc(mail.id)}')"><i class="lucide-forward"></i> Transférer</button>
+                <button onclick="exportMailObsidian('${esc(mail.id)}')"><i class="lucide-book-open"></i> Exporter</button>
+                <button onclick="toggleInboxRead('${esc(mail.id)}')">${mail.read ? '<i class="lucide-mail-open"></i> Marquer non lu' : '<i class="lucide-mail"></i> Marquer lu'}</button>
+                <button class="danger" onclick="openDeleteMailModal('${esc(mail.id)}')"><i class="lucide-trash-2"></i> Supprimer</button>
             </div>
         </div>
         <div class="inbox-reader-body">${esc(mail.body || '(aucun contenu)')}</div>
@@ -2624,25 +2662,25 @@ async function fetchEmails() {
     const statusEl = document.getElementById('inbox-status');
     statusEl.style.display = 'block';
     statusEl.className = 'inbox-status loading';
-    statusEl.textContent = '🔄 Connexion aux serveurs POP3…';
+    statusEl.textContent = 'Connexion aux serveurs POP3…';
 
     try {
         const r = await fetch('/api/fetch-emails', { method: 'POST' });
         const result = await r.json();
         if (result.error) {
             statusEl.className = 'inbox-status error';
-            statusEl.textContent = '❌ ' + result.error;
+            statusEl.textContent = ' + result.error;
         } else {
             await loadInbox();
             const errStr = result.errors && result.errors.length
                 ? ` (${result.errors.length} erreur(s))`
                 : '';
             statusEl.className = 'inbox-status success';
-            statusEl.textContent = `✅ ${result.new_count} nouveau(x) mail(s) récupéré(s)${errStr}`;
+            statusEl.textContent = `${result.new_count} nouveau(x) mail(s) récupéré(s)${errStr}`;
         }
     } catch (e) {
         statusEl.className = 'inbox-status error';
-        statusEl.textContent = '❌ Erreur réseau : ' + e.message;
+        statusEl.textContent = 'rreur réseau : ' + e.message;
     }
 
     setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
@@ -2720,12 +2758,12 @@ async function exportMailObsidian(mailId) {
         });
         const result = await r.json();
         if (result.ok) {
-            showToast('✅ Exporté vers Obsidian !', 'success', 3000);
+            showToast('Exporté vers Obsidian !', 'success', 3000);
         } else {
-            showToast('❌ ' + (result.error || 'Erreur'), 'error', 5000);
+            showToast(' + (result.error || 'Erreur'), 'error', 5000);
         }
     } catch (e) {
-        showToast('❌ ' + e.message, 'error', 5000);
+        showToast(' + e.message, 'error', 5000);
     } finally {
         hideLoading();
     }
@@ -2740,12 +2778,12 @@ async function exportAllObsidian() {
             const errStr = result.errors && result.errors.length
                 ? ` (${result.errors.length} erreur(s))`
                 : '';
-            showToast(`✅ ${result.exported} mail(s) exporté(s)${errStr}`, 'success', 3000);
+            showToast(`${result.exported} mail(s) exporté(s)${errStr}`, 'success', 3000);
         } else {
-            showToast('❌ ' + (result.error || 'Erreur'), 'error', 5000);
+            showToast(' + (result.error || 'Erreur'), 'error', 5000);
         }
     } catch (e) {
-        showToast('❌ ' + e.message, 'error', 5000);
+        showToast(' + e.message, 'error', 5000);
     } finally {
         hideLoading();
     }
@@ -2785,18 +2823,18 @@ async function confirmDeleteMail() {
                 selectedInboxId = null;
                 document.getElementById('inboxReader').innerHTML = `
                     <div class="inbox-reader-empty">
-                        <span style="font-size:3rem">📬</span>
+                        <i class="lucide-mail-open" style="font-size:2.5rem;color:var(--text-muted)"></i>
                         <p>Sélectionne un mail pour le lire</p>
                     </div>`;
             }
             renderInboxList();
             updateInboxBadge();
-            showToast('✅ Mail supprimé', 'success');
+            showToast('Mail supprimé', 'success');
         } else {
-            showToast('❌ ' + (result.error || 'Erreur'), 'error', 5000);
+            showToast(' + (result.error || 'Erreur'), 'error', 5000);
         }
     } catch (e) {
-        showToast('❌ ' + e.message, 'error', 5000);
+        showToast(' + e.message, 'error', 5000);
     } finally {
         hideLoading();
     }
@@ -2809,7 +2847,7 @@ function updateInboxBadge() {
     const unread = inboxMails.filter(m => !m.read).length;
     const tabBtn = document.querySelectorAll('.tab-btn')[1];
     if (tabBtn) {
-        tabBtn.textContent = unread > 0 ? `📥 Inbox (${unread})` : '📥 Inbox';
+        tabBtn.innerHTML = unread > 0 ? `<i class="lucide-inbox"></i> Inbox <span style="font-size:0.75em;color:var(--accent-blue)">(${unread})</span>` : '<i class="lucide-inbox"></i> Inbox';
     }
 }
 
@@ -2920,14 +2958,14 @@ async function saveAccountsFromModal() {
         const result = await r.json();
         if (result.ok) {
             closeAccountsModal();
-            showToast('✅ Comptes enregistrés', 'success');
+            showToast('Comptes enregistrés', 'success');
             // Update the mail composer's From dropdown
             updateMailFromOptions();
         } else {
-            showToast('❌ ' + (result.error || 'Erreur'), 'error', 5000);
+            showToast(' + (result.error || 'Erreur'), 'error', 5000);
         }
     } catch (e) {
-        showToast('❌ ' + e.message, 'error', 5000);
+        showToast(' + e.message, 'error', 5000);
     }
 }
 
@@ -2967,12 +3005,12 @@ async function sendMailSMTP() {
         });
         const result = await r.json();
         if (result.ok) {
-            showToast('✅ Mail envoyé !', 'success', 3000);
+            showToast('Mail envoyé !', 'success', 3000);
         } else {
-            showToast('❌ ' + (result.error || 'Erreur'), 'error', 5000);
+            showToast(' + (result.error || 'Erreur'), 'error', 5000);
         }
     } catch (e) {
-        showToast('❌ ' + e.message, 'error', 5000);
+        showToast(' + e.message, 'error', 5000);
     } finally {
         hideLoading();
     }
@@ -3048,6 +3086,237 @@ if (window.electronAPI) {
 }
 
 /* ═══════════════════════════════════════════════════════
+   Vault Graph (Cytoscape.js)
+   ═══════════════════════════════════════════════════════ */
+let cyInstance = null;
+let graphData = null;
+let graphHiddenGroups = new Set();
+
+const GROUP_COLORS = {
+    mail: '#63b3ed',
+    md: '#68d391',
+    attachment: '#ed8936',
+    orphan: '#a0aec0'
+};
+
+async function initGraphIfNeeded() {
+    if (cyInstance) return;
+    try {
+        const r = await fetch('/api/vault/graph');
+        if (!r.ok) throw new Error('Failed to load graph');
+        graphData = await r.json();
+        buildCytoscape();
+        buildNodeList();
+    } catch (err) {
+        console.error('Graph load error:', err);
+        document.getElementById('cy').innerHTML =
+            '<p style="padding:2rem;color:var(--text-muted)">Erreur de chargement du graphe.</p>';
+    }
+}
+
+function buildCytoscape() {
+    const elements = [];
+    for (const n of graphData.nodes) {
+        elements.push({
+            data: {
+                id: n.id, label: n.label, group: n.group,
+                path: n.path || '', tags: (n.tags || []).join(', ')
+            }
+        });
+    }
+    for (const e of graphData.edges) {
+        elements.push({ data: { source: e.source, target: e.target } });
+    }
+
+    cyInstance = cytoscape({
+        container: document.getElementById('cy'),
+        elements,
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'label': 'data(label)',
+                    'font-size': 9,
+                    'color': '#cbd5e0',
+                    'text-valign': 'bottom',
+                    'text-margin-y': 4,
+                    'width': 18, 'height': 18,
+                    'background-color': '#a0aec0',
+                    'border-width': 1,
+                    'border-color': '#4a5568',
+                    'text-max-width': 80,
+                    'text-wrap': 'ellipsis'
+                }
+            },
+            {
+                selector: 'node[group="mail"]',
+                style: { 'background-color': GROUP_COLORS.mail }
+            },
+            {
+                selector: 'node[group="md"]',
+                style: { 'background-color': GROUP_COLORS.md }
+            },
+            {
+                selector: 'node[group="attachment"]',
+                style: { 'background-color': GROUP_COLORS.attachment }
+            },
+            {
+                selector: 'node[group="orphan"]',
+                style: { 'background-color': GROUP_COLORS.orphan, 'border-style': 'dashed' }
+            },
+            {
+                selector: 'node:selected',
+                style: {
+                    'border-width': 2, 'border-color': '#f6e05e',
+                    'width': 24, 'height': 24
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'width': 0.8, 'line-color': '#2d3748',
+                    'curve-style': 'bezier', 'opacity': 0.5
+                }
+            },
+            {
+                selector: '.highlighted',
+                style: {
+                    'border-width': 3, 'border-color': '#f6e05e',
+                    'width': 26, 'height': 26, 'z-index': 10
+                }
+            },
+            {
+                selector: '.dimmed',
+                style: { 'opacity': 0.15 }
+            }
+        ],
+        layout: {
+            name: 'cose',
+            animate: false,
+            nodeRepulsion: 8000,
+            idealEdgeLength: 80,
+            gravity: 0.25,
+            numIter: 500
+        },
+        minZoom: 0.1,
+        maxZoom: 5,
+        wheelSensitivity: 0.3
+    });
+
+    cyInstance.on('tap', 'node', async function (evt) {
+        const node = evt.target;
+        const path = node.data('path');
+        highlightNeighbors(node);
+        selectNodeInList(node.id());
+        if (path) {
+            await openGraphReader(node.data('label'), path);
+        } else {
+            document.getElementById('graphReaderTitle').textContent = node.data('label');
+            document.getElementById('graphReaderBody').textContent = '(noeud orphelin — pas de fichier)';
+            document.getElementById('graphReader').classList.add('open');
+        }
+    });
+
+    cyInstance.on('tap', function (evt) {
+        if (evt.target === cyInstance) {
+            clearHighlight();
+            closeGraphReader();
+        }
+    });
+}
+
+function highlightNeighbors(node) {
+    clearHighlight();
+    const neighborhood = node.neighborhood().add(node);
+    cyInstance.elements().addClass('dimmed');
+    neighborhood.removeClass('dimmed');
+    node.addClass('highlighted');
+}
+
+function clearHighlight() {
+    if (!cyInstance) return;
+    cyInstance.elements().removeClass('dimmed').removeClass('highlighted');
+}
+
+async function openGraphReader(title, relpath) {
+    const panel = document.getElementById('graphReader');
+    document.getElementById('graphReaderTitle').textContent = title;
+    document.getElementById('graphReaderBody').textContent = 'Chargement…';
+    panel.classList.add('open');
+    try {
+        const r = await fetch('/api/vault/read?path=' + encodeURIComponent(relpath));
+        const data = await r.json();
+        if (data.ok) {
+            document.getElementById('graphReaderBody').textContent = data.content;
+        } else {
+            document.getElementById('graphReaderBody').textContent = 'Erreur: ' + (data.error || 'fichier introuvable');
+        }
+    } catch (err) {
+        document.getElementById('graphReaderBody').textContent = 'Erreur réseau.';
+    }
+}
+
+function closeGraphReader() {
+    const panel = document.getElementById('graphReader');
+    if (panel) panel.classList.remove('open');
+    clearHighlight();
+}
+
+function buildNodeList() {
+    const list = document.getElementById('graphNodeList');
+    const sorted = [...graphData.nodes].sort((a, b) => a.label.localeCompare(b.label));
+    list.innerHTML = '';
+    for (const n of sorted) {
+        const div = document.createElement('div');
+        div.className = 'node-item';
+        div.dataset.id = n.id;
+        div.dataset.group = n.group;
+        div.textContent = n.label;
+        div.onclick = () => {
+            if (!cyInstance) return;
+            const cyNode = cyInstance.getElementById(n.id);
+            if (cyNode.length) {
+                cyInstance.animate({ center: { eles: cyNode }, duration: 300 });
+                cyNode.emit('tap');
+            }
+        };
+        list.appendChild(div);
+    }
+}
+
+function selectNodeInList(nodeId) {
+    document.querySelectorAll('#graphNodeList .node-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.id === nodeId);
+    });
+}
+
+function filterGraphNodes(query) {
+    const q = query.toLowerCase();
+    document.querySelectorAll('#graphNodeList .node-item').forEach(el => {
+        const match = !q || el.textContent.toLowerCase().includes(q);
+        const groupHidden = graphHiddenGroups.has(el.dataset.group);
+        el.style.display = (match && !groupHidden) ? '' : 'none';
+    });
+    if (cyInstance) {
+        cyInstance.nodes().forEach(n => {
+            const match = !q || n.data('label').toLowerCase().includes(q);
+            const groupHidden = graphHiddenGroups.has(n.data('group'));
+            n.style('display', (match && !groupHidden) ? 'element' : 'none');
+        });
+    }
+}
+
+function toggleGraphGroup(checkbox) {
+    const group = checkbox.dataset.group;
+    if (checkbox.checked) {
+        graphHiddenGroups.delete(group);
+    } else {
+        graphHiddenGroups.add(group);
+    }
+    filterGraphNodes(document.getElementById('graphSearchInput').value);
+}
+
+/* ═══════════════════════════════════════════════════════
    Keyboard Shortcuts
    ═══════════════════════════════════════════════════════ */
 document.addEventListener('keydown', (e) => {
@@ -3071,6 +3340,11 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault();
         switchTab('mail');
     }
+    // Ctrl+4 — switch to Graph tab
+    if ((e.ctrlKey || e.metaKey) && e.key === '4') {
+        e.preventDefault();
+        switchTab('graph');
+    }
     // Ctrl+N — new section (when in edit mode)
     if ((e.ctrlKey || e.metaKey) && e.key === 'n' && editMode) {
         e.preventDefault();
@@ -3080,6 +3354,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeSectionModal();
         closeSettings();
+        closeGraphReader();
         if (typeof closeReminderModal === 'function') closeReminderModal();
         if (typeof closeAccountsModal === 'function') closeAccountsModal();
         if (typeof closeDeleteMailModal === 'function') closeDeleteMailModal();

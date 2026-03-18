@@ -10,12 +10,29 @@ let serverProcess = null;
 let mainWindow = null;
 
 /* ═══════════════════════════════════════════════════════
+   Path Helpers (handles packaged vs dev mode)
+   ═══════════════════════════════════════════════════════ */
+function resourcePath(filename) {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, filename);
+  }
+  return path.join(__dirname, filename);
+}
+
+function resourceDir() {
+  if (app.isPackaged) {
+    return process.resourcesPath;
+  }
+  return __dirname;
+}
+
+/* ═══════════════════════════════════════════════════════
    Python Server
    ═══════════════════════════════════════════════════════ */
 function startPythonServer() {
-  const serverPath = path.join(__dirname, 'server.py');
+  const serverPath = resourcePath('server.py');
   serverProcess = spawn('python3', [serverPath], {
-    cwd: __dirname,
+    cwd: resourceDir(),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -76,11 +93,11 @@ function createWindow() {
     height: winState.height,
     minWidth: 800,
     minHeight: 550,
-    title: 'Todo & Mail',
+    title: 'NexoMail',
     icon: path.join(__dirname, 'icon.png'),
     frame: false,
     transparent: false,
-    backgroundColor: '#0d0f14',
+    backgroundColor: '#1e1e2e',
     show: false,
     webPreferences: {
       nodeIntegration: false,
@@ -164,8 +181,9 @@ ipcMain.handle('dialog:message', async (_event, options) => {
    IPC Handlers — File System (scoped to app directory)
    ═══════════════════════════════════════════════════════ */
 ipcMain.handle('fs:readFile', async (_event, relativePath) => {
-  const safePath = path.resolve(__dirname, path.basename(relativePath));
-  if (!safePath.startsWith(__dirname)) return null;
+  const baseDir = resourceDir();
+  const safePath = path.resolve(baseDir, path.basename(relativePath));
+  if (!safePath.startsWith(baseDir)) return null;
   try {
     return fs.readFileSync(safePath, 'utf-8');
   } catch {
@@ -174,8 +192,9 @@ ipcMain.handle('fs:readFile', async (_event, relativePath) => {
 });
 
 ipcMain.handle('fs:writeFile', async (_event, relativePath, content) => {
-  const safePath = path.resolve(__dirname, path.basename(relativePath));
-  if (!safePath.startsWith(__dirname)) return false;
+  const baseDir = resourceDir();
+  const safePath = path.resolve(baseDir, path.basename(relativePath));
+  if (!safePath.startsWith(baseDir)) return false;
   try {
     fs.writeFileSync(safePath, content, 'utf-8');
     return true;
