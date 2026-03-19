@@ -939,6 +939,64 @@
             cursor: pointer; font-size: 0.8rem; font-family: inherit; transition: background 0.15s;
         }
         .graph-reader-body .open-external-btn:hover { background: var(--card-hover); }
+        .graph-reader-body.is-markdown {
+            white-space: normal;
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: var(--text);
+        }
+        .graph-reader-body.is-markdown .graph-markdown {
+            display: block;
+            font-size: 0.86rem;
+            line-height: 1.75;
+        }
+        .graph-reader-body.is-markdown h1,
+        .graph-reader-body.is-markdown h2,
+        .graph-reader-body.is-markdown h3,
+        .graph-reader-body.is-markdown h4,
+        .graph-reader-body.is-markdown h5,
+        .graph-reader-body.is-markdown h6 {
+            color: var(--text);
+            margin: 0.9rem 0 0.45rem;
+            line-height: 1.3;
+        }
+        .graph-reader-body.is-markdown p,
+        .graph-reader-body.is-markdown ul,
+        .graph-reader-body.is-markdown ol,
+        .graph-reader-body.is-markdown blockquote,
+        .graph-reader-body.is-markdown pre,
+        .graph-reader-body.is-markdown table {
+            margin: 0.5rem 0;
+        }
+        .graph-reader-body.is-markdown a {
+            color: var(--accent-blue);
+            text-decoration: none;
+            border-bottom: 1px dotted rgba(137,180,250,0.7);
+            cursor: pointer;
+        }
+        .graph-reader-body.is-markdown a:hover {
+            color: #b9d8ff;
+            border-bottom-style: solid;
+        }
+        .graph-reader-body.is-markdown code {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--progress-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 4px;
+            padding: 0.05rem 0.3rem;
+            font-size: 0.8rem;
+        }
+        .graph-reader-body.is-markdown pre {
+            background: var(--progress-bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            padding: 0.7rem;
+            overflow-x: auto;
+        }
+        .graph-reader-body.is-markdown pre code {
+            background: transparent;
+            border: none;
+            padding: 0;
+        }
         .graph-stats {
             display: flex; gap: 1rem; padding: 0.25rem 0.6rem 0.4rem; font-size: 0.7rem; color: var(--text-muted);
         }
@@ -955,6 +1013,7 @@
         }
     </style>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
 
@@ -3815,6 +3874,7 @@ let graphHiddenGroups = new Set();
 let d3Zoom = null;
 let d3SvgG = null;
 let graphNodeMap = {};
+let graphPathLookup = {};
 let selectedGraphNode = null;
 let graphTickQueued = false;
 let graphCurrentZoomK = 1;
@@ -3841,6 +3901,7 @@ async function initGraphIfNeeded() {
         // Build node map for sidebar list
         graphNodeMap = {};
         graphData.nodes.forEach(n => { graphNodeMap[n.id] = n; });
+        rebuildGraphPathLookup();
         buildNodeList();
         updateGraphStats();
         // Show placeholder — graph renders only on search
@@ -4024,6 +4085,158 @@ function clearGraphHighlight(nodes, links) {
     document.querySelectorAll('#graphNodeList .node-item').forEach(el => el.classList.remove('active'));
 }
 
+function rebuildGraphPathLookup() {
+    graphPathLookup = {};
+    if (!graphData || !graphData.nodes) return;
+    graphData.nodes.forEach(n => {
+        if (!n.path) return;
+        const path = normalizeVaultRelpath(n.path);
+        const lowerPath = path.toLowerCase();
+        const fileName = getPathBaseName(path).toLowerCase();
+        graphPathLookup[lowerPath] = path;
+        graphPathLookup[fileName] = path;
+        graphPathLookup[n.id.toLowerCase()] = path;
+        if (n.type === 'md') {
+            graphPathLookup[(n.id + '.md').toLowerCase()] = path;
+        }
+    });
+}
+
+function getPathBaseName(relpath) {
+    return String(relpath || '').split('/').pop() || '';
+}
+
+function normalizeVaultRelpath(relpath) {
+    const raw = String(relpath || '').replace(/\\/g, '/');
+    const parts = raw.split('/');
+    const out = [];
+    for (const p of parts) {
+        if (!p || p === '.') continue;
+        if (p === '..') {
+            if (out.length) out.pop();
+            continue;
+        }
+        out.push(p);
+    }
+    return out.join('/');
+}
+
+function resolveVaultLink(baseRelpath, linkTarget) {
+    const raw = String(linkTarget || '').trim();
+    if (!raw) return null;
+    if (/^(https?:|mailto:)/i.test(raw)) {
+        return { type: 'external', target: raw };
+    }
+
+    const withoutPrefix = raw.replace(/^vault:/i, '');
+    const withoutQuery = withoutPrefix.split('#')[0].split('?')[0];
+    const normalizedTarget = normalizeVaultRelpath(decodeURIComponent(withoutQuery));
+    if (!normalizedTarget) return null;
+
+    const baseDir = normalizeVaultRelpath(baseRelpath).split('/').slice(0, -1).join('/');
+    const combined = normalizedTarget.startsWith('/')
+        ? normalizeVaultRelpath(normalizedTarget.slice(1))
+        : normalizeVaultRelpath((baseDir ? baseDir + '/' : '') + normalizedTarget);
+
+    const candidates = new Set([combined, normalizedTarget, getPathBaseName(combined), getPathBaseName(normalizedTarget)]);
+    if (!/\.[^./\\]+$/.test(combined)) {
+        candidates.add(combined + '.md');
+        candidates.add(normalizedTarget + '.md');
+    }
+
+    for (const c of candidates) {
+        const found = graphPathLookup[c.toLowerCase()];
+        if (found) {
+            return { type: 'vault', target: found };
+        }
+    }
+    return { type: 'vault', target: combined || normalizedTarget };
+}
+
+function preprocessObsidianMarkdown(content) {
+    return String(content || '')
+        .replace(/!\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_m, link, alt) => `![${alt || link}](vault:${link})`)
+        .replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_m, link, label) => `[${label || link}](vault:${link})`);
+}
+
+async function renderGraphMarkdown(title, relpath, markdownContent, bodyEl) {
+    bodyEl.textContent = '';
+    bodyEl.classList.add('is-markdown');
+
+    if (typeof marked === 'undefined') {
+        bodyEl.classList.remove('is-markdown');
+        bodyEl.style.whiteSpace = 'pre-wrap';
+        bodyEl.textContent = markdownContent;
+        return;
+    }
+
+    const renderer = new marked.Renderer();
+    // Disable raw HTML rendering in markdown preview.
+    renderer.html = (html) => esc(html);
+    marked.setOptions({ gfm: true, breaks: true, renderer });
+
+    const rendered = marked.parse(preprocessObsidianMarkdown(markdownContent));
+    bodyEl.innerHTML = `<div class="graph-markdown">${rendered}</div>`;
+
+    // Resolve inline markdown images relative to the current note.
+    const imageEls = Array.from(bodyEl.querySelectorAll('img'));
+    for (const img of imageEls) {
+        const src = img.getAttribute('src') || '';
+        const resolved = resolveVaultLink(relpath, src);
+        if (!resolved) continue;
+        if (resolved.type === 'external') {
+            img.src = resolved.target;
+            continue;
+        }
+        const ext = (getPathBaseName(resolved.target).split('.').pop() || '').toLowerCase();
+        const api = window.electronAPI;
+        if (api && api.getVaultFileUrl) {
+            const res = await api.getVaultFileUrl(resolved.target);
+            if (res.ok) {
+                if (ext === 'pdf') {
+                    const iframe = document.createElement('iframe');
+                    iframe.src = res.url;
+                    iframe.title = img.alt || getPathBaseName(resolved.target);
+                    img.replaceWith(iframe);
+                } else if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'].includes(ext)) {
+                    img.src = res.url;
+                } else {
+                    const btn = document.createElement('a');
+                    btn.href = '#';
+                    btn.textContent = img.alt || getPathBaseName(resolved.target);
+                    btn.onclick = (event) => {
+                        event.preventDefault();
+                        openGraphReader(btn.textContent, resolved.target);
+                    };
+                    img.replaceWith(btn);
+                }
+            }
+        }
+    }
+
+    // Convert markdown links into in-app navigation for notes/attachments.
+    bodyEl.querySelectorAll('a').forEach(a => {
+        const href = a.getAttribute('href') || '';
+        const resolved = resolveVaultLink(relpath, href);
+        if (!resolved) return;
+        a.onclick = async (event) => {
+            event.preventDefault();
+            if (resolved.type === 'external') {
+                const api = window.electronAPI;
+                if (api && api.openExternal) {
+                    await api.openExternal(resolved.target);
+                } else {
+                    window.open(resolved.target, '_blank', 'noopener');
+                }
+                return;
+            }
+            const targetPath = resolved.target;
+            const targetTitle = getPathBaseName(targetPath).replace(/\.[^/.]+$/, '');
+            openGraphReader(targetTitle || title, targetPath);
+        };
+    });
+}
+
 async function openGraphReader(title, relpath) {
     const panel = document.getElementById('graphReader');
     const titleEl = document.getElementById('graphReaderTitle');
@@ -4031,6 +4244,7 @@ async function openGraphReader(title, relpath) {
     titleEl.textContent = title;
     body.innerHTML = '';
     body.textContent = 'Chargement…';
+    body.classList.remove('is-markdown');
     body.style.whiteSpace = 'pre-wrap';
     panel.classList.add('open');
 
@@ -4087,7 +4301,13 @@ async function openGraphReader(title, relpath) {
                 data = await r.json();
             }
             if (data.ok) {
-                body.textContent = data.content;
+                if (ext === 'md') {
+                    await renderGraphMarkdown(title, relpath, data.content, body);
+                } else {
+                    body.classList.remove('is-markdown');
+                    body.style.whiteSpace = 'pre-wrap';
+                    body.textContent = data.content;
+                }
             } else {
                 body.textContent = 'Erreur : ' + (data.error || 'fichier introuvable');
             }
