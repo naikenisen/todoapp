@@ -1040,10 +1040,13 @@
 <div class="container">
     <!-- Tab Bar -->
     <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('todo')"><i class="icon-list-checks"></i> Todo</button>
-        <button class="tab-btn" onclick="switchTab('inbox')"><i class="icon-inbox"></i> Inbox</button>
-        <button class="tab-btn" onclick="switchTab('mail')"><i class="icon-send"></i> Rédiger</button>
-        <button class="tab-btn" onclick="switchTab('graph')"><i class="icon-network"></i> Graph</button>
+        <button class="tab-btn active" data-tab="todo" onclick="switchTab('todo')"><i class="icon-list-checks"></i> Todo</button>
+        <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')"><i class="icon-inbox"></i> Inbox</button>
+        <button class="tab-btn" data-tab="mail" onclick="switchTab('mail')"><i class="icon-send"></i> Rédiger</button>
+        <button class="tab-btn" data-tab="graph" onclick="switchTab('graph')"><i class="icon-network"></i> Graph</button>
+        <button class="tab-btn" data-tab="agenda" onclick="switchTab('agenda')"><i class="icon-calendar-days"></i> Agenda</button>
+        <button class="tab-btn" data-tab="browser" onclick="switchTab('browser')"><i class="icon-globe"></i> Navigateur</button>
+        <button class="tab-btn" data-tab="github" onclick="switchTab('github')"><i class="icon-github"></i> GitHub</button>
     </div>
 
     <!-- TODO TAB -->
@@ -1152,6 +1155,80 @@
             <div class="mail-actions" id="mailSentActions" style="margin-top:0.5rem; display:none"></div>
         </div>
 
+    </div>
+
+    <!-- AGENDA TAB -->
+    <div class="tab-content" id="tab-agenda">
+        <header>
+            <h1><i class="icon-calendar-days"></i> Agenda Google</h1>
+            <div class="header-actions">
+                <select id="agendaAccount" onchange="loadAgendaMonth()" style="min-width:260px"></select>
+                <button onclick="connectAgendaOAuth()"><i class="icon-link"></i> Connecter Google</button>
+                <button onclick="agendaPrevMonth()">◀</button>
+                <button onclick="agendaToday()">Aujourd'hui</button>
+                <button onclick="agendaNextMonth()">▶</button>
+                <button onclick="loadAgendaMonth()"><i class="icon-refresh-cw"></i> Actualiser</button>
+            </div>
+        </header>
+        <div class="global-progress" style="position:static">
+            <div class="global-progress-header">
+                <span id="agendaMonthLabel">Mois</span>
+                <span class="counter" id="agendaCountLabel">0 événement</span>
+            </div>
+        </div>
+        <div id="agendaEvents" class="mail-pending-list"></div>
+    </div>
+
+    <!-- BROWSER TAB -->
+    <div class="tab-content" id="tab-browser">
+        <div class="inbox-layout" style="height: calc(100vh - 140px)">
+            <div class="inbox-list-panel" style="max-width:260px;display:flex;flex-direction:column;gap:0.4rem;overflow:hidden">
+                <div class="header-actions" style="justify-content:flex-start;margin-top:0;padding:0.6rem 0.6rem 0.2rem">
+                    <button onclick="addBrowserTab()"><i class="icon-plus"></i> Nouvel onglet</button>
+                </div>
+                <div id="browserTabList" style="overflow:auto;padding:0.3rem"></div>
+            </div>
+            <div class="inbox-reader-panel" style="display:flex;flex-direction:column;min-width:0">
+                <div class="header-actions" style="justify-content:flex-start;margin:0;padding:0.55rem 0.6rem;gap:0.4rem;border-bottom:1px solid var(--card-border)">
+                    <button onclick="browserGoBack()">◀</button>
+                    <button onclick="browserGoForward()">▶</button>
+                    <button onclick="browserReload()"><i class="icon-refresh-cw"></i></button>
+                    <input id="browserAddress" type="text" placeholder="https://example.com" onkeydown="if(event.key==='Enter')browserNavigateAddress()" style="flex:1;min-width:220px;background:var(--progress-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.45rem 0.6rem;color:var(--text)">
+                    <button onclick="browserNavigateAddress()"><i class="icon-arrow-right"></i></button>
+                </div>
+                <div id="browserViewport" style="flex:1;background:var(--bg);position:relative">
+                    <div class="graph-placeholder" style="inset:0">
+                        <div class="gp-icon"><i class="icon-globe"></i></div>
+                        <div class="gp-text">Le navigateur s'affiche ici (BrowserView)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GITHUB TAB -->
+    <div class="tab-content" id="tab-github">
+        <div class="mail-composer" style="margin-bottom:0.8rem">
+            <h2><i class="icon-github"></i> Connexion GitHub</h2>
+            <div class="mail-field">
+                <label>Identifiant GitHub</label>
+                <input type="text" id="githubUser" placeholder="username" oninput="saveGithubCredentials()">
+            </div>
+            <div class="mail-field">
+                <label>Mot de passe</label>
+                <input type="password" id="githubPassword" placeholder="mot de passe" oninput="saveGithubCredentials()">
+            </div>
+            <div class="mail-actions">
+                <button onclick="openGithubLogin()"><i class="icon-globe"></i> Ouvrir GitHub</button>
+                <button onclick="autofillGithubLogin()"><i class="icon-key-round"></i> Remplir identifiants</button>
+            </div>
+        </div>
+        <div id="githubViewport" style="height: calc(100vh - 420px); min-height: 320px; background: var(--bg); border:1px solid var(--card-border); border-radius: var(--radius-md); position: relative; overflow: hidden;">
+            <div class="graph-placeholder" style="inset:0">
+                <div class="gp-icon"><i class="icon-github"></i></div>
+                <div class="gp-text">GitHub s'affiche ici (BrowserView)</div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1336,6 +1413,14 @@ let currentTab = 'todo';
 let currentReminder = null;
 let selectedMailTask = null;
 let timelineMonth = new Date();
+let agendaMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+let browserTabs = [];
+let activeBrowserTabId = null;
+const GITHUB_BROWSER_TAB_ID = 'github-main';
+let agendaInitialized = false;
+let browserInitialized = false;
+let githubInitialized = false;
+let browserEventsBound = false;
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const esc = s => String(s)
@@ -1364,19 +1449,18 @@ let modalColor = 'blue';
    ═══════════════════════════════════════════════════════ */
 function switchTab(tab) {
     currentTab = tab;
-    document.querySelectorAll('.tab-btn').forEach((b, i) => {
-        b.classList.toggle('active',
-            (i === 0 && tab === 'todo') ||
-            (i === 1 && tab === 'inbox') ||
-            (i === 2 && tab === 'mail') ||
-            (i === 3 && tab === 'graph')
-        );
+    document.querySelectorAll('.tab-btn').forEach((b) => {
+        b.classList.toggle('active', b.dataset.tab === tab);
     });
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.getElementById('tab-' + tab).classList.add('active');
     if (tab === 'mail') renderMailTab();
     if (tab === 'inbox') loadInbox();
     if (tab === 'graph') initGraphIfNeeded();
+    if (tab === 'agenda') initAgendaIfNeeded();
+    if (tab === 'browser') initBrowserIfNeeded();
+    if (tab === 'github') initGithubIfNeeded();
+    updateBrowserViewVisibility();
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -2770,7 +2854,7 @@ function updateMailBadge() {
     const pending = getAllMailTasks().filter(m => !m.sentAt);
     const dueReminders = (state.reminders || []).filter(r => r.status === 'pending' && r.remindAt <= now);
     const total = pending.length + dueReminders.length;
-    const tabBtn = document.querySelectorAll('.tab-btn')[2];
+    const tabBtn = document.querySelector('.tab-btn[data-tab="mail"]');
     if (tabBtn) {
         tabBtn.innerHTML = total > 0
             ? `<i class="icon-send"></i> Rédiger <span style="font-size:0.7em;color:var(--accent-orange)">● ${total}</span>`
@@ -3250,7 +3334,7 @@ async function confirmDeleteMail() {
    ═══════════════════════════════════════════════════════ */
 function updateInboxBadge() {
     const unread = inboxMails.filter(m => !m.read).length;
-    const tabBtn = document.querySelectorAll('.tab-btn')[1];
+    const tabBtn = document.querySelector('.tab-btn[data-tab="inbox"]');
     if (tabBtn) {
         tabBtn.innerHTML = unread > 0 ? `<i class="icon-inbox"></i> Inbox <span style="font-size:0.75em;color:var(--accent-blue)">(${unread})</span>` : '<i class="icon-inbox"></i> Inbox';
     }
@@ -3793,6 +3877,11 @@ setInterval(() => {
 (async function init() {
     await Promise.all([loadState(), loadContacts()]);
     render();
+    if (!state.settings) state.settings = {};
+    const ghUser = document.getElementById('githubUser');
+    const ghPass = document.getElementById('githubPassword');
+    if (ghUser) ghUser.value = state.settings.githubUser || '';
+    if (ghPass) ghPass.value = state.settings.githubPassword || '';
     updateMailBadge();
     loadInbox().then(() => {
         updateInboxBadge();
@@ -4517,6 +4606,408 @@ function graphFit() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   BrowserView Tabs (Navigateur + GitHub)
+   ═══════════════════════════════════════════════════════ */
+function getBrowserApi() {
+    return window.electronAPI || null;
+}
+
+function ensureUrlWithScheme(raw) {
+    const v = String(raw || '').trim();
+    if (!v) return 'https://www.google.com';
+    if (/^https?:\/\//i.test(v)) return v;
+    return 'https://' + v;
+}
+
+function getActiveBrowserTab() {
+    return browserTabs.find(t => t.id === activeBrowserTabId) || null;
+}
+
+function renderBrowserTabList() {
+    const list = document.getElementById('browserTabList');
+    if (!list) return;
+    list.innerHTML = browserTabs.map(t => {
+        const isActive = t.id === activeBrowserTabId;
+        const title = esc(t.title || t.url || 'Nouvel onglet');
+        return `<div class="inbox-item ${isActive ? 'selected' : ''}" style="padding:0.45rem 0.5rem" onclick="activateBrowserTab('${t.id}')">
+            <div class="inbox-item-content" style="min-width:0">
+                <div class="inbox-item-top">
+                    <span class="inbox-item-from" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</span>
+                    <button class="btn-icon" onclick="event.stopPropagation();closeBrowserTab('${t.id}')" title="Fermer">✕</button>
+                </div>
+                <div class="inbox-item-preview" style="max-width:185px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.url || '')}</div>
+            </div>
+        </div>`;
+    }).join('');
+
+    const active = getActiveBrowserTab();
+    const address = document.getElementById('browserAddress');
+    if (address && active) address.value = active.url || '';
+}
+
+async function addBrowserTab(url) {
+    const api = getBrowserApi();
+    if (!api || !api.browserCreateTab) {
+        showToast('BrowserView non disponible hors Electron.', 'error');
+        return;
+    }
+    const id = 'b-' + uid();
+    const targetUrl = ensureUrlWithScheme(url || 'https://www.google.com');
+    browserTabs.push({ id, title: 'Chargement…', url: targetUrl, loading: true, canGoBack: false, canGoForward: false });
+    activeBrowserTabId = id;
+    renderBrowserTabList();
+    await api.browserCreateTab({ tabId: id, url: targetUrl });
+    updateBrowserViewVisibility();
+}
+
+async function activateBrowserTab(tabId) {
+    const api = getBrowserApi();
+    if (!api || !api.browserActivateTab) return;
+    if (!browserTabs.find(t => t.id === tabId)) return;
+    activeBrowserTabId = tabId;
+    renderBrowserTabList();
+    await api.browserActivateTab(tabId);
+    updateBrowserViewVisibility();
+}
+
+async function closeBrowserTab(tabId) {
+    const api = getBrowserApi();
+    browserTabs = browserTabs.filter(t => t.id !== tabId);
+    if (activeBrowserTabId === tabId) {
+        activeBrowserTabId = browserTabs.length ? browserTabs[browserTabs.length - 1].id : null;
+    }
+    renderBrowserTabList();
+    if (api && api.browserCloseTab) {
+        const res = await api.browserCloseTab(tabId);
+        if (res && res.activeTabId) activeBrowserTabId = res.activeTabId;
+    }
+    if (!browserTabs.length && currentTab === 'browser') {
+        await addBrowserTab('https://www.google.com');
+    }
+    updateBrowserViewVisibility();
+}
+
+async function browserNavigateAddress() {
+    const api = getBrowserApi();
+    const active = getActiveBrowserTab();
+    const input = document.getElementById('browserAddress');
+    if (!api || !active || !input) return;
+    const targetUrl = ensureUrlWithScheme(input.value);
+    await api.browserNavigate({ tabId: active.id, url: targetUrl });
+}
+
+async function browserGoBack() {
+    const api = getBrowserApi();
+    const active = getActiveBrowserTab();
+    if (!api || !active) return;
+    await api.browserGoBack(active.id);
+}
+
+async function browserGoForward() {
+    const api = getBrowserApi();
+    const active = getActiveBrowserTab();
+    if (!api || !active) return;
+    await api.browserGoForward(active.id);
+}
+
+async function browserReload() {
+    const api = getBrowserApi();
+    const active = getActiveBrowserTab();
+    if (!api || !active) return;
+    await api.browserReload(active.id);
+}
+
+function updateBrowserViewVisibility() {
+    const api = getBrowserApi();
+    if (!api || !api.browserSetVisible) return;
+    const needsBrowserView = currentTab === 'browser' || currentTab === 'github';
+    api.browserSetVisible(needsBrowserView).then(() => {
+        if (!needsBrowserView) return;
+        if (currentTab === 'browser' && activeBrowserTabId) {
+            api.browserActivateTab(activeBrowserTabId).then(() => updateBrowserViewBounds());
+        } else if (currentTab === 'github') {
+            api.browserActivateTab(GITHUB_BROWSER_TAB_ID).then(() => updateBrowserViewBounds());
+        }
+    });
+}
+
+function updateBrowserViewBounds() {
+    const api = getBrowserApi();
+    if (!api || !api.browserSetBounds) return;
+
+    const host = currentTab === 'github'
+        ? document.getElementById('githubViewport')
+        : document.getElementById('browserViewport');
+    if (!host) return;
+
+    const rect = host.getBoundingClientRect();
+    if (rect.width < 20 || rect.height < 20) return;
+    api.browserSetBounds({
+        x: Math.round(rect.left),
+        y: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+    });
+}
+
+window.addEventListener('resize', () => {
+    if (currentTab === 'browser' || currentTab === 'github') updateBrowserViewBounds();
+});
+document.getElementById('app-content').addEventListener('scroll', () => {
+    if (currentTab === 'browser' || currentTab === 'github') updateBrowserViewBounds();
+});
+
+function bindBrowserEventsIfNeeded() {
+    if (browserEventsBound) return;
+    const api = getBrowserApi();
+    if (!api || !api.onBrowserTabUpdated) return;
+    api.onBrowserTabUpdated((payload) => {
+        const tabId = payload?.tabId;
+        if (!tabId) return;
+        const t = browserTabs.find(x => x.id === tabId);
+        if (t) {
+            if (typeof payload.title === 'string') t.title = payload.title || t.title;
+            if (typeof payload.url === 'string') t.url = payload.url || t.url;
+            if (typeof payload.loading === 'boolean') t.loading = payload.loading;
+            if (typeof payload.canGoBack === 'boolean') t.canGoBack = payload.canGoBack;
+            if (typeof payload.canGoForward === 'boolean') t.canGoForward = payload.canGoForward;
+        }
+        renderBrowserTabList();
+    });
+    browserEventsBound = true;
+}
+
+async function initBrowserIfNeeded() {
+    bindBrowserEventsIfNeeded();
+    if (browserInitialized) {
+        updateBrowserViewVisibility();
+        return;
+    }
+    browserInitialized = true;
+    await addBrowserTab('https://www.google.com');
+}
+
+async function initGithubIfNeeded() {
+    const api = getBrowserApi();
+    if (!api || !api.browserCreateTab) return;
+    if (!githubInitialized) {
+        githubInitialized = true;
+        await api.browserCreateTab({ tabId: GITHUB_BROWSER_TAB_ID, url: 'https://github.com/login' });
+        document.getElementById('githubUser').value = state.settings.githubUser || '';
+        document.getElementById('githubPassword').value = state.settings.githubPassword || '';
+    }
+    updateBrowserViewVisibility();
+}
+
+function saveGithubCredentials() {
+    state.settings.githubUser = document.getElementById('githubUser').value;
+    state.settings.githubPassword = document.getElementById('githubPassword').value;
+    autoSave();
+}
+
+async function openGithubLogin() {
+    const api = getBrowserApi();
+    if (!api || !api.browserNavigate) return;
+    await api.browserNavigate({ tabId: GITHUB_BROWSER_TAB_ID, url: 'https://github.com/login' });
+    switchTab('github');
+}
+
+async function autofillGithubLogin() {
+    const api = getBrowserApi();
+    if (!api || !api.browserAutofillGithub) return;
+    const username = document.getElementById('githubUser').value.trim();
+    const password = document.getElementById('githubPassword').value;
+    if (!username || !password) {
+        showToast('Renseigne identifiant et mot de passe GitHub.', 'error');
+        return;
+    }
+    const res = await api.browserAutofillGithub({ tabId: GITHUB_BROWSER_TAB_ID, username, password });
+    if (res && res.ok && res.filled) {
+        showToast('Identifiants injectés dans la page GitHub.', 'success');
+    } else {
+        showToast('Impossible de remplir automatiquement sur cette page.', 'error');
+    }
+}
+
+/* ═══════════════════════════════════════════════════════
+   Agenda Google (Calendar API)
+   ═══════════════════════════════════════════════════════ */
+async function initAgendaIfNeeded() {
+    if (!agendaInitialized) {
+        agendaInitialized = true;
+        await loadAgendaAccounts();
+    }
+    await loadAgendaMonth();
+}
+
+async function loadAgendaAccounts() {
+    const select = document.getElementById('agendaAccount');
+    if (!select) return;
+    select.innerHTML = '<option value="">Chargement…</option>';
+    try {
+        const r = await fetch('/api/calendar/accounts');
+        const accounts = await r.json();
+        if (!Array.isArray(accounts) || !accounts.length) {
+            select.innerHTML = '<option value="">Aucun compte OAuth Google</option>';
+            return;
+        }
+        const prev = select.value;
+        select.innerHTML = accounts.map(a => {
+            const status = a.connected ? 'connecté' : 'à connecter';
+            return `<option value="${esc(a.email)}">${esc(a.email)} (${status})</option>`;
+        }).join('');
+        if (prev && accounts.some(a => a.email === prev)) select.value = prev;
+    } catch {
+        select.innerHTML = '<option value="">Erreur de chargement</option>';
+    }
+}
+
+async function connectAgendaOAuth() {
+    const select = document.getElementById('agendaAccount');
+    const email = (select?.value || '').trim();
+    if (!email) {
+        showToast('Sélectionne un compte Google OAuth.', 'error');
+        return;
+    }
+    showLoading('Ouverture de la connexion Google pour Agenda…');
+    try {
+        const scope = 'https://mail.google.com/ https://www.googleapis.com/auth/calendar.readonly';
+        const r = await fetch('/api/oauth/google/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, scope })
+        });
+        const result = await r.json();
+        if (!result.ok || !result.auth_url) {
+            showToast('Erreur OAuth: ' + (result.error || 'URL manquante'), 'error', 5000);
+            return;
+        }
+
+        const opened = window.electronAPI && window.electronAPI.openExternal
+            ? await window.electronAPI.openExternal(result.auth_url)
+            : false;
+        if (!opened) window.open(result.auth_url, '_blank', 'noopener');
+        showToast('Connexion Google Agenda ouverte.', 'success', 3000);
+    } catch (e) {
+        showToast('Erreur OAuth Agenda: ' + e.message, 'error', 5000);
+    } finally {
+        hideLoading();
+    }
+}
+
+function agendaPrevMonth() {
+    agendaMonth = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() - 1, 1);
+    loadAgendaMonth();
+}
+
+function agendaNextMonth() {
+    agendaMonth = new Date(agendaMonth.getFullYear(), agendaMonth.getMonth() + 1, 1);
+    loadAgendaMonth();
+}
+
+function agendaToday() {
+    const now = new Date();
+    agendaMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    loadAgendaMonth();
+}
+
+async function loadAgendaMonth() {
+    const monthLabel = document.getElementById('agendaMonthLabel');
+    const countLabel = document.getElementById('agendaCountLabel');
+    const container = document.getElementById('agendaEvents');
+    const select = document.getElementById('agendaAccount');
+    if (!monthLabel || !countLabel || !container || !select) return;
+
+    const account = (select.value || '').trim();
+    monthLabel.textContent = agendaMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    if (!account) {
+        container.innerHTML = '<div class="mail-pending-empty">Aucun compte Google OAuth disponible.</div>';
+        countLabel.textContent = '0 événement';
+        return;
+    }
+
+    container.innerHTML = '<div class="mail-pending-empty">Chargement des événements…</div>';
+    try {
+        const y = agendaMonth.getFullYear();
+        const m = agendaMonth.getMonth() + 1;
+        const r = await fetch(`/api/calendar/events?year=${y}&month=${m}&account=${encodeURIComponent(account)}`);
+        const result = await r.json();
+        if (!result.ok) {
+            const errorCode = result.error_code || '';
+            const details = result.details ? `<div class="inbox-item-preview" style="white-space:pre-wrap;margin-top:0.45rem">${esc(result.details)}</div>` : '';
+
+            if (errorCode === 'CALENDAR_API_DISABLED') {
+                const activationBtn = result.activation_url
+                    ? `<button onclick="openAgendaEvent('${esc(result.activation_url)}')"><i class="icon-external-link"></i> Activer l'API Google Calendar</button>`
+                    : '';
+                container.innerHTML = `<div class="mail-pending-empty" style="text-align:left;max-width:900px;margin:0 auto">
+                    <strong>Google Calendar API est désactivée dans ton projet Google Cloud.</strong>
+                    <div style="margin-top:0.5rem">1. Active l'API Calendar dans Google Cloud.</div>
+                    <div>2. Attends 1 à 3 minutes.</div>
+                    <div>3. Clique sur "Actualiser".</div>
+                    <div class="mail-actions" style="margin-top:0.8rem">${activationBtn}</div>
+                    ${details}
+                </div>`;
+            } else if (errorCode === 'CALENDAR_SCOPE_INSUFFICIENT') {
+                container.innerHTML = `<div class="mail-pending-empty" style="text-align:left;max-width:900px;margin:0 auto">
+                    <strong>Le compte doit être reconnecté avec les droits Agenda.</strong>
+                    <div style="margin-top:0.5rem">Clique sur "Connecter Google" puis accepte l'accès Calendar.</div>
+                    <div class="mail-actions" style="margin-top:0.8rem">
+                        <button onclick="connectAgendaOAuth()"><i class="icon-link"></i> Reconnecter Google</button>
+                    </div>
+                    ${details}
+                </div>`;
+            } else {
+                container.innerHTML = '<div class="mail-pending-empty">Erreur: ' + esc(result.error || 'impossible de charger') + (result.details ? '<br><small>' + esc(result.details) + '</small>' : '') + '</div>';
+            }
+            countLabel.textContent = '0 événement';
+            return;
+        }
+        const events = Array.isArray(result.events) ? result.events : [];
+        countLabel.textContent = `${events.length} événement${events.length > 1 ? 's' : ''}`;
+        if (!events.length) {
+            container.innerHTML = '<div class="mail-pending-empty">Aucun événement sur cette période.</div>';
+            return;
+        }
+
+        container.innerHTML = events.map(ev => {
+            const startLabel = ev.allDay
+                ? ev.start
+                : new Date(ev.start).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+            const endLabel = ev.allDay
+                ? ev.end
+                : new Date(ev.end).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+            const desc = ev.description ? `<div class="inbox-item-preview" style="white-space:pre-wrap">${esc(ev.description)}</div>` : '';
+            const loc = ev.location ? `<div class="inbox-item-preview"><i class="icon-map-pin"></i> ${esc(ev.location)}</div>` : '';
+            const linkBtn = ev.htmlLink
+                ? `<button onclick="openAgendaEvent('${esc(ev.htmlLink)}')"><i class="icon-external-link"></i> Ouvrir</button>`
+                : '';
+            return `<div class="mail-item" style="margin-bottom:0.45rem">
+                <div class="mail-item-info" style="width:100%">
+                    <div class="mail-item-label">${esc(ev.summary || '(Sans titre)')}</div>
+                    <div class="mail-item-section">${esc(startLabel)} → ${esc(endLabel)}</div>
+                    ${loc}
+                    ${desc}
+                </div>
+                <div class="mail-item-actions">${linkBtn}</div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        container.innerHTML = '<div class="mail-pending-empty">Erreur réseau: ' + esc(e.message) + '</div>';
+        countLabel.textContent = '0 événement';
+    }
+}
+
+async function openAgendaEvent(url) {
+    const api = window.electronAPI;
+    if (api && api.openExternal) {
+        const ok = await api.openExternal(url);
+        if (ok) return;
+    }
+    window.open(url, '_blank', 'noopener');
+}
+
+/* ═══════════════════════════════════════════════════════
    Keyboard Shortcuts
    ═══════════════════════════════════════════════════════ */
 document.addEventListener('keydown', (e) => {
@@ -4544,6 +5035,21 @@ document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === '4') {
         e.preventDefault();
         switchTab('graph');
+    }
+    // Ctrl+5 — switch to Agenda tab
+    if ((e.ctrlKey || e.metaKey) && e.key === '5') {
+        e.preventDefault();
+        switchTab('agenda');
+    }
+    // Ctrl+6 — switch to Browser tab
+    if ((e.ctrlKey || e.metaKey) && e.key === '6') {
+        e.preventDefault();
+        switchTab('browser');
+    }
+    // Ctrl+7 — switch to GitHub tab
+    if ((e.ctrlKey || e.metaKey) && e.key === '7') {
+        e.preventDefault();
+        switchTab('github');
     }
     // Ctrl+N — new section (when in edit mode)
     if ((e.ctrlKey || e.metaKey) && e.key === 'n' && editMode) {

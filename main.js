@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu, globalShortcut, shell, protocol } = require('electron');
+const { app, BrowserWindow, BrowserView, ipcMain, dialog, Menu, globalShortcut, shell, protocol } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -18,6 +18,10 @@ protocol.registerSchemesAsPrivileged([
 const PORT = 8080;
 let serverProcess = null;
 let mainWindow = null;
+let browserVisible = false;
+let activeBrowserTabId = null;
+let browserBounds = { x: 0, y: 0, width: 0, height: 0 };
+const browserViews = new Map();
 
 /* ═══════════════════════════════════════════════════════
    Path Helpers (handles packaged vs dev mode)
@@ -113,6 +117,9 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
       preload: path.join(__dirname, 'preload.js'),
     },
   });
@@ -127,9 +134,254 @@ function createWindow() {
   });
 
   mainWindow.on('closed', () => {
+    for (const view of browserViews.values()) {
+      try {
+        if (!view.webContents.isDestroyed()) view.webContents.destroy();
+      } catch {}
+    }
+    browserViews.clear();
+    activeBrowserTabId = null;
     mainWindow = null;
   });
+
+  mainWindow.on('resize', () => {
+    applyBrowserViewLayout();
+  });
 }
+
+/* ═══════════════════════════════════════════════════════
+   BrowserView Tabs (native Electron browser areas)
+   ═══════════════════════════════════════════════════════ */
+function sanitizeBrowserUrl(rawUrl) {
+  const url = String(rawUrl || '').trim();
+  if (!url) return 'https://www.google.com';
+  if (/^https?:\/\//i.test(url)) return url;
+  return 'https://' + url;
+}
+
+function emitBrowserTabUpdate(tabId, payload = {}) {
+  if (!mainWindow || !mainWindow.webContents || mainWindow.webContents.isDestroyed()) return;
+  mainWindow.webContents.send('browser:tab-updated', { tabId, ...payload });
+}
+
+function detachAllBrowserViews() {
+  if (!mainWindow) return;
+  for (const view of browserViews.values()) {
+    try { mainWindow.removeBrowserView(view); } catch {}
+  }
+}
+
+function applyBrowserViewLayout() {
+  if (!mainWindow || !browserVisible || !activeBrowserTabId) return;
+  const active = browserViews.get(activeBrowserTabId);
+  if (!active) return;
+
+  const bounds = {
+    x: Math.max(0, Math.floor(browserBounds.x || 0)),
+    y: Math.max(0, Math.floor(browserBounds.y || 0)),
+    width: Math.max(100, Math.floor(browserBounds.width || 0)),
+    height: Math.max(100, Math.floor(browserBounds.height || 0)),
+  };
+
+  try {
+    active.setBounds(bounds);
+    active.setAutoResize({ width: false, height: false, horizontal: false, vertical: false });
+  } catch {}
+}
+
+function ensureBrowserViewTab(tabId, initialUrl) {
+  if (browserViews.has(tabId)) return browserViews.get(tabId);
+
+  const view = new BrowserView({
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
+    },
+  });
+  browserViews.set(tabId, view);
+
+  view.webContents.setWindowOpenHandler(({ url }) => {
+    try { view.webContents.loadURL(sanitizeBrowserUrl(url)); } catch {}
+    return { action: 'deny' };
+  });
+
+  view.webContents.on('did-start-loading', () => {
+    emitBrowserTabUpdate(tabId, { loading: true });
+  });
+  view.webContents.on('did-stop-loading', () => {
+    emitBrowserTabUpdate(tabId, {
+      loading: false,
+      url: view.webContents.getURL(),
+      title: view.webContents.getTitle(),
+      canGoBack: view.webContents.canGoBack(),
+      canGoForward: view.webContents.canGoForward(),
+    });
+  });
+  view.webContents.on('did-navigate', (_event, url) => {
+    emitBrowserTabUpdate(tabId, {
+      url,
+      title: view.webContents.getTitle(),
+      canGoBack: view.webContents.canGoBack(),
+      canGoForward: view.webContents.canGoForward(),
+    });
+  });
+  view.webContents.on('did-navigate-in-page', (_event, url) => {
+    emitBrowserTabUpdate(tabId, {
+      url,
+      title: view.webContents.getTitle(),
+      canGoBack: view.webContents.canGoBack(),
+      canGoForward: view.webContents.canGoForward(),
+    });
+  });
+  view.webContents.on('page-title-updated', () => {
+    emitBrowserTabUpdate(tabId, { title: view.webContents.getTitle() });
+  });
+
+  view.webContents.loadURL(sanitizeBrowserUrl(initialUrl || 'https://www.google.com')).catch(() => {});
+  return view;
+}
+
+function activateBrowserViewTab(tabId) {
+  if (!mainWindow) return false;
+  const view = browserViews.get(tabId);
+  if (!view) return false;
+
+  activeBrowserTabId = tabId;
+  detachAllBrowserViews();
+  if (browserVisible) {
+    try { mainWindow.addBrowserView(view); } catch {}
+    applyBrowserViewLayout();
+  }
+
+  emitBrowserTabUpdate(tabId, {
+    url: view.webContents.getURL(),
+    title: view.webContents.getTitle(),
+    loading: view.webContents.isLoading(),
+    canGoBack: view.webContents.canGoBack(),
+    canGoForward: view.webContents.canGoForward(),
+    active: true,
+  });
+  return true;
+}
+
+ipcMain.handle('browser:createTab', async (_event, payload = {}) => {
+  const tabId = String(payload.tabId || '').trim();
+  const url = sanitizeBrowserUrl(payload.url || 'https://www.google.com');
+  if (!tabId) return { ok: false, error: 'tabId manquant' };
+  ensureBrowserViewTab(tabId, url);
+  activateBrowserViewTab(tabId);
+  return { ok: true };
+});
+
+ipcMain.handle('browser:activateTab', async (_event, tabId) => {
+  const ok = activateBrowserViewTab(String(tabId || '').trim());
+  return { ok, error: ok ? '' : 'onglet introuvable' };
+});
+
+ipcMain.handle('browser:closeTab', async (_event, tabIdRaw) => {
+  const tabId = String(tabIdRaw || '').trim();
+  const view = browserViews.get(tabId);
+  if (!view) return { ok: false, error: 'onglet introuvable' };
+
+  try { if (mainWindow) mainWindow.removeBrowserView(view); } catch {}
+  browserViews.delete(tabId);
+  try { if (!view.webContents.isDestroyed()) view.webContents.destroy(); } catch {}
+
+  if (activeBrowserTabId === tabId) {
+    const next = browserViews.keys().next().value || null;
+    activeBrowserTabId = next;
+    if (next) activateBrowserViewTab(next);
+    else detachAllBrowserViews();
+  }
+  return { ok: true, activeTabId: activeBrowserTabId };
+});
+
+ipcMain.handle('browser:navigate', async (_event, payload = {}) => {
+  const tabId = String(payload.tabId || '').trim();
+  const view = browserViews.get(tabId);
+  if (!view) return { ok: false, error: 'onglet introuvable' };
+  const url = sanitizeBrowserUrl(payload.url || view.webContents.getURL());
+  try {
+    await view.webContents.loadURL(url);
+    return { ok: true, url };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+});
+
+ipcMain.handle('browser:goBack', async (_event, tabIdRaw) => {
+  const view = browserViews.get(String(tabIdRaw || '').trim());
+  if (!view) return { ok: false, error: 'onglet introuvable' };
+  if (view.webContents.canGoBack()) view.webContents.goBack();
+  return { ok: true };
+});
+
+ipcMain.handle('browser:goForward', async (_event, tabIdRaw) => {
+  const view = browserViews.get(String(tabIdRaw || '').trim());
+  if (!view) return { ok: false, error: 'onglet introuvable' };
+  if (view.webContents.canGoForward()) view.webContents.goForward();
+  return { ok: true };
+});
+
+ipcMain.handle('browser:reload', async (_event, tabIdRaw) => {
+  const view = browserViews.get(String(tabIdRaw || '').trim());
+  if (!view) return { ok: false, error: 'onglet introuvable' };
+  view.webContents.reload();
+  return { ok: true };
+});
+
+ipcMain.handle('browser:setVisible', async (_event, visibleRaw) => {
+  browserVisible = !!visibleRaw;
+  if (!browserVisible) {
+    detachAllBrowserViews();
+    return { ok: true };
+  }
+  if (activeBrowserTabId && browserViews.has(activeBrowserTabId) && mainWindow) {
+    try { mainWindow.addBrowserView(browserViews.get(activeBrowserTabId)); } catch {}
+    applyBrowserViewLayout();
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('browser:setBounds', async (_event, bounds = {}) => {
+  browserBounds = {
+    x: Number(bounds.x || 0),
+    y: Number(bounds.y || 0),
+    width: Number(bounds.width || 0),
+    height: Number(bounds.height || 0),
+  };
+  applyBrowserViewLayout();
+  return { ok: true };
+});
+
+ipcMain.handle('browser:autofillGithub', async (_event, payload = {}) => {
+  const tabId = String(payload.tabId || '').trim();
+  const username = String(payload.username || '');
+  const password = String(payload.password || '');
+  const view = browserViews.get(tabId);
+  if (!view) return { ok: false, error: 'onglet introuvable' };
+
+  const js = `(() => {
+    const user = ${JSON.stringify(username)};
+    const pass = ${JSON.stringify(password)};
+    const userInput = document.querySelector('input[name="login"], input#login_field, input[type="email"]');
+    const passInput = document.querySelector('input[name="password"], input#password');
+    if (userInput) userInput.value = user;
+    if (passInput) passInput.value = pass;
+    return { ok: !!(userInput && passInput) };
+  })();`;
+
+  try {
+    const result = await view.webContents.executeJavaScript(js, true);
+    return { ok: true, filled: !!(result && result.ok) };
+  } catch (err) {
+    return { ok: false, error: err.message || String(err) };
+  }
+});
 
 /* ═══════════════════════════════════════════════════════
    IPC Handlers — Window Controls
