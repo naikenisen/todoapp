@@ -46,7 +46,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   browserSetVisible: (visible) => ipcRenderer.invoke('browser:setVisible', visible),
   browserSetBounds: (bounds) => ipcRenderer.invoke('browser:setBounds', bounds),
   browserAutofillGithub: (payload) => ipcRenderer.invoke('browser:autofillGithub', payload),
+  browserAutofillSavedCredential: (payload) => ipcRenderer.invoke('browser:autofillSavedCredential', payload),
   onBrowserTabUpdated: (callback) => {
     ipcRenderer.on('browser:tab-updated', (_event, payload) => callback(payload));
   },
+
+  // ── Secure Password Vault ───────────────────
+  passwordVaultStatus: () => ipcRenderer.invoke('passwordVault:status'),
+  passwordVaultList: () => ipcRenderer.invoke('passwordVault:list'),
+  passwordVaultUpsert: (payload) => ipcRenderer.invoke('passwordVault:upsert', payload),
+  passwordVaultDelete: (credentialId) => ipcRenderer.invoke('passwordVault:delete', credentialId),
+  passwordVaultFindByOrigin: (origin) => ipcRenderer.invoke('passwordVault:findByOrigin', origin),
 });

@@ -38,6 +38,29 @@
             --radius-md: 6px;
             --radius-lg: 8px;
         }
+        body.light-mode {
+            --bg: #f3f6fb;
+            --bg-surface: #ffffff;
+            --card: #ffffff;
+            --card-border: #d6dce8;
+            --card-hover: #f7f9fd;
+            --text: #1b2a41;
+            --text-muted: #5d6c83;
+            --accent-blue: #2962ff;
+            --accent-blue-glow: rgba(41, 98, 255, 0.1);
+            --accent-green: #2e7d32;
+            --accent-orange: #ef6c00;
+            --accent-purple: #6a1b9a;
+            --accent-pink: #ad1457;
+            --accent-slate: #455a64;
+            --progress-bg: #e9eef7;
+            --checked: #2e7d32;
+            --titlebar-bg: #e9eef7;
+            --titlebar-border: #d2dae8;
+            --titlebar-btn-hover: rgba(0,0,0,0.06);
+            --titlebar-close-hover: #d32f2f;
+            --shadow-lg: 0 6px 16px rgba(17, 38, 74, 0.12);
+        }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -316,7 +339,7 @@
         .modal h2 { margin-bottom: 1.5rem; font-size: 1.2rem; }
         .form-group { margin-bottom: 1.25rem; }
         .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; font-weight: 600; }
-        .form-group input[type="text"], .form-group input[type="password"], .form-group input[type="date"], .form-group input[type="time"], .form-group textarea {
+        .form-group input[type="text"], .form-group input[type="password"], .form-group input[type="date"], .form-group input[type="time"], .form-group textarea, .form-group select {
             width: 100%; padding: 0.5rem 0.7rem; border: 1px solid var(--card-border);
             border-radius: var(--radius-sm); background: var(--progress-bg); color: var(--text);
             font-size: 0.85rem; font-family: inherit;
@@ -750,6 +773,74 @@
         }
         .agenda-event-actions button:hover {
             border-color: var(--accent-blue);
+        }
+        .agenda-cal-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin: 0 0 0.8rem;
+        }
+        .agenda-cal-chip {
+            border: 1px solid var(--card-border);
+            background: rgba(255,255,255,0.02);
+            color: var(--text);
+            border-radius: 999px;
+            padding: 0.26rem 0.62rem;
+            font-size: 0.76rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.15s;
+        }
+        .agenda-cal-chip .dot,
+        .agenda-cal-badge .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            border: 1px solid rgba(255,255,255,0.25);
+        }
+        .agenda-cal-chip.active {
+            border-color: var(--accent-blue);
+            background: rgba(137,180,250,0.13);
+        }
+        .agenda-cal-chip:hover {
+            border-color: var(--accent-blue);
+        }
+        .agenda-cal-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            padding: 0.25rem 0.65rem;
+            font-size: 0.78rem;
+            color: var(--text);
+            background: rgba(255,255,255,0.02);
+        }
+        .agenda-event-card.timed .agenda-resize-handle {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 6px;
+            cursor: ns-resize;
+            z-index: 3;
+        }
+        .agenda-event-card.timed .agenda-resize-handle.top { top: 0; }
+        .agenda-event-card.timed .agenda-resize-handle.bottom { bottom: 0; }
+        .agenda-event-card.timed.dragging,
+        .agenda-event-card.timed.resizing {
+            opacity: 0.86;
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.25), 0 8px 18px rgba(0,0,0,0.28);
+            z-index: 10;
+        }
+        .agenda-day-column.drag-target {
+            box-shadow: inset 0 0 0 2px rgba(137,180,250,0.35);
+        }
+        .agenda-event-card.timed.readonly {
+            cursor: default;
+            opacity: 0.75;
         }
 
         /* ─── Add Task Buttons (two-button layout) ──── */
@@ -1207,8 +1298,7 @@
                 <button onclick="fetchEmails()"><i class="icon-refresh-cw"></i> Relever les mails</button>
                 <button onclick="openAccountsModal()"><i class="icon-user"></i> Comptes</button>
                 <button onclick="toggleInboxFolder()" id="inboxFolderBtn"><i class="icon-inbox"></i> Reçus</button>
-                <button onclick="runV3()"><i class="icon-play"></i> Exécuter v3.py</button>
-                <button onclick="exportAllObsidian()"><i class="icon-book-open"></i> Exporter Obsidian</button>
+                <button onclick="runV3()"><i class="icon-archive"></i> Archiver les mails</button>
             </div>
         </header>
 
@@ -1300,6 +1390,27 @@
             <div class="mail-actions" id="mailSentActions" style="margin-top:0.5rem; display:none"></div>
         </div>
 
+        <div class="mail-composer" style="margin-top:0.8rem">
+            <h2><i class="icon-settings"></i> Outils Rédiger</h2>
+            <div class="mail-field">
+                <label>Clé API Gemini</label>
+                <input type="password" id="geminiKeyInput" placeholder="AIza...">
+                <small style="color:var(--text-muted)">Utilisée pour « Reformuler ».</small>
+            </div>
+            <div class="mail-actions" style="margin-bottom:0.8rem">
+                <button onclick="saveMailToolsSettings()"><i class="icon-save"></i> Sauvegarder la clé</button>
+            </div>
+            <div class="mail-field">
+                <label>📇 Importer un annuaire de contacts (CSV)</label>
+                <small style="display:block;margin-bottom:0.4rem;color:var(--text-muted)">Colonnes: Display Name, First Name, Last Name, Primary Email</small>
+                <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+                    <input type="file" id="contactsCsvInput" accept=".csv" style="font-size:0.8rem;color:var(--text)">
+                    <button onclick="importContactsCsv()" style="white-space:nowrap;padding:0.35rem 0.8rem;background:var(--accent-green);color:white;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:0.78rem">📥 Importer</button>
+                </div>
+                <small id="contactsCount" style="color:var(--text-muted);margin-top:0.3rem;display:block"></small>
+            </div>
+        </div>
+
     </div>
 
     <!-- AGENDA TAB -->
@@ -1307,7 +1418,7 @@
         <header>
             <h1><i class="icon-calendar-days"></i> Agenda hebdomadaire</h1>
             <div class="header-actions">
-                <select id="agendaAccount" onchange="loadAgendaWeek()" style="min-width:260px"></select>
+                <select id="agendaAccount" onchange="onAgendaAccountChange()" style="min-width:260px"></select>
                 <button onclick="connectAgendaOAuth()"><i class="icon-link"></i> Connecter Google</button>
                 <button onclick="agendaPrevWeek()">◀</button>
                 <button onclick="agendaToday()">Aujourd'hui</button>
@@ -1316,6 +1427,7 @@
                 <button onclick="loadAgendaWeek()"><i class="icon-refresh-cw"></i> Actualiser</button>
             </div>
         </header>
+        <div id="agendaCalendarFilters" class="agenda-cal-filters"></div>
         <div class="global-progress" style="position:static">
             <div class="global-progress-header">
                 <span id="agendaMonthLabel">Semaine</span>
@@ -1333,6 +1445,21 @@
                     <button onclick="addBrowserTab()"><i class="icon-plus"></i> Nouvel onglet</button>
                 </div>
                 <div id="browserTabList" style="overflow:auto;padding:0.3rem"></div>
+                <div style="border-top:1px solid var(--card-border);padding:0.55rem;display:flex;flex-direction:column;gap:0.45rem">
+                    <div style="font-size:0.76rem;color:var(--text-muted);display:flex;justify-content:space-between;gap:0.5rem">
+                        <span><i class="icon-lock"></i> Coffre mots de passe</span>
+                        <span id="browserVaultStatus" style="color:var(--accent-green)">OK</span>
+                    </div>
+                    <input id="browserVaultOrigin" type="text" placeholder="site.com" style="background:var(--progress-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.35rem 0.5rem;color:var(--text);font-size:0.78rem">
+                    <input id="browserVaultLabel" type="text" placeholder="Libelle (optionnel)" style="background:var(--progress-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.35rem 0.5rem;color:var(--text);font-size:0.78rem">
+                    <input id="browserVaultUsername" type="text" placeholder="Identifiant" style="background:var(--progress-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.35rem 0.5rem;color:var(--text);font-size:0.78rem">
+                    <input id="browserVaultPassword" type="password" placeholder="Mot de passe" style="background:var(--progress-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.35rem 0.5rem;color:var(--text);font-size:0.78rem">
+                    <div class="header-actions" style="justify-content:flex-start;margin:0;padding:0;gap:0.35rem">
+                        <button onclick="saveBrowserCredential()"><i class="icon-save"></i> Sauver</button>
+                        <button onclick="useSelectedCredentialOnActiveTab()"><i class="icon-key-round"></i> Remplir</button>
+                    </div>
+                    <div id="browserVaultList" style="max-height:150px;overflow:auto;border:1px solid var(--card-border);border-radius:var(--radius-sm)"></div>
+                </div>
             </div>
             <div class="inbox-reader-panel" style="display:flex;flex-direction:column;min-width:0">
                 <div class="header-actions" style="justify-content:flex-start;margin:0;padding:0.55rem 0.6rem;gap:0.4rem;border-bottom:1px solid var(--card-border)">
@@ -1456,24 +1583,9 @@
 <div class="modal-overlay" id="settingsModal" onclick="if(event.target===this)closeSettings()">
     <div class="modal">
         <h2><i class="icon-settings"></i> Paramètres</h2>
-        <div class="form-group">
-            <label>Clé API Gemini</label>
-            <input type="password" id="geminiKeyInput" placeholder="AIza...">
-            <small>Nécessaire pour « Reformuler ». Stockée dans data.json.</small>
-        </div>
-        <hr style="border-color:var(--card-border);margin:1rem 0">
-        <div class="form-group">
-            <label>📇 Importer un annuaire de contacts (CSV)</label>
-            <small style="display:block;margin-bottom:0.4rem;color:var(--text-muted)">Fichier CSV avec colonnes : Display Name, First Name, Last Name, Primary Email</small>
-            <div style="display:flex;gap:0.5rem;align-items:center">
-                <input type="file" id="contactsCsvInput" accept=".csv" style="font-size:0.8rem;color:var(--text)">
-                <button onclick="importContactsCsv()" style="white-space:nowrap;padding:0.35rem 0.8rem;background:var(--accent-green);color:white;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:0.78rem">📥 Importer</button>
-            </div>
-            <small id="contactsCount" style="color:var(--text-muted);margin-top:0.3rem;display:block"></small>
-        </div>
+        <p style="color:var(--text-muted);margin-bottom:0.8rem">Les réglages Gemini et import annuaire sont dans l'onglet <strong>Rédiger</strong>.</p>
         <div class="modal-actions">
-            <button onclick="closeSettings()">Annuler</button>
-            <button class="btn-primary" onclick="saveSettings()">Enregistrer</button>
+            <button onclick="closeSettings()">Fermer</button>
         </div>
     </div>
 </div>
@@ -1546,6 +1658,10 @@
             <input type="text" id="agendaCreateSummary" placeholder="Titre de l'événement">
         </div>
         <div class="form-group">
+            <label>Agenda</label>
+            <select id="agendaCreateCalendar"></select>
+        </div>
+        <div class="form-group">
             <label>Journée entière</label>
             <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">
                 <input type="checkbox" id="agendaCreateAllDay" onchange="toggleAgendaCreateAllDay()">
@@ -1584,22 +1700,48 @@
 <!-- Agenda Event Modal -->
 <div class="modal-overlay" id="agendaEventModal" onclick="if(event.target===this)closeAgendaEventModal()">
     <div class="modal" style="max-width:560px">
-        <h2 id="agendaEventTitle">Événement</h2>
-        <div class="mail-field">
-            <label>Période</label>
-            <div id="agendaEventPeriod" class="inbox-item-preview" style="white-space:normal"></div>
+        <h2><i class="icon-calendar-days"></i> Modifier l'événement</h2>
+        <div class="form-group">
+            <label>Titre</label>
+            <input type="text" id="agendaEventTitleInput">
         </div>
-        <div class="mail-field" id="agendaEventLocationWrap" style="display:none">
+        <div class="form-group">
+            <label>Agenda</label>
+            <div id="agendaEventCalendarBadge" class="agenda-cal-badge"></div>
+        </div>
+        <div class="form-group">
+            <label>Journée entière</label>
+            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">
+                <input type="checkbox" id="agendaEventAllDay" onchange="toggleAgendaEventAllDay()">
+                Événement toute la journée
+            </label>
+        </div>
+        <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="agendaEventDate">
+        </div>
+        <div class="form-group" id="agendaEventTimeGroup" style="display:flex;gap:0.6rem">
+            <div style="flex:1">
+                <label>Début</label>
+                <input type="time" id="agendaEventStartTime">
+            </div>
+            <div style="flex:1">
+                <label>Fin</label>
+                <input type="time" id="agendaEventEndTime">
+            </div>
+        </div>
+        <div class="mail-field" id="agendaEventLocationWrap">
             <label>Lieu</label>
-            <div id="agendaEventLocation" class="inbox-item-preview" style="white-space:normal"></div>
+            <input type="text" id="agendaEventLocation" placeholder="Lieu">
         </div>
-        <div class="mail-field" id="agendaEventDescriptionWrap" style="display:none">
+        <div class="mail-field" id="agendaEventDescriptionWrap">
             <label>Description</label>
-            <div id="agendaEventDescription" class="inbox-item-preview" style="white-space:pre-wrap"></div>
+            <textarea id="agendaEventDescription" rows="4" placeholder="Description"></textarea>
         </div>
         <div class="modal-actions">
+            <button class="btn-primary" id="agendaEventSaveBtn" onclick="saveSelectedAgendaEvent()"><i class="icon-save"></i> Enregistrer</button>
             <button id="agendaEventOpenBtn" onclick="openSelectedAgendaEvent()"><i class="icon-external-link"></i> Ouvrir</button>
-            <button class="btn-danger" onclick="deleteSelectedAgendaEvent()"><i class="icon-trash-2"></i> Supprimer</button>
+            <button class="btn-danger" id="agendaEventDeleteBtn" onclick="deleteSelectedAgendaEvent()"><i class="icon-trash-2"></i> Supprimer</button>
             <button onclick="closeAgendaEventModal()">Fermer</button>
         </div>
     </div>
@@ -1629,9 +1771,16 @@ let selectedMailTask = null;
 let timelineMonth = new Date();
 let agendaWeekStart = new Date();
 let agendaEventsCache = [];
+let agendaCalendars = [];
+let agendaSelectedCalendarIds = [];
+let agendaInteractionState = null;
+let agendaPointerSuppressClickUntil = 0;
 let selectedAgendaEventId = null;
 let browserTabs = [];
 let activeBrowserTabId = null;
+let browserCredentials = [];
+let selectedBrowserCredentialId = null;
+let browserVaultEncryptionAvailable = false;
 const GITHUB_BROWSER_TAB_ID = 'github-main';
 let agendaInitialized = false;
 let browserInitialized = false;
@@ -1756,7 +1905,7 @@ function renderHeader() {
             <button onclick="toggleEdit()" class="${editMode ? 'active' : ''}">
                 ${editMode ? '<i class="icon-check"></i> Terminer' : '<i class="icon-pencil"></i> Éditer'}
             </button>
-            <button onclick="openSettings()"><i class="icon-settings"></i></button>
+            <button onclick="toggleThemeMode()" id="themeToggleBtn"><i class="icon-sun"></i> White mode</button>
         </div>
     </header>`;
 }
@@ -1778,8 +1927,10 @@ function renderProgress() {
 function renderSections() {
     return state.sections.map(s => {
         const tasksHtml = s.tasks.map(t => renderTask(t, s.id)).join('');
-        const editBtns = editMode ? `
+        const editBtns = `
             <button class="btn-icon" onclick="event.stopPropagation();openSectionModal('${s.id}')" title="Modifier"><i class="icon-pencil"></i></button>
+        `;
+        const dangerBtns = editMode ? `
             <button class="btn-icon" onclick="event.stopPropagation();deleteSection('${s.id}')" title="Supprimer"><i class="icon-trash-2"></i></button>
         ` : '';
         const desc = s.description
@@ -1800,6 +1951,7 @@ function renderSections() {
                 </span>
                 <div class="section-header-right">
                     ${editBtns}
+                    ${dangerBtns}
                     <div class="section-progress-mini">
                         <div class="mini-bar"><div class="mini-fill" data-sfill="${s.id}"></div></div>
                         <span class="mini-text" data-stext="${s.id}">0%</span>
@@ -2107,8 +2259,6 @@ function saveSectionModal() {
    Settings Modal
    ═══════════════════════════════════════════════════════ */
 function openSettings() {
-    document.getElementById('geminiKeyInput').value = state.settings.geminiKey || '';
-    document.getElementById('contactsCount').textContent = contacts.length ? `${contacts.length} contacts chargés` : '';
     document.getElementById('settingsModal').classList.add('show');
 }
 
@@ -2117,10 +2267,34 @@ function closeSettings() {
 }
 
 function saveSettings() {
-    state.settings.geminiKey = document.getElementById('geminiKeyInput').value.trim();
     closeSettings();
+    showToast('Parametres deplaces vers Rédiger.', 'success');
+}
+
+function saveMailToolsSettings() {
+    const input = document.getElementById('geminiKeyInput');
+    state.settings.geminiKey = (input?.value || '').trim();
     autoSave();
-    showToast('Paramètres sauvegardés', 'success');
+    showToast('Cle Gemini sauvegardee.', 'success');
+}
+
+function applyThemeMode(mode) {
+    const normalized = mode === 'light' ? 'light' : 'dark';
+    document.body.classList.toggle('light-mode', normalized === 'light');
+    const btn = document.getElementById('themeToggleBtn');
+    if (btn) {
+        btn.innerHTML = normalized === 'light'
+            ? '<i class="icon-moon"></i> Dark mode'
+            : '<i class="icon-sun"></i> White mode';
+    }
+}
+
+function toggleThemeMode() {
+    const current = state.settings.uiTheme === 'light' ? 'light' : 'dark';
+    const next = current === 'light' ? 'dark' : 'light';
+    state.settings.uiTheme = next;
+    applyThemeMode(next);
+    autoSave();
 }
 
 async function importContactsCsv() {
@@ -2312,8 +2486,8 @@ async function reformulateMail() {
     const body = document.getElementById('mailBody').value.trim();
     if (!body) { showToast('Écris un message d\'abord.', 'error'); return; }
     if (!state.settings.geminiKey) {
-        showToast('Configure ta clé API Gemini dans les paramètres', 'error', 3000);
-        openSettings();
+        showToast('Configure ta cle API Gemini dans l\'onglet Rédiger.', 'error', 3000);
+        document.getElementById('geminiKeyInput')?.focus();
         return;
     }
     showLoading('L\'IA reformule ton message…');
@@ -4092,12 +4266,27 @@ setInterval(() => {
    ═══════════════════════════════════════════════════════ */
 (async function init() {
     await Promise.all([loadState(), loadContacts()]);
+
+    // Security migration: never keep GitHub password in plain JSON state.
+    if (state.settings && Object.prototype.hasOwnProperty.call(state.settings, 'githubPassword')) {
+        delete state.settings.githubPassword;
+    }
+
     render();
     if (!state.settings) state.settings = {};
+    applyThemeMode(state.settings.uiTheme || 'dark');
+
     const ghUser = document.getElementById('githubUser');
     const ghPass = document.getElementById('githubPassword');
+    const geminiInput = document.getElementById('geminiKeyInput');
+    const contactsCount = document.getElementById('contactsCount');
+
     if (ghUser) ghUser.value = state.settings.githubUser || '';
-    if (ghPass) ghPass.value = state.settings.githubPassword || '';
+    if (ghPass) ghPass.value = '';
+    if (geminiInput) geminiInput.value = state.settings.geminiKey || '';
+    if (contactsCount) contactsCount.textContent = contacts.length ? `${contacts.length} contacts chargés` : '';
+
+    autoSave();
     updateMailBadge();
     loadInbox().then(() => {
         updateInboxBadge();
@@ -4835,6 +5024,158 @@ function ensureUrlWithScheme(raw) {
     return 'https://' + v;
 }
 
+function hostFromAnyUrl(raw) {
+    const input = String(raw || '').trim();
+    if (!input) return '';
+    try {
+        const u = new URL(/^https?:\/\//i.test(input) ? input : `https://${input}`);
+        return (u.hostname || '').toLowerCase();
+    } catch {
+        return '';
+    }
+}
+
+function getActiveBrowserOrigin() {
+    const active = getActiveBrowserTab();
+    return hostFromAnyUrl(active?.url || '');
+}
+
+function renderBrowserVaultList() {
+    const box = document.getElementById('browserVaultList');
+    if (!box) return;
+    const activeOrigin = getActiveBrowserOrigin();
+
+    if (!browserCredentials.length) {
+        box.innerHTML = '<div style="padding:0.45rem 0.5rem;color:var(--text-muted);font-size:0.76rem">Aucun identifiant sauvegarde.</div>';
+        return;
+    }
+
+    box.innerHTML = browserCredentials.map((cred) => {
+        const selected = cred.id === selectedBrowserCredentialId;
+        const matchesActive = activeOrigin && cred.origin === activeOrigin;
+        const label = esc(cred.label || cred.origin);
+        const user = esc(cred.username || '');
+        return `<div class="inbox-item ${selected ? 'selected' : ''}" style="padding:0.35rem 0.45rem;${matchesActive ? 'border-left:2px solid var(--accent-green);' : ''}" onclick="selectBrowserCredential('${cred.id}')">
+            <div class="inbox-item-content" style="min-width:0">
+                <div class="inbox-item-top">
+                    <span class="inbox-item-from" style="max-width:128px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+                    <button class="btn-icon" onclick="event.stopPropagation();deleteBrowserCredential('${cred.id}')" title="Supprimer">✕</button>
+                </div>
+                <div class="inbox-item-preview" style="font-size:0.72rem">${esc(cred.origin)} • ${user}</div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function selectBrowserCredential(credentialId) {
+    selectedBrowserCredentialId = credentialId;
+    const cred = browserCredentials.find((c) => c.id === credentialId);
+    if (cred) {
+        document.getElementById('browserVaultOrigin').value = cred.origin || '';
+        document.getElementById('browserVaultLabel').value = cred.label || '';
+        document.getElementById('browserVaultUsername').value = cred.username || '';
+        document.getElementById('browserVaultPassword').value = '';
+    }
+    renderBrowserVaultList();
+}
+
+async function loadBrowserCredentials() {
+    const api = getBrowserApi();
+    if (!api || !api.passwordVaultList || !api.passwordVaultStatus) return;
+
+    const status = await api.passwordVaultStatus();
+    browserVaultEncryptionAvailable = !!(status && status.encryptionAvailable);
+    const statusNode = document.getElementById('browserVaultStatus');
+    if (statusNode) {
+        statusNode.textContent = browserVaultEncryptionAvailable ? 'Chiffre' : 'Non disponible';
+        statusNode.style.color = browserVaultEncryptionAvailable ? 'var(--accent-green)' : 'var(--accent-orange)';
+    }
+
+    const res = await api.passwordVaultList();
+    if (!res || !res.ok) {
+        browserCredentials = [];
+        renderBrowserVaultList();
+        return;
+    }
+    browserCredentials = Array.isArray(res.entries) ? res.entries : [];
+    if (selectedBrowserCredentialId && !browserCredentials.find((c) => c.id === selectedBrowserCredentialId)) {
+        selectedBrowserCredentialId = null;
+    }
+
+    const originInput = document.getElementById('browserVaultOrigin');
+    if (originInput && !originInput.value.trim()) {
+        originInput.value = getActiveBrowserOrigin();
+    }
+    renderBrowserVaultList();
+}
+
+async function saveBrowserCredential() {
+    const api = getBrowserApi();
+    if (!api || !api.passwordVaultUpsert) return;
+    if (!browserVaultEncryptionAvailable) {
+        showToast('Coffre indisponible: keyring systeme manquant.', 'error', 5000);
+        return;
+    }
+
+    const originRaw = document.getElementById('browserVaultOrigin')?.value || getActiveBrowserOrigin();
+    const origin = hostFromAnyUrl(originRaw);
+    const label = (document.getElementById('browserVaultLabel')?.value || '').trim();
+    const username = (document.getElementById('browserVaultUsername')?.value || '').trim();
+    const password = document.getElementById('browserVaultPassword')?.value || '';
+    if (!origin) return showToast('Site invalide.', 'error');
+    if (!username || !password) return showToast('Identifiant et mot de passe requis.', 'error');
+
+    const res = await api.passwordVaultUpsert({
+        id: selectedBrowserCredentialId || '',
+        origin,
+        label,
+        username,
+        password,
+    });
+    if (!res || !res.ok) {
+        showToast('Erreur coffre: ' + esc((res && res.error) || 'inconnue'), 'error', 5000);
+        return;
+    }
+
+    selectedBrowserCredentialId = res.entryId || selectedBrowserCredentialId;
+    document.getElementById('browserVaultPassword').value = '';
+    await loadBrowserCredentials();
+    showToast('Identifiant securise enregistre.', 'success');
+}
+
+async function deleteBrowserCredential(credentialId) {
+    const api = getBrowserApi();
+    if (!api || !api.passwordVaultDelete) return;
+    const cred = browserCredentials.find((c) => c.id === credentialId);
+    if (!cred) return;
+    if (!confirm(`Supprimer l'identifiant ${cred.username} pour ${cred.origin} ?`)) return;
+    const res = await api.passwordVaultDelete(credentialId);
+    if (!res || !res.ok) {
+        showToast('Suppression impossible.', 'error');
+        return;
+    }
+    if (selectedBrowserCredentialId === credentialId) selectedBrowserCredentialId = null;
+    await loadBrowserCredentials();
+}
+
+async function useSelectedCredentialOnActiveTab() {
+    const api = getBrowserApi();
+    if (!api || !api.browserAutofillSavedCredential) return;
+    const active = getActiveBrowserTab();
+    if (!active) return showToast('Aucun onglet actif.', 'error');
+    if (!selectedBrowserCredentialId) return showToast('Selectionne un identifiant.', 'error');
+
+    const res = await api.browserAutofillSavedCredential({
+        tabId: active.id,
+        credentialId: selectedBrowserCredentialId,
+    });
+    if (res && res.ok && res.filled) {
+        showToast('Identifiants remplis dans la page active.', 'success');
+    } else {
+        showToast('Impossible de remplir ce formulaire automatiquement.', 'error');
+    }
+}
+
 function getActiveBrowserTab() {
     return browserTabs.find(t => t.id === activeBrowserTabId) || null;
 }
@@ -4989,12 +5330,19 @@ function bindBrowserEventsIfNeeded() {
             if (typeof payload.canGoForward === 'boolean') t.canGoForward = payload.canGoForward;
         }
         renderBrowserTabList();
+        renderBrowserVaultList();
+
+        const originInput = document.getElementById('browserVaultOrigin');
+        if (originInput && !originInput.value.trim()) {
+            originInput.value = getActiveBrowserOrigin();
+        }
     });
     browserEventsBound = true;
 }
 
 async function initBrowserIfNeeded() {
     bindBrowserEventsIfNeeded();
+    await loadBrowserCredentials();
     if (browserInitialized) {
         updateBrowserViewVisibility();
         return;
@@ -5010,14 +5358,20 @@ async function initGithubIfNeeded() {
         githubInitialized = true;
         await api.browserCreateTab({ tabId: GITHUB_BROWSER_TAB_ID, url: 'https://github.com/login' });
         document.getElementById('githubUser').value = state.settings.githubUser || '';
-        document.getElementById('githubPassword').value = state.settings.githubPassword || '';
+        document.getElementById('githubPassword').value = '';
+
+        if (api.passwordVaultFindByOrigin) {
+            const match = await api.passwordVaultFindByOrigin('github.com');
+            if (match && match.ok && match.entry && !document.getElementById('githubUser').value.trim()) {
+                document.getElementById('githubUser').value = match.entry.username || '';
+            }
+        }
     }
     updateBrowserViewVisibility();
 }
 
 function saveGithubCredentials() {
     state.settings.githubUser = document.getElementById('githubUser').value;
-    state.settings.githubPassword = document.getElementById('githubPassword').value;
     autoSave();
 }
 
@@ -5033,8 +5387,19 @@ async function autofillGithubLogin() {
     if (!api || !api.browserAutofillGithub) return;
     const username = document.getElementById('githubUser').value.trim();
     const password = document.getElementById('githubPassword').value;
+
     if (!username || !password) {
-        showToast('Renseigne identifiant et mot de passe GitHub.', 'error');
+        if (api.passwordVaultFindByOrigin && api.browserAutofillSavedCredential) {
+            const match = await api.passwordVaultFindByOrigin('github.com');
+            if (match && match.ok && match.entry && match.entry.id) {
+                const resSaved = await api.browserAutofillSavedCredential({ tabId: GITHUB_BROWSER_TAB_ID, credentialId: match.entry.id });
+                if (resSaved && resSaved.ok && resSaved.filled) {
+                    showToast('Identifiants GitHub remplis depuis le coffre securise.', 'success');
+                    return;
+                }
+            }
+        }
+        showToast('Renseigne identifiant/mot de passe ou enregistre github.com dans le coffre.', 'error');
         return;
     }
     const res = await api.browserAutofillGithub({ tabId: GITHUB_BROWSER_TAB_ID, username, password });
@@ -5064,6 +5429,23 @@ function toYmd(date) {
     return `${y}-${m}-${d}`;
 }
 
+function addDaysYmd(ymd, deltaDays) {
+    const d = new Date(`${ymd}T00:00:00`);
+    d.setDate(d.getDate() + deltaDays);
+    return toYmd(d);
+}
+
+function hexToRgba(hex, alpha) {
+    const value = String(hex || '').trim();
+    const full = value.startsWith('#') ? value.slice(1) : value;
+    const normalized = full.length === 3 ? full.split('').map((c) => c + c).join('') : full;
+    if (!/^[0-9a-fA-F]{6}$/.test(normalized)) return `rgba(137, 180, 250, ${alpha})`;
+    const r = parseInt(normalized.slice(0, 2), 16);
+    const g = parseInt(normalized.slice(2, 4), 16);
+    const b = parseInt(normalized.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function toLocalDateTimeValue(date) {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -5073,21 +5455,12 @@ function toLocalDateTimeValue(date) {
     return `${y}-${m}-${d}T${h}:${min}`;
 }
 
-function formatAgendaEventPeriod(ev) {
-    if (ev.allDay) {
-        const start = ev.start || '';
-        const end = ev.end || '';
-        return `${start} -> ${end} (journée entière)`;
-    }
-    const start = ev.start ? new Date(ev.start) : null;
-    const end = ev.end ? new Date(ev.end) : null;
-    const startLabel = start && !isNaN(start.getTime())
-        ? start.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })
-        : ev.start;
-    const endLabel = end && !isNaN(end.getTime())
-        ? end.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })
-        : ev.end;
-    return `${startLabel} -> ${endLabel}`;
+function agendaEventKey(ev) {
+    return `${ev.calendarId || 'primary'}::${ev.id || ''}`;
+}
+
+function findAgendaEventByKey(key) {
+    return (agendaEventsCache || []).find((ev) => agendaEventKey(ev) === key) || null;
 }
 
 async function initAgendaIfNeeded() {
@@ -5096,6 +5469,12 @@ async function initAgendaIfNeeded() {
         agendaInitialized = true;
         await loadAgendaAccounts();
     }
+    await loadAgendaCalendars();
+    await loadAgendaWeek();
+}
+
+async function onAgendaAccountChange() {
+    await loadAgendaCalendars();
     await loadAgendaWeek();
 }
 
@@ -5111,24 +5490,81 @@ async function loadAgendaAccounts() {
             return;
         }
         const prev = select.value;
-        select.innerHTML = accounts.map(a => {
-            const status = a.connected ? 'connecté' : 'à connecter';
+        select.innerHTML = accounts.map((a) => {
+            const status = a.connected ? 'connecte' : 'a connecter';
             return `<option value="${esc(a.email)}">${esc(a.email)} (${status})</option>`;
         }).join('');
-        if (prev && accounts.some(a => a.email === prev)) select.value = prev;
+        if (prev && accounts.some((a) => a.email === prev)) select.value = prev;
     } catch {
         select.innerHTML = '<option value="">Erreur de chargement</option>';
     }
+}
+
+async function loadAgendaCalendars() {
+    const account = (document.getElementById('agendaAccount')?.value || '').trim();
+    if (!account) {
+        agendaCalendars = [];
+        agendaSelectedCalendarIds = [];
+        renderAgendaCalendarFilters();
+        return;
+    }
+    try {
+        const r = await fetch(`/api/calendar/calendars?account=${encodeURIComponent(account)}`);
+        const result = await r.json();
+        if (!result.ok) throw new Error(result.error || 'Erreur agenda');
+
+        agendaCalendars = Array.isArray(result.calendars) ? result.calendars : [];
+        const ids = new Set(agendaCalendars.map((c) => c.id));
+        agendaSelectedCalendarIds = (agendaSelectedCalendarIds || []).filter((id) => ids.has(id));
+        if (!agendaSelectedCalendarIds.length) {
+            agendaSelectedCalendarIds = agendaCalendars.filter((c) => c.selected !== false).map((c) => c.id);
+        }
+        if (!agendaSelectedCalendarIds.length) {
+            agendaSelectedCalendarIds = agendaCalendars.map((c) => c.id);
+        }
+    } catch {
+        agendaCalendars = [];
+        agendaSelectedCalendarIds = [];
+    }
+    renderAgendaCalendarFilters();
+}
+
+function renderAgendaCalendarFilters() {
+    const container = document.getElementById('agendaCalendarFilters');
+    if (!container) return;
+    if (!agendaCalendars.length) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = agendaCalendars.map((cal) => {
+        const active = agendaSelectedCalendarIds.includes(cal.id);
+        return `<button class="agenda-cal-chip ${active ? 'active' : ''}" onclick="toggleAgendaCalendarFilter('${encodeURIComponent(cal.id)}')">
+            <span class="dot" style="background:${esc(cal.backgroundColor || '#6c8aff')}"></span>
+            ${esc(cal.summary || cal.id)}
+        </button>`;
+    }).join('');
+}
+
+function toggleAgendaCalendarFilter(encodedId) {
+    const id = decodeURIComponent(encodedId || '');
+    const current = new Set(agendaSelectedCalendarIds || []);
+    if (current.has(id)) current.delete(id);
+    else current.add(id);
+    agendaSelectedCalendarIds = [...current];
+    if (!agendaSelectedCalendarIds.length) agendaSelectedCalendarIds = agendaCalendars.map((c) => c.id);
+    renderAgendaCalendarFilters();
+    loadAgendaWeek();
 }
 
 async function connectAgendaOAuth() {
     const select = document.getElementById('agendaAccount');
     const email = (select?.value || '').trim();
     if (!email) {
-        showToast('Sélectionne un compte Google OAuth.', 'error');
+        showToast('Selectionne un compte Google OAuth.', 'error');
         return;
     }
-    showLoading('Ouverture de la connexion Google pour Agenda…');
+    showLoading('Ouverture de la connexion Google pour Agenda...');
     try {
         const scope = 'https://mail.google.com/ https://www.googleapis.com/auth/calendar';
         const r = await fetch('/api/oauth/google/start', {
@@ -5141,7 +5577,6 @@ async function connectAgendaOAuth() {
             showToast('Erreur OAuth: ' + (result.error || 'URL manquante'), 'error', 5000);
             return;
         }
-
         const opened = window.electronAPI && window.electronAPI.openExternal
             ? await window.electronAPI.openExternal(result.auth_url)
             : false;
@@ -5188,12 +5623,12 @@ function splitTimedEventIntoWeekDays(ev, weekDays) {
     const endRaw = ev.end ? new Date(ev.end) : null;
     if (!start || isNaN(start.getTime())) return out;
     const end = endRaw && !isNaN(endRaw.getTime()) ? endRaw : new Date(start.getTime() + 30 * 60 * 1000);
+    const sameDayEvent = start.toDateString() === end.toDateString();
 
     weekDays.forEach((day) => {
         const dayStart = new Date(day);
         const dayEnd = new Date(day);
         dayEnd.setDate(dayEnd.getDate() + 1);
-
         const segStart = start > dayStart ? start : dayStart;
         const segEnd = end < dayEnd ? end : dayEnd;
         if (segEnd <= segStart) return;
@@ -5205,9 +5640,19 @@ function splitTimedEventIntoWeekDays(ev, weekDays) {
             dayKey: toYmd(day),
             startMin,
             endMin: Math.max(endMin, startMin + 15),
+            movable: sameDayEvent && !!ev.canEdit,
         });
     });
     return out;
+}
+
+function handleAgendaCardClick(evt, encodedEventKey) {
+    if (Date.now() < agendaPointerSuppressClickUntil) {
+        evt.preventDefault();
+        evt.stopPropagation();
+        return;
+    }
+    openAgendaEventModal(encodedEventKey);
 }
 
 function renderAgendaWeek(events) {
@@ -5233,14 +5678,10 @@ function renderAgendaWeek(events) {
 
             weekDays.forEach((day) => {
                 const key = toYmd(day);
-                if (day >= startDate && day < rangeEnd) {
-                    allDayByDay[key].push(ev);
-                }
+                if (day >= startDate && day < rangeEnd) allDayByDay[key].push(ev);
             });
         } else {
-            splitTimedEventIntoWeekDays(ev, weekDays).forEach((segment) => {
-                timedByDay[segment.dayKey].push(segment);
-            });
+            splitTimedEventIntoWeekDays(ev, weekDays).forEach((segment) => timedByDay[segment.dayKey].push(segment));
         }
     });
 
@@ -5255,10 +5696,13 @@ function renderAgendaWeek(events) {
     const allDayRow = weekDays.map((day) => {
         const key = toYmd(day);
         const cards = allDayByDay[key].map((ev) => {
-            const encodedId = encodeURIComponent(ev.id || '');
-            return `<div class="agenda-event-card all-day" onclick="openAgendaEventModal('${encodedId}')">
+            const k = encodeURIComponent(agendaEventKey(ev));
+            const bg = hexToRgba(ev.calendarColor || '#6c8aff', 0.2);
+            const border = ev.calendarColor || '#6c8aff';
+            const text = ev.calendarTextColor || 'var(--text)';
+            return `<div class="agenda-event-card all-day" style="background:${esc(bg)};border-color:${esc(border)};color:${esc(text)}" onclick="handleAgendaCardClick(event, '${k}')">
                 <strong>${esc(ev.summary || '(Sans titre)')}</strong>
-                <div class="agenda-event-meta">Journée entière</div>
+                <div class="agenda-event-meta">${esc(ev.calendarName || 'Agenda')} • Journee entiere</div>
             </div>`;
         }).join('');
         return `<div class="agenda-all-day-cell">${cards}</div>`;
@@ -5272,27 +5716,31 @@ function renderAgendaWeek(events) {
         const cls = key === todayYmd ? 'agenda-day-column today' : 'agenda-day-column';
         const segments = (timedByDay[key] || []).sort((a, b) => a.startMin - b.startMin);
         const eventsHtml = segments.map((segment) => {
-            const encodedId = encodeURIComponent(segment.event.id || '');
+            const k = encodeURIComponent(agendaEventKey(segment.event));
             const top = Math.max(0, (segment.startMin / 60) * 48);
             const duration = Math.max(18, ((segment.endMin - segment.startMin) / 60) * 48);
             const startLabel = `${String(Math.floor(segment.startMin / 60)).padStart(2, '0')}:${String(segment.startMin % 60).padStart(2, '0')}`;
             const endLabel = `${String(Math.floor(segment.endMin / 60)).padStart(2, '0')}:${String(segment.endMin % 60).padStart(2, '0')}`;
-            return `<div class="agenda-event-card timed" style="top:${top}px;height:${duration}px" onclick="openAgendaEventModal('${encodedId}')">
+            const bg = hexToRgba(segment.event.calendarColor || '#6c8aff', 0.2);
+            const border = segment.event.calendarColor || '#6c8aff';
+            const text = segment.event.calendarTextColor || 'var(--text)';
+            const ro = segment.movable ? '' : 'readonly';
+            const handles = segment.movable ? '<div class="agenda-resize-handle top"></div><div class="agenda-resize-handle bottom"></div>' : '';
+            return `<div class="agenda-event-card timed ${ro}" data-event-key="${k}" style="top:${top}px;height:${duration}px;border-color:${esc(border)};background:${esc(bg)};color:${esc(text)}" onclick="handleAgendaCardClick(event, '${k}')">${handles}
                 <strong>${esc(segment.event.summary || '(Sans titre)')}</strong>
-                <div class="agenda-event-meta">${esc(startLabel)} - ${esc(endLabel)}</div>
+                <div class="agenda-event-meta">${esc(startLabel)} - ${esc(endLabel)} • ${esc(segment.event.calendarName || 'Agenda')}</div>
             </div>`;
         }).join('');
-        return `<div class="${cls}">${eventsHtml}</div>`;
+        return `<div class="${cls}" data-day-key="${key}">${eventsHtml}</div>`;
     }).join('');
 
-    const hasEvents = (events || []).length > 0;
     container.innerHTML = `
         <div class="agenda-week-header">
             <div class="agenda-time-label">Heure</div>
             ${weekHeader}
         </div>
         <div class="agenda-all-day-row">
-            <div class="agenda-all-day-label">Toute la journée</div>
+            <div class="agenda-all-day-label">Toute la journee</div>
             ${allDayRow}
         </div>
         <div class="agenda-week-grid-wrap">
@@ -5301,8 +5749,178 @@ function renderAgendaWeek(events) {
                 ${dayColumns}
             </div>
         </div>
-        ${!hasEvents ? '<div class="agenda-empty-state">Aucun événement cette semaine. Clique sur "Nouvel événement" pour commencer.</div>' : ''}
+        ${(events || []).length ? '' : '<div class="agenda-empty-state">Aucun evenement cette semaine.</div>'}
     `;
+
+    bindAgendaInteractions();
+}
+
+function bindAgendaInteractions() {
+    const cards = document.querySelectorAll('.agenda-event-card.timed:not(.readonly)');
+    const dayColumns = [...document.querySelectorAll('.agenda-day-column')];
+    const pxQuarter = 12;
+
+    cards.forEach((card) => {
+        card.onmousedown = (evt) => {
+            if (evt.button !== 0) return;
+            const topHandle = evt.target.closest('.agenda-resize-handle.top');
+            const bottomHandle = evt.target.closest('.agenda-resize-handle.bottom');
+            const mode = topHandle ? 'resize-top' : (bottomHandle ? 'resize-bottom' : 'move');
+            const dayCol = card.closest('.agenda-day-column');
+            if (!dayCol) return;
+
+            const key = decodeURIComponent(card.dataset.eventKey || '');
+            const ev = findAgendaEventByKey(key);
+            if (!ev || !ev.canEdit) return;
+
+            agendaInteractionState = {
+                mode,
+                card,
+                key,
+                sourceDayKey: dayCol.dataset.dayKey,
+                targetDayKey: dayCol.dataset.dayKey,
+                startY: evt.clientY,
+                originalTop: parseFloat(card.style.top || '0') || 0,
+                originalHeight: parseFloat(card.style.height || '24') || 24,
+                changed: false,
+            };
+            card.classList.add(mode === 'move' ? 'dragging' : 'resizing');
+            evt.preventDefault();
+        };
+    });
+
+    document.onmousemove = (evt) => {
+        const s = agendaInteractionState;
+        if (!s) return;
+        const dy = evt.clientY - s.startY;
+        const gridMax = 24 * 48;
+
+        if (s.mode === 'move') {
+            let top = s.originalTop + dy;
+            top = Math.max(0, Math.min(gridMax - s.originalHeight, Math.round(top / pxQuarter) * pxQuarter));
+            if (Math.abs(top - s.originalTop) > 0.1) s.changed = true;
+            s.card.style.top = `${top}px`;
+
+            dayColumns.forEach((c) => c.classList.remove('drag-target'));
+            const over = document.elementFromPoint(evt.clientX, evt.clientY);
+            const overCol = over ? over.closest('.agenda-day-column') : null;
+            if (overCol && overCol.dataset.dayKey) {
+                s.targetDayKey = overCol.dataset.dayKey;
+                overCol.classList.add('drag-target');
+                if (s.targetDayKey !== s.sourceDayKey) s.changed = true;
+            }
+        } else if (s.mode === 'resize-top') {
+            let top = s.originalTop + dy;
+            let height = s.originalHeight - dy;
+            if (height < pxQuarter) {
+                height = pxQuarter;
+                top = s.originalTop + (s.originalHeight - pxQuarter);
+            }
+            top = Math.max(0, Math.round(top / pxQuarter) * pxQuarter);
+            height = Math.min(gridMax - top, Math.max(pxQuarter, Math.round(height / pxQuarter) * pxQuarter));
+            if (Math.abs(top - s.originalTop) > 0.1 || Math.abs(height - s.originalHeight) > 0.1) s.changed = true;
+            s.card.style.top = `${top}px`;
+            s.card.style.height = `${height}px`;
+        } else {
+            let height = s.originalHeight + dy;
+            const top = parseFloat(s.card.style.top || '0') || 0;
+            height = Math.min(gridMax - top, Math.max(pxQuarter, Math.round(height / pxQuarter) * pxQuarter));
+            if (Math.abs(height - s.originalHeight) > 0.1) s.changed = true;
+            s.card.style.height = `${height}px`;
+        }
+    };
+
+    document.onmouseup = async () => {
+        const s = agendaInteractionState;
+        if (!s) return;
+        dayColumns.forEach((c) => c.classList.remove('drag-target'));
+        s.card.classList.remove('dragging', 'resizing');
+
+        const top = parseFloat(s.card.style.top || '0') || 0;
+        const height = parseFloat(s.card.style.height || '24') || 24;
+        const startMin = Math.max(0, Math.min(24 * 60 - 15, Math.round(top / pxQuarter) * 15));
+        const endMin = Math.min(24 * 60, startMin + Math.max(15, Math.round(height / pxQuarter) * 15));
+        const dayKey = s.targetDayKey || s.sourceDayKey;
+        const changed = s.changed;
+        const key = s.key;
+        agendaInteractionState = null;
+        if (!changed) return;
+
+        agendaPointerSuppressClickUntil = Date.now() + 220;
+        await persistAgendaTimedChange(key, dayKey, startMin, endMin);
+    };
+}
+
+function dayKeyMinutesToLocal(dayKey, minutes) {
+    const d = new Date(`${dayKey}T00:00:00`);
+    d.setMinutes(minutes);
+    return toLocalDateTimeValue(d);
+}
+
+function showAgendaApiError(result, fallbackMessage) {
+    const code = (result && result.error_code) || '';
+    if (code === 'CALENDAR_SCOPE_INSUFFICIENT') {
+        showToast('Le compte OAuth doit etre reconnecte avec les droits Agenda. Clique sur "Connecter Google".', 'error', 6500);
+        return;
+    }
+    if (code === 'CALENDAR_EVENT_FORBIDDEN') {
+        showToast('Modification refusee par Google: evenement non modifiable avec ce compte.', 'error', 6500);
+        return;
+    }
+    if (code === 'CALENDAR_API_DISABLED') {
+        showToast('Google Calendar API desactivee sur le projet Google Cloud.', 'error', 6500);
+        return;
+    }
+    showToast('Erreur: ' + esc((result && (result.error || result.details)) || fallbackMessage), 'error', 5000);
+}
+
+async function persistAgendaTimedChange(key, dayKey, startMin, endMin) {
+    const ev = findAgendaEventByKey(key);
+    if (!ev) return;
+    const account = (document.getElementById('agendaAccount')?.value || '').trim();
+    if (!account) return;
+
+    showLoading('Mise a jour de l\'evenement...');
+    try {
+        const r = await fetch('/api/calendar/events/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                account,
+                calendarId: ev.calendarId || 'primary',
+                eventId: ev.id,
+                allDay: false,
+                startDateTime: dayKeyMinutesToLocal(dayKey, startMin),
+                endDateTime: dayKeyMinutesToLocal(dayKey, endMin),
+            })
+        });
+        const result = await r.json();
+        if (!result.ok) {
+            showAgendaApiError(result, 'mise a jour impossible');
+            await loadAgendaWeek();
+            return;
+        }
+        await loadAgendaWeek();
+        showToast('Evenement deplace/mis a jour.', 'success');
+    } catch (e) {
+        showToast('Erreur reseau: ' + e.message, 'error', 5000);
+        await loadAgendaWeek();
+    } finally {
+        hideLoading();
+    }
+}
+
+function formatAgendaEventPeriod(ev) {
+    if (ev.allDay) {
+        const start = ev.start || '';
+        const endInclusive = ev.end ? addDaysYmd(ev.end, -1) : start;
+        return `${start} (journee entiere${endInclusive && endInclusive !== start ? ` jusqu'au ${endInclusive}` : ''})`;
+    }
+    const start = ev.start ? new Date(ev.start) : null;
+    const end = ev.end ? new Date(ev.end) : null;
+    const startLabel = start && !isNaN(start.getTime()) ? start.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' }) : ev.start;
+    const endLabel = end && !isNaN(end.getTime()) ? end.toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' }) : ev.end;
+    return `${startLabel} -> ${endLabel}`;
 }
 
 async function loadAgendaWeek() {
@@ -5318,64 +5936,55 @@ async function loadAgendaWeek() {
     weekEnd.setDate(agendaWeekStart.getDate() + 6);
     const weekEndExclusive = new Date(agendaWeekStart);
     weekEndExclusive.setDate(agendaWeekStart.getDate() + 7);
-
     monthLabel.textContent = `${agendaWeekStart.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long' })} - ${weekEnd.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+
     if (!account) {
         container.innerHTML = '<div class="agenda-empty-state">Aucun compte Google OAuth disponible.</div>';
-        countLabel.textContent = '0 événement';
+        countLabel.textContent = '0 evenement';
         return;
     }
 
-    container.innerHTML = '<div class="agenda-empty-state">Chargement des événements…</div>';
+    container.innerHTML = '<div class="agenda-empty-state">Chargement des evenements...</div>';
     try {
         const start = toYmd(agendaWeekStart);
         const end = toYmd(weekEndExclusive);
-        const r = await fetch(`/api/calendar/events?start=${start}&end=${end}&account=${encodeURIComponent(account)}`);
+        const cals = encodeURIComponent((agendaSelectedCalendarIds || []).join(','));
+        const r = await fetch(`/api/calendar/events?start=${start}&end=${end}&account=${encodeURIComponent(account)}&calendars=${cals}`);
         const result = await r.json();
         if (!result.ok) {
-            const errorCode = result.error_code || '';
-            const details = result.details ? `<div class="inbox-item-preview" style="white-space:pre-wrap;margin-top:0.45rem">${esc(result.details)}</div>` : '';
-
-            if (errorCode === 'CALENDAR_API_DISABLED') {
-                const activationBtn = result.activation_url
-                    ? `<button onclick="openAgendaEvent('${esc(result.activation_url)}')"><i class="icon-external-link"></i> Activer l'API Google Calendar</button>`
-                    : '';
-                container.innerHTML = `<div class="agenda-empty-state" style="text-align:left;max-width:900px;margin:0 auto">
-                    <strong>Google Calendar API est désactivée dans ton projet Google Cloud.</strong>
-                    <div style="margin-top:0.5rem">1. Active l'API Calendar dans Google Cloud.</div>
-                    <div>2. Attends 1 à 3 minutes.</div>
-                    <div>3. Clique sur "Actualiser".</div>
-                    <div class="mail-actions" style="margin-top:0.8rem">${activationBtn}</div>
-                    ${details}
-                </div>`;
-            } else if (errorCode === 'CALENDAR_SCOPE_INSUFFICIENT') {
-                container.innerHTML = `<div class="agenda-empty-state" style="text-align:left;max-width:900px;margin:0 auto">
-                    <strong>Le compte doit être reconnecté avec les droits Agenda.</strong>
-                    <div style="margin-top:0.5rem">Clique sur "Connecter Google" puis accepte l'accès Calendar.</div>
-                    <div class="mail-actions" style="margin-top:0.8rem">
-                        <button onclick="connectAgendaOAuth()"><i class="icon-link"></i> Reconnecter Google</button>
-                    </div>
-                    ${details}
-                </div>`;
-            } else {
-                container.innerHTML = '<div class="agenda-empty-state">Erreur: ' + esc(result.error || 'impossible de charger') + (result.details ? '<br><small>' + esc(result.details) + '</small>' : '') + '</div>';
+            if (result.error_code === 'CALENDAR_SCOPE_INSUFFICIENT') {
+                container.innerHTML = '<div class="agenda-empty-state">Le compte OAuth doit etre reconnecte avec les droits Agenda. Clique sur "Connecter Google".</div>';
+                countLabel.textContent = '0 evenement';
+                return;
             }
-            countLabel.textContent = '0 événement';
+            container.innerHTML = '<div class="agenda-empty-state">Erreur: ' + esc(result.error || result.details || 'impossible de charger') + '</div>';
+            countLabel.textContent = '0 evenement';
             return;
         }
         const events = Array.isArray(result.events) ? result.events : [];
+        agendaCalendars = Array.isArray(result.calendars) ? result.calendars : agendaCalendars;
+        if (!agendaSelectedCalendarIds.length && agendaCalendars.length) {
+            agendaSelectedCalendarIds = agendaCalendars.map((c) => c.id);
+        }
+        renderAgendaCalendarFilters();
         agendaEventsCache = events;
-        countLabel.textContent = `${events.length} événement${events.length > 1 ? 's' : ''}`;
+        countLabel.textContent = `${events.length} evenement${events.length > 1 ? 's' : ''}`;
         renderAgendaWeek(events);
     } catch (e) {
-        container.innerHTML = '<div class="agenda-empty-state">Erreur réseau: ' + esc(e.message) + '</div>';
-        countLabel.textContent = '0 événement';
+        container.innerHTML = '<div class="agenda-empty-state">Erreur reseau: ' + esc(e.message) + '</div>';
+        countLabel.textContent = '0 evenement';
     }
 }
 
 function openAgendaCreateModal() {
     const modal = document.getElementById('agendaCreateModal');
     if (!modal) return;
+    const createSelect = document.getElementById('agendaCreateCalendar');
+    if (createSelect) {
+        const cals = agendaCalendars.length ? agendaCalendars : [{ id: 'primary', summary: 'Agenda principal' }];
+        createSelect.innerHTML = cals.map((c) => `<option value="${esc(c.id)}">${esc(c.summary || c.id)}</option>`).join('');
+        createSelect.value = agendaSelectedCalendarIds[0] || cals[0].id;
+    }
     const baseDate = agendaWeekStart || startOfWeek(new Date());
     document.getElementById('agendaCreateSummary').value = '';
     document.getElementById('agendaCreateDate').value = toYmd(baseDate);
@@ -5389,77 +5998,46 @@ function openAgendaCreateModal() {
 }
 
 function closeAgendaCreateModal() {
-    const modal = document.getElementById('agendaCreateModal');
-    if (modal) modal.classList.remove('show');
+    document.getElementById('agendaCreateModal')?.classList.remove('show');
 }
 
 function toggleAgendaCreateAllDay() {
-    const allDay = document.getElementById('agendaCreateAllDay')?.checked;
+    const allDay = !!document.getElementById('agendaCreateAllDay')?.checked;
     const timeGroup = document.getElementById('agendaCreateTimeGroup');
     if (timeGroup) timeGroup.style.display = allDay ? 'none' : 'flex';
 }
 
 async function createAgendaEvent() {
     const account = (document.getElementById('agendaAccount')?.value || '').trim();
-    if (!account) {
-        showToast('Sélectionne un compte Agenda.', 'error');
-        return;
-    }
+    if (!account) return showToast('Selectionne un compte Agenda.', 'error');
 
     const summary = (document.getElementById('agendaCreateSummary')?.value || '').trim();
+    const calendarId = (document.getElementById('agendaCreateCalendar')?.value || '').trim() || 'primary';
     const date = (document.getElementById('agendaCreateDate')?.value || '').trim();
     const allDay = !!document.getElementById('agendaCreateAllDay')?.checked;
     const startTime = (document.getElementById('agendaCreateStartTime')?.value || '').trim();
     const endTime = (document.getElementById('agendaCreateEndTime')?.value || '').trim();
     const location = (document.getElementById('agendaCreateLocation')?.value || '').trim();
     const description = (document.getElementById('agendaCreateDescription')?.value || '').trim();
+    if (!summary) return showToast('Le titre est requis.', 'error');
+    if (!date) return showToast('La date est requise.', 'error');
 
-    if (!summary) {
-        showToast('Le titre est requis.', 'error');
-        return;
-    }
-    if (!date) {
-        showToast('La date est requise.', 'error');
-        return;
-    }
-
-    let payload;
+    let payload = { account, calendarId, summary, location, description };
     if (allDay) {
-        const end = new Date(`${date}T00:00:00`);
-        end.setDate(end.getDate() + 1);
-        payload = {
-            account,
-            summary,
-            location,
-            description,
-            allDay: true,
-            startDate: date,
-            endDate: toYmd(end),
-        };
+        payload.allDay = true;
+        payload.startDate = date;
+        payload.endDate = addDaysYmd(date, 1);
     } else {
-        if (!startTime || !endTime) {
-            showToast('Heure de début et fin requises.', 'error');
-            return;
-        }
-        const startDateTime = new Date(`${date}T${startTime}`);
-        const endDateTime = new Date(`${date}T${endTime}`);
-        if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime()) || endDateTime <= startDateTime) {
-            showToast('Plage horaire invalide.', 'error');
-            return;
-        }
-
-        payload = {
-            account,
-            summary,
-            location,
-            description,
-            allDay: false,
-            startDateTime: toLocalDateTimeValue(startDateTime),
-            endDateTime: toLocalDateTimeValue(endDateTime),
-        };
+        if (!startTime || !endTime) return showToast('Heure de debut et fin requises.', 'error');
+        const startDt = new Date(`${date}T${startTime}`);
+        const endDt = new Date(`${date}T${endTime}`);
+        if (isNaN(startDt.getTime()) || isNaN(endDt.getTime()) || endDt <= startDt) return showToast('Plage horaire invalide.', 'error');
+        payload.allDay = false;
+        payload.startDateTime = toLocalDateTimeValue(startDt);
+        payload.endDateTime = toLocalDateTimeValue(endDt);
     }
 
-    showLoading('Création de l\'événement…');
+    showLoading('Creation de l\'evenement...');
     try {
         const r = await fetch('/api/calendar/events', {
             method: 'POST',
@@ -5467,50 +6045,53 @@ async function createAgendaEvent() {
             body: JSON.stringify(payload)
         });
         const result = await r.json();
-        if (!result.ok) {
-            showToast('Erreur: ' + esc(result.error || result.details || 'impossible de créer'), 'error', 5000);
-            return;
-        }
+        if (!result.ok) return showAgendaApiError(result, 'impossible de creer');
         closeAgendaCreateModal();
-        showToast('Événement créé.', 'success');
         await loadAgendaWeek();
+        showToast('Evenement cree.', 'success');
     } catch (e) {
-        showToast('Erreur réseau: ' + e.message, 'error', 5000);
+        showToast('Erreur reseau: ' + e.message, 'error', 5000);
     } finally {
         hideLoading();
     }
 }
 
-function openAgendaEventModal(encodedEventId) {
-    const eventId = decodeURIComponent(encodedEventId || '');
-    const ev = (agendaEventsCache || []).find((x) => (x.id || '') === eventId);
+function openAgendaEventModal(encodedEventKey) {
+    const eventKey = decodeURIComponent(encodedEventKey || '');
+    const ev = findAgendaEventByKey(eventKey);
     if (!ev) return;
+    selectedAgendaEventId = eventKey;
 
-    selectedAgendaEventId = eventId;
-    document.getElementById('agendaEventTitle').textContent = ev.summary || '(Sans titre)';
-    document.getElementById('agendaEventPeriod').textContent = formatAgendaEventPeriod(ev);
+    document.getElementById('agendaEventTitleInput').value = ev.summary || '';
+    document.getElementById('agendaEventAllDay').checked = !!ev.allDay;
+    document.getElementById('agendaEventLocation').value = ev.location || '';
+    document.getElementById('agendaEventDescription').value = ev.description || '';
 
-    const locationWrap = document.getElementById('agendaEventLocationWrap');
-    const location = document.getElementById('agendaEventLocation');
-    if (ev.location) {
-        location.textContent = ev.location;
-        locationWrap.style.display = '';
+    if (ev.allDay) {
+        document.getElementById('agendaEventDate').value = ev.start || '';
     } else {
-        locationWrap.style.display = 'none';
+        const start = ev.start ? new Date(ev.start) : null;
+        const end = ev.end ? new Date(ev.end) : null;
+        if (start && !isNaN(start.getTime())) {
+            document.getElementById('agendaEventDate').value = toYmd(start);
+            document.getElementById('agendaEventStartTime').value = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+        }
+        if (end && !isNaN(end.getTime())) {
+            document.getElementById('agendaEventEndTime').value = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+        }
     }
+    toggleAgendaEventAllDay();
 
-    const descWrap = document.getElementById('agendaEventDescriptionWrap');
-    const desc = document.getElementById('agendaEventDescription');
-    if (ev.description) {
-        desc.textContent = ev.description;
-        descWrap.style.display = '';
-    } else {
-        descWrap.style.display = 'none';
-    }
+    const badge = document.getElementById('agendaEventCalendarBadge');
+    badge.innerHTML = `<span class="dot" style="background:${esc(ev.calendarColor || '#6c8aff')}"></span>${esc(ev.calendarName || ev.calendarId || 'Agenda')}`;
 
-    const openBtn = document.getElementById('agendaEventOpenBtn');
-    if (openBtn) openBtn.style.display = ev.htmlLink ? '' : 'none';
-
+    const canEdit = !!ev.canEdit;
+    ['agendaEventTitleInput', 'agendaEventAllDay', 'agendaEventDate', 'agendaEventStartTime', 'agendaEventEndTime', 'agendaEventLocation', 'agendaEventDescription'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !canEdit;
+    });
+    document.getElementById('agendaEventSaveBtn').style.display = canEdit ? '' : 'none';
+    document.getElementById('agendaEventDeleteBtn').style.display = canEdit ? '' : 'none';
     document.getElementById('agendaEventModal').classList.add('show');
 }
 
@@ -5519,43 +6100,97 @@ function closeAgendaEventModal() {
     document.getElementById('agendaEventModal')?.classList.remove('show');
 }
 
+function toggleAgendaEventAllDay() {
+    const allDay = !!document.getElementById('agendaEventAllDay')?.checked;
+    const group = document.getElementById('agendaEventTimeGroup');
+    if (group) group.style.display = allDay ? 'none' : 'flex';
+}
+
+async function saveSelectedAgendaEvent() {
+    const ev = selectedAgendaEventId ? findAgendaEventByKey(selectedAgendaEventId) : null;
+    if (!ev) return;
+    const account = (document.getElementById('agendaAccount')?.value || '').trim();
+    if (!account) return showToast('Selectionne un compte Agenda.', 'error');
+
+    const summary = (document.getElementById('agendaEventTitleInput')?.value || '').trim();
+    const allDay = !!document.getElementById('agendaEventAllDay')?.checked;
+    const date = (document.getElementById('agendaEventDate')?.value || '').trim();
+    const startTime = (document.getElementById('agendaEventStartTime')?.value || '').trim();
+    const endTime = (document.getElementById('agendaEventEndTime')?.value || '').trim();
+    const location = (document.getElementById('agendaEventLocation')?.value || '').trim();
+    const description = (document.getElementById('agendaEventDescription')?.value || '').trim();
+    if (!summary) return showToast('Le titre est requis.', 'error');
+    if (!date) return showToast('La date est requise.', 'error');
+
+    let payload = {
+        account,
+        calendarId: ev.calendarId || 'primary',
+        eventId: ev.id,
+        summary,
+        location,
+        description,
+    };
+    if (allDay) {
+        payload.allDay = true;
+        payload.startDate = date;
+        payload.endDate = addDaysYmd(date, 1);
+    } else {
+        if (!startTime || !endTime) return showToast('Heure de debut et fin requises.', 'error');
+        const startDt = new Date(`${date}T${startTime}`);
+        const endDt = new Date(`${date}T${endTime}`);
+        if (isNaN(startDt.getTime()) || isNaN(endDt.getTime()) || endDt <= startDt) return showToast('Plage horaire invalide.', 'error');
+        payload.allDay = false;
+        payload.startDateTime = toLocalDateTimeValue(startDt);
+        payload.endDateTime = toLocalDateTimeValue(endDt);
+    }
+
+    showLoading('Enregistrement de l\'evenement...');
+    try {
+        const r = await fetch('/api/calendar/events/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const result = await r.json();
+        if (!result.ok) return showAgendaApiError(result, 'mise a jour impossible');
+        closeAgendaEventModal();
+        await loadAgendaWeek();
+        showToast('Evenement modifie.', 'success');
+    } catch (e) {
+        showToast('Erreur reseau: ' + e.message, 'error', 5000);
+    } finally {
+        hideLoading();
+    }
+}
+
 function openSelectedAgendaEvent() {
-    if (!selectedAgendaEventId) return;
-    const ev = (agendaEventsCache || []).find((x) => (x.id || '') === selectedAgendaEventId);
+    const ev = selectedAgendaEventId ? findAgendaEventByKey(selectedAgendaEventId) : null;
     if (!ev || !ev.htmlLink) return;
     openAgendaEvent(ev.htmlLink);
 }
 
 async function deleteSelectedAgendaEvent() {
-    if (!selectedAgendaEventId) return;
-    const ev = (agendaEventsCache || []).find((x) => (x.id || '') === selectedAgendaEventId);
+    const ev = selectedAgendaEventId ? findAgendaEventByKey(selectedAgendaEventId) : null;
     if (!ev) return;
-
-    if (!confirm(`Supprimer l'événement "${ev.summary || '(Sans titre)'}" ?`)) return;
+    if (!confirm(`Supprimer l'evenement "${ev.summary || '(Sans titre)'}" ?`)) return;
 
     const account = (document.getElementById('agendaAccount')?.value || '').trim();
-    if (!account) {
-        showToast('Sélectionne un compte Agenda.', 'error');
-        return;
-    }
+    if (!account) return showToast('Selectionne un compte Agenda.', 'error');
 
-    showLoading('Suppression de l\'événement…');
+    showLoading('Suppression de l\'evenement...');
     try {
         const r = await fetch('/api/calendar/events/delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ account, eventId: selectedAgendaEventId })
+            body: JSON.stringify({ account, calendarId: ev.calendarId || 'primary', eventId: ev.id })
         });
         const result = await r.json();
-        if (!result.ok) {
-            showToast('Erreur: ' + esc(result.error || result.details || 'impossible de supprimer'), 'error', 5000);
-            return;
-        }
+        if (!result.ok) return showAgendaApiError(result, 'impossible de supprimer');
         closeAgendaEventModal();
-        showToast('Événement supprimé.', 'success');
         await loadAgendaWeek();
+        showToast('Evenement supprime.', 'success');
     } catch (e) {
-        showToast('Erreur réseau: ' + e.message, 'error', 5000);
+        showToast('Erreur reseau: ' + e.message, 'error', 5000);
     } finally {
         hideLoading();
     }
