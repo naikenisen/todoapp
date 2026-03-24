@@ -195,7 +195,12 @@ def send_email_smtp(account, to_addr, subject, body_text, cc="", attachments=Non
         cc=cc, attachments=attachments, html_body=html_body,
         normalize_auth_fields=normalize_auth_fields,
         get_valid_gmail_access_token=get_valid_gmail_access_token,
-        **_MAIL_DI_COMMON,
+        compute_mail_id=compute_mail_id,
+        unique_eml_filename_from_subject=unique_eml_filename_from_subject,
+        parse_email_metadata=parse_email_metadata,
+        load_inbox_index=load_inbox_index,
+        save_inbox_index=save_inbox_index,
+        mails_dir=MAILS_DIR,
     )
 
 
