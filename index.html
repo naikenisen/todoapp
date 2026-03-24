@@ -1391,6 +1391,26 @@
                 <label>Corps du message</label>
                 <textarea id="mailBody" placeholder="Rédigez votre mail ici…"></textarea>
             </div>
+            <div class="mail-field" id="replyPromptField" style="display:none">
+                <label>Prompt Gemini (mode réponse)</label>
+                <textarea id="replyPromptInput" style="min-height:80px" placeholder="Ex: Réponse courte, ton ferme mais cordial, proposer un créneau jeudi matin."></textarea>
+                <small style="color:var(--text-muted)">Utilisé uniquement pour générer votre réponse lors d'un Répondre / Répondre à tous.</small>
+            </div>
+            <div class="mail-field" id="originalMailField" style="display:none">
+                <label>Message original (figé)</label>
+                <textarea id="originalMailBody" readonly style="min-height:180px;opacity:0.9" placeholder="Le message original s'affiche ici"></textarea>
+                <small style="color:var(--text-muted)">Ce contenu est verrouillé et n'est jamais modifié par « Reformuler ».</small>
+            </div>
+            <div class="mail-field">
+                <label>Signature</label>
+                <select id="mailSignatureSelect" class="signature-select" onchange="onSignatureChange()">
+                    <option value="">-- Aucune signature --</option>
+                </select>
+            </div>
+            <div class="mail-field" id="signaturePreviewField" style="display:none">
+                <label style="color:var(--text-muted);font-size:0.78rem">Aperçu de la signature</label>
+                <div id="signaturePreview" style="border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.6rem;background:var(--card-bg);pointer-events:none;user-select:none"></div>
+            </div>
             <div class="mail-field">
                 <label>Pièces jointes</label>
                 <div id="attachmentZone" style="border:1px dashed var(--card-border);border-radius:var(--radius-sm);padding:0.6rem;min-height:2.4rem;cursor:pointer;position:relative" onclick="document.getElementById('attachmentInput').click()">
@@ -1401,6 +1421,7 @@
             </div>
             <div class="mail-actions">
                 <button onclick="sendMailSMTP()" style="background:var(--accent-blue)!important;border-color:var(--accent-blue)!important;color:white!important"><i class="icon-send"></i> Envoyer</button>
+                <button class="accent-blue" id="generateReplyBtn" style="display:none" onclick="generateReplyFromPrompt()"><i class="icon-sparkles"></i> Générer réponse IA</button>
                 <button class="accent-purple" onclick="reformulateMail()"><i class="icon-sparkles"></i> Reformuler</button>
                 <button class="accent-green" onclick="saveMailEml()"><i class="icon-save"></i> Enregistrer .eml</button>
             </div>
@@ -1425,6 +1446,14 @@
                     <button onclick="importContactsCsv()" style="white-space:nowrap;padding:0.35rem 0.8rem;background:var(--accent-green);color:white;border:none;border-radius:var(--radius-sm);cursor:pointer;font-size:0.78rem">📥 Importer</button>
                 </div>
                 <small id="contactsCount" style="color:var(--text-muted);margin-top:0.3rem;display:block"></small>
+            </div>
+            <div class="mail-field" style="margin-top:0.8rem">
+                <label>✍️ Signatures HTML</label>
+                <small style="display:block;margin-bottom:0.4rem;color:var(--text-muted)">Les signatures ne sont jamais modifiées par le bouton « Reformuler ».</small>
+                <div id="signaturesList"></div>
+                <div class="mail-actions" style="margin-top:0.5rem">
+                    <button onclick="openSignatureModal()"><i class="icon-plus"></i> Nouvelle signature</button>
+                </div>
             </div>
         </div>
 
@@ -1673,6 +1702,29 @@
     </div>
 </div>
 
+<!-- Signature Editor Modal -->
+<div class="modal-overlay" id="signatureModal" onclick="if(event.target===this)closeSignatureModal()">
+    <div class="modal" style="max-width:660px">
+        <h2 id="signatureModalTitle"><i class="icon-pen-line"></i> Nouvelle signature</h2>
+        <div class="form-group">
+            <label>Nom</label>
+            <input type="text" id="signatureNameInput" placeholder="Ex : Principale, Professionnelle…">
+        </div>
+        <div class="form-group">
+            <label>Contenu HTML</label>
+            <textarea id="signatureHtmlInput" rows="8" placeholder="&lt;p&gt;Cordialement,&lt;br&gt;&lt;strong&gt;Votre Nom&lt;/strong&gt;&lt;/p&gt;" oninput="updateSignatureEditPreview()" style="font-family:monospace;font-size:0.82rem"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Aperçu</label>
+            <div id="signatureEditPreview" style="border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.6rem;min-height:3rem;background:var(--card-bg)"></div>
+        </div>
+        <div class="modal-actions">
+            <button onclick="closeSignatureModal()">Annuler</button>
+            <button class="btn-primary" onclick="saveSignatureFromModal()"><i class="icon-save"></i> Enregistrer</button>
+        </div>
+    </div>
+</div>
+
 <!-- Agenda Create Modal -->
 <div class="modal-overlay" id="agendaCreateModal" onclick="if(event.target===this)closeAgendaCreateModal()">
     <div class="modal" style="max-width:520px">
@@ -1810,6 +1862,7 @@ let agendaInitialized = false;
 let browserInitialized = false;
 let githubInitialized = false;
 let browserEventsBound = false;
+let composerReplyContext = null;
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const esc = s => String(s)
@@ -2535,17 +2588,122 @@ async function reformulateMail() {
     }
 }
 
+function setReplyComposerContext(context) {
+    composerReplyContext = context || null;
+    const promptField = document.getElementById('replyPromptField');
+    const originalField = document.getElementById('originalMailField');
+    const originalBody = document.getElementById('originalMailBody');
+    const generateBtn = document.getElementById('generateReplyBtn');
+    const promptInput = document.getElementById('replyPromptInput');
+
+    if (composerReplyContext) {
+        if (promptField) promptField.style.display = '';
+        if (originalField) originalField.style.display = '';
+        if (generateBtn) generateBtn.style.display = '';
+        if (originalBody) originalBody.value = composerReplyContext.originalText || '';
+        if (promptInput && !promptInput.value.trim()) promptInput.value = 'Réponse professionnelle, claire et concise.';
+    } else {
+        if (promptField) promptField.style.display = 'none';
+        if (originalField) originalField.style.display = 'none';
+        if (generateBtn) generateBtn.style.display = 'none';
+        if (originalBody) originalBody.value = '';
+        if (promptInput) promptInput.value = '';
+    }
+}
+
+function getQuotedOriginalText(context = composerReplyContext) {
+    if (!context || !context.originalText) return '';
+    return '\n\n--- Le ' + (context.date || '') + ', ' + (context.from || '') + ' a écrit :\n' + context.originalText;
+}
+
+function getComposerFinalBodyText() {
+    const draft = document.getElementById('mailBody').value.trim();
+    if (!composerReplyContext) return draft;
+    return (draft + getQuotedOriginalText()).trim();
+}
+
+function buildHtmlBodyWithOptionalQuote(bodyText, signatureHtml, quoteText) {
+    const escapedBody = String(bodyText || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+    const escapedQuote = String(quoteText || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+    const quoteBlock = escapedQuote
+        ? '<blockquote style="margin:1em 0 0.6em;padding:0.7em 0.9em;border-left:3px solid #9ca3af;background:#f7f7f7;color:#374151">' + escapedQuote + '</blockquote>'
+        : '';
+    return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>' +
+        '<p style="white-space:pre-wrap;font-family:Arial,sans-serif;margin:0 0 1em">' + escapedBody + '</p>' +
+        quoteBlock +
+        '<hr style="border:none;border-top:1px solid #ccc;margin:1em 0">' +
+        signatureHtml +
+        '</body></html>';
+}
+
+async function generateReplyFromPrompt() {
+    if (!composerReplyContext) {
+        showToast('Ce mode est disponible uniquement en réponse à un mail.', 'error');
+        return;
+    }
+    if (!state.settings.geminiKey) {
+        showToast('Configure ta cle API Gemini dans l\'onglet Rédiger.', 'error', 3000);
+        document.getElementById('geminiKeyInput')?.focus();
+        return;
+    }
+    const prompt = (document.getElementById('replyPromptInput')?.value || '').trim();
+    if (!prompt) {
+        showToast('Ajoute un prompt Gemini pour orienter la réponse.', 'error');
+        document.getElementById('replyPromptInput')?.focus();
+        return;
+    }
+
+    showLoading('Génération de la réponse avec Gemini…');
+    try {
+        const r = await fetch('/api/generate-reply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: state.settings.geminiKey,
+                prompt,
+                subject: document.getElementById('mailSubject').value.trim(),
+                from: composerReplyContext.from || '',
+                original_text: composerReplyContext.originalText || '',
+                draft: document.getElementById('mailBody').value.trim()
+            })
+        });
+        const result = await r.json();
+        if (result.error) {
+            showToast('Erreur IA : ' + result.error, 'error', 5000);
+        } else if (result.text) {
+            document.getElementById('mailBody').value = result.text.trim();
+            showToast('Réponse générée.', 'success');
+        }
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 5000);
+    } finally {
+        hideLoading();
+    }
+}
+
 async function saveMailEml() {
     const from = document.getElementById('mailFrom').value;
     const to = getMailToValue();
     const subject = document.getElementById('mailSubject').value.trim();
-    const body = document.getElementById('mailBody').value.trim();
+    const body = getComposerFinalBodyText();
     if (!to || !subject) { showToast('Remplis le(s) destinataire(s) et le sujet.', 'error'); return; }
+    const signatureHtml = getActiveSignatureHtml();
+    const html_body = signatureHtml
+        ? buildHtmlBodyWithOptionalQuote(document.getElementById('mailBody').value.trim(), signatureHtml, getQuotedOriginalText())
+        : null;
     try {
         const r = await fetch('/api/save-eml', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ from, to, subject, body })
+            body: JSON.stringify({ from, to, subject, body, html_body })
         });
         const result = await r.json();
         if (result.ok) {
@@ -2559,6 +2717,123 @@ async function saveMailEml() {
 }
 
 /* openInThunderbird removed — all sending goes through SMTP */
+
+/* ═══════════════════════════════════════════════════════
+   HTML Signatures
+   ═══════════════════════════════════════════════════════ */
+let editingSignatureId = null;
+
+function openSignatureModal(id = null) {
+    editingSignatureId = id || null;
+    const sig = id ? (state.settings.signatures || []).find(s => s.id === id) : null;
+    document.getElementById('signatureModalTitle').innerHTML =
+        id ? '<i class="icon-pen-line"></i> Modifier la signature' : '<i class="icon-pen-line"></i> Nouvelle signature';
+    document.getElementById('signatureNameInput').value = sig ? sig.name : '';
+    document.getElementById('signatureHtmlInput').value = sig ? sig.html : '';
+    updateSignatureEditPreview();
+    document.getElementById('signatureModal').classList.add('show');
+}
+
+function closeSignatureModal() {
+    document.getElementById('signatureModal').classList.remove('show');
+    editingSignatureId = null;
+}
+
+function updateSignatureEditPreview() {
+    const html = document.getElementById('signatureHtmlInput').value;
+    document.getElementById('signatureEditPreview').innerHTML = html;
+}
+
+function saveSignatureFromModal() {
+    const name = document.getElementById('signatureNameInput').value.trim();
+    const html = document.getElementById('signatureHtmlInput').value.trim();
+    if (!name) { showToast('Donne un nom à ta signature.', 'error'); return; }
+    if (!html) { showToast('Le contenu HTML est vide.', 'error'); return; }
+    if (!state.settings.signatures) state.settings.signatures = [];
+    if (editingSignatureId) {
+        const idx = state.settings.signatures.findIndex(s => s.id === editingSignatureId);
+        if (idx >= 0) state.settings.signatures[idx] = { id: editingSignatureId, name, html };
+    } else {
+        state.settings.signatures.push({ id: uid(), name, html });
+    }
+    autoSave();
+    closeSignatureModal();
+    renderSignaturesList();
+    updateSignatureSelectors();
+    showToast('Signature enregistrée.', 'success');
+}
+
+function deleteSignature(id) {
+    if (!state.settings.signatures) return;
+    state.settings.signatures = state.settings.signatures.filter(s => s.id !== id);
+    autoSave();
+    renderSignaturesList();
+    updateSignatureSelectors();
+    showToast('Signature supprimée.', 'success');
+}
+
+function renderSignaturesList() {
+    const el = document.getElementById('signaturesList');
+    if (!el) return;
+    const sigs = state.settings.signatures || [];
+    if (!sigs.length) {
+        el.innerHTML = '<p style="color:var(--text-muted);font-size:0.82rem;margin:0.3rem 0">Aucune signature configurée.</p>';
+        return;
+    }
+    el.innerHTML = sigs.map(s =>
+        `<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--card-border)">` +
+        `<span style="font-size:0.88rem">${esc(s.name)}</span>` +
+        `<div style="display:flex;gap:0.4rem">` +
+        `<button onclick="openSignatureModal('${s.id}')" style="padding:0.2rem 0.5rem;font-size:0.75rem"><i class="icon-pencil"></i></button>` +
+        `<button onclick="deleteSignature('${s.id}')" style="padding:0.2rem 0.5rem;font-size:0.75rem;background:var(--accent-red)!important;border-color:var(--accent-red)!important;color:white!important"><i class="icon-trash-2"></i></button>` +
+        `</div></div>`
+    ).join('');
+}
+
+function updateSignatureSelectors() {
+    const sigs = state.settings.signatures || [];
+    document.querySelectorAll('.signature-select').forEach(sel => {
+        const current = sel.value;
+        sel.innerHTML = '<option value="">-- Aucune signature --</option>' +
+            sigs.map(s => `<option value="${s.id}"${s.id === current ? ' selected' : ''}>${esc(s.name)}</option>`).join('');
+    });
+    onSignatureChange();
+}
+
+function onSignatureChange() {
+    const sel = document.getElementById('mailSignatureSelect');
+    const preview = document.getElementById('signaturePreview');
+    const field = document.getElementById('signaturePreviewField');
+    if (!sel || !preview || !field) return;
+    const sig = sel.value ? (state.settings.signatures || []).find(s => s.id === sel.value) : null;
+    if (sig) {
+        preview.innerHTML = sig.html;
+        field.style.display = '';
+    } else {
+        preview.innerHTML = '';
+        field.style.display = 'none';
+    }
+}
+
+function getActiveSignatureHtml() {
+    const sel = document.getElementById('mailSignatureSelect');
+    if (!sel || !sel.value) return null;
+    const sig = (state.settings.signatures || []).find(s => s.id === sel.value);
+    return sig ? sig.html : null;
+}
+
+function buildHtmlBody(bodyText, signatureHtml) {
+    const escaped = bodyText
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\n/g, '<br>');
+    return '<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>' +
+        '<p style="white-space:pre-wrap;font-family:Arial,sans-serif;margin:0 0 1em">' + escaped + '</p>' +
+        '<hr style="border:none;border-top:1px solid #ccc;margin:1em 0">' +
+        signatureHtml +
+        '</body></html>';
+}
 
 /* ═══════════════════════════════════════════════════════
    Run v3.py
@@ -2696,6 +2971,7 @@ function selectMailForCompose(sid, tid) {
     if (!t) return;
 
     selectedMailTask = { sid, tid };
+    setReplyComposerContext(null);
 
     mailRecipients = t.mailTo ? t.mailTo.split(',').map(e => e.trim()).filter(Boolean) : [];
     renderMailTags();
@@ -2715,6 +2991,7 @@ function selectMailForCompose(sid, tid) {
 
 function deselectMailTask() {
     selectedMailTask = null;
+    setReplyComposerContext(null);
     mailRecipients = [];
     mailCcRecipients = [];
     renderMailTags();
@@ -3598,6 +3875,9 @@ function replyToMail(mailId, replyAll) {
     const mail = inboxMails.find(m => m.id === mailId);
     if (!mail) return;
     switchTab('mail');
+    selectedMailTask = null;
+    updateMailComposerState();
+    renderMailList();
     // Pre-fill composer
     mailRecipients = mail.from_email ? [mail.from_email] : [];
     mailCcRecipients = [];
@@ -3618,8 +3898,12 @@ function replyToMail(mailId, replyAll) {
     renderMailTags();
     renderCcTags();
     document.getElementById('mailSubject').value = 'Re: ' + (mail.subject || '').replace(/^Re:\s*/i, '');
-    const quotedBody = '\n\n--- Le ' + (mail.date || '') + ', ' + (mail.from_name || mail.from_email || '') + ' a écrit :\n' + (mail.body || '');
-    document.getElementById('mailBody').value = quotedBody;
+    document.getElementById('mailBody').value = '';
+    setReplyComposerContext({
+        originalText: mail.body || '',
+        date: mail.date || '',
+        from: mail.from_name || mail.from_email || ''
+    });
     // Try to match account
     const fromSel = document.getElementById('mailFrom');
     if (mail.account) {
@@ -3634,6 +3918,10 @@ function forwardMail(mailId) {
     const mail = inboxMails.find(m => m.id === mailId);
     if (!mail) return;
     switchTab('mail');
+    selectedMailTask = null;
+    updateMailComposerState();
+    renderMailList();
+    setReplyComposerContext(null);
     mailRecipients = [];
     mailCcRecipients = [];
     renderMailTags();
@@ -4105,7 +4393,7 @@ async function sendMailSMTP() {
     const to = getMailToValue();
     const cc = getMailCcValue();
     const subject = document.getElementById('mailSubject').value.trim();
-    const body = document.getElementById('mailBody').value.trim();
+    const body = getComposerFinalBodyText();
     if (!from) { showToast('Configure d\'abord un compte expéditeur.', 'error'); return; }
     if (!to || !subject) { showToast('Remplis le(s) destinataire(s) et le sujet.', 'error'); return; }
 
@@ -4115,12 +4403,17 @@ async function sendMailSMTP() {
     // Prepare attachments as base64
     const attachments = await prepareAttachmentsForSend();
 
+    const signatureHtml = getActiveSignatureHtml();
+    const html_body = signatureHtml
+        ? buildHtmlBodyWithOptionalQuote(document.getElementById('mailBody').value.trim(), signatureHtml, getQuotedOriginalText())
+        : null;
+
     showLoading('Envoi du mail via SMTP…');
     try {
         const r = await fetch('/api/send-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ from, to, subject, body, cc, attachments: attachments.length ? attachments : undefined })
+            body: JSON.stringify({ from, to, subject, body, cc, html_body, attachments: attachments.length ? attachments : undefined })
         });
         const result = await r.json();
         if (result.ok) {
@@ -4133,6 +4426,7 @@ async function sendMailSMTP() {
                 renderMailTab();
                 render();
             }
+            setReplyComposerContext(null);
         } else {
             showToast('Erreur : ' + (result.error || 'Erreur'), 'error', 5000);
         }
@@ -4309,6 +4603,9 @@ setInterval(() => {
     if (ghPass) ghPass.value = '';
     if (geminiInput) geminiInput.value = state.settings.geminiKey || '';
     if (contactsCount) contactsCount.textContent = contacts.length ? `${contacts.length} contacts chargés` : '';
+
+    renderSignaturesList();
+    updateSignatureSelectors();
 
     autoSave();
     updateMailBadge();
