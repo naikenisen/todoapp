@@ -1,5 +1,6 @@
 # Runtime/local data (per-installation)
 data.json
+data/contacts_complets_v2.csv
 accounts.json
 inbox_index.json
 seen_uids.json
