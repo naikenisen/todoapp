@@ -6,10 +6,10 @@
     "name": "Isen Naiken",
     "email": "isen.naiken@nexomedis.com"
   },
-  "main": "main.js",
+  "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
-    "icons:generate": "mkdir -p build && npx --yes icon-gen -i logo.svg -o build --ico --icns && mv -f build/app.icns build/icon.icns && mv -f build/app.ico build/icon.ico && rsvg-convert -w 512 -h 512 logo.svg -o build/icon.png",
+    "icons:generate": "mkdir -p build && npx --yes icon-gen -i assets/logo.svg -o build --ico --icns && mv -f build/app.icns build/icon.icns && mv -f build/app.ico build/icon.ico && rsvg-convert -w 512 -h 512 assets/logo.svg -o build/icon.png",
     "build": "electron-builder --linux",
     "build:mac": "electron-builder --mac",
     "build:win": "electron-builder --win",
@@ -23,35 +23,35 @@
       "output": "dist"
     },
     "files": [
-      "main.js",
-      "preload.js",
-      "index.html",
+      "src/**/*",
+      "assets/**/*",
+      "data/**/*",
       "package.json"
     ],
     "extraResources": [
       {
-        "from": "index.html",
-        "to": "index.html"
+        "from": "src/renderer/index.html",
+        "to": "src/renderer/index.html"
       },
       {
-        "from": "logo.svg",
-        "to": "logo.svg"
+        "from": "assets/logo.svg",
+        "to": "assets/logo.svg"
       },
       {
-        "from": "server.py",
-        "to": "server.py"
+        "from": "src/backend/server.py",
+        "to": "src/backend/server.py"
       },
       {
-        "from": "v3.py",
-        "to": "v3.py"
+        "from": "src/backend/v3.py",
+        "to": "src/backend/v3.py"
       },
       {
-        "from": "data.json",
-        "to": "data.json"
+        "from": "data/data.json",
+        "to": "data/data.json"
       },
       {
-        "from": "contacts_complets_v2.csv",
-        "to": "contacts_complets_v2.csv"
+        "from": "data/contacts_complets_v2.csv",
+        "to": "data/contacts_complets_v2.csv"
       }
     ],
     "linux": {

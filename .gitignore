@@ -6,6 +6,11 @@ seen_uids.json
 *.bak
 *.tmp
 api_errors.log
+nohup.out
+__pycache__/
+*.pyc
+venv/
+.venv/
 
 # Build/deps
 node_modules/

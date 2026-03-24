@@ -42,6 +42,9 @@ except ImportError:
 
 PORT = 8080
 DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = str(Path(DIR).resolve().parents[1])
+BUNDLED_DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+RENDERER_INDEX = os.path.join(PROJECT_ROOT, "src", "renderer", "index.html")
 
 
 def get_app_data_dir():
@@ -72,7 +75,9 @@ os.makedirs(APP_DATA_DIR, exist_ok=True)
 
 def bootstrap_file(filename):
     """Copy bundled defaults to writable app data dir when missing."""
-    src = os.path.join(DIR, filename)
+    src = os.path.join(BUNDLED_DATA_DIR, filename)
+    if not os.path.isfile(src):
+        src = os.path.join(DIR, filename)
     dst = os.path.join(APP_DATA_DIR, filename)
     if os.path.isfile(src) and not os.path.exists(dst):
         shutil.copy2(src, dst)
@@ -146,15 +151,15 @@ if not os.path.isdir(DOWNLOADS):
     DOWNLOADS = str(Path.home())
 
 
-def load():
+def loadAppState():
     return read_json_with_backup(DATA, {"sections": [], "settings": {}})
 
 
-def save(data):
+def saveAppState(data):
     atomic_write_json(DATA, data)
 
 
-def load_contacts():
+def loadContactsData():
     contacts = []
     try:
         with open(CONTACTS_CSV, encoding="utf-8") as f:
@@ -1862,13 +1867,27 @@ def export_email_to_obsidian(mail_meta):
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
-        super().__init__(*a, directory=DIR, **kw)
+        super().__init__(*a, directory=PROJECT_ROOT, **kw)
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         super().end_headers()
 
     def do_GET(self):
+        if self.path == "/" or self.path.startswith("/index.html"):
+            try:
+                with open(RENDERER_INDEX, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+            except FileNotFoundError:
+                self.send_error(404)
+                return
+
         if self.path.startswith("/api/oauth/google/callback"):
             try:
                 qs = parse_qs(urlparse(self.path).query)
@@ -1970,9 +1989,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return
 
         if self.path == "/api/state":
-            return self._json(load())
+            return self._json(loadAppState())
         if self.path == "/api/contacts":
-            return self._json(load_contacts())
+            return self._json(loadContactsData())
         if self.path == "/api/accounts":
             return self._json(load_accounts())
         if self.path == "/api/calendar/accounts":
@@ -2176,7 +2195,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._json({"error": "JSON invalide"}, 400)
 
         if self.path == "/api/state":
-            save(data)
+            saveAppState(data)
             return self._json({"ok": True})
 
         if self.path == "/api/run-v3":
@@ -2513,7 +2532,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self._json({"error": "Aucun contenu CSV"}, 400)
                 with open(CONTACTS_CSV, "w", encoding="utf-8") as f:
                     f.write(csv_content)
-                new_contacts = load_contacts()
+                new_contacts = loadContactsData()
                 return self._json({"ok": True, "count": len(new_contacts)})
             except Exception as e:
                 return self._json({"error": str(e)}, 500)

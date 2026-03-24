@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ISENAPP</title>
-    <link rel="icon" type="image/svg+xml" href="/logo.svg">
-    <link rel="shortcut icon" href="/logo.svg">
-    <link rel="apple-touch-icon" href="/logo.svg">
-    <meta property="og:image" content="/logo.svg">
-    <meta name="twitter:image" content="/logo.svg">
+    <link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+    <link rel="shortcut icon" href="/assets/logo.svg">
+    <link rel="apple-touch-icon" href="/assets/logo.svg">
+    <meta property="og:image" content="/assets/logo.svg">
+    <meta name="twitter:image" content="/assets/logo.svg">
     <link rel="stylesheet" href="https://unpkg.com/lucide-static@0.460.0/font/lucide.css">
+    <link rel="stylesheet" href="/src/renderer/styles.css">
     <style>
         /* ─── Obsidian / VSCode Dark Theme ────────────── */
         :root {
@@ -1390,7 +1391,7 @@
 
 <!-- ─── Custom Titlebar ────────────────────────── -->
 <div class="titlebar" id="titlebar">
-    <span class="titlebar-icon"><img src="/logo.svg" alt="ISENAPP"></span>
+    <span class="titlebar-icon"><img src="/assets/logo.svg" alt="ISENAPP"></span>
     <span class="titlebar-title">ISENAPP</span>
     <div class="titlebar-controls">
         <button class="titlebar-btn" id="btn-minimize" title="Réduire">
@@ -1692,12 +1693,6 @@
             </div>
             <div style="font-size:0.78rem;color:var(--text-muted);padding-top:0.5rem"><i class="icon-lock"></i> Les sessions (cookies, connexion Google, etc.) sont conservees automatiquement entre chaque ouverture de l'application.</div>
             <div class="modal-actions">
-                <button onclick="closeSiteTabModal()">Annuler</button>
-                <button class="btn-primary" onclick="saveSiteTabFromModal()"><i class="icon-save"></i> Enregistrer</button>
-            </div>
-        </div>
-    </div>
-
                 <button onclick="closeSiteTabModal()">Annuler</button>
                 <button class="btn-primary" onclick="saveSiteTabFromModal()"><i class="icon-save"></i> Enregistrer</button>
             </div>
@@ -7304,5 +7299,6 @@ document.addEventListener('keydown', (e) => {
     }
 });
 </script>
+<script src="/src/renderer/renderer.js"></script>
 </body>
 </html>

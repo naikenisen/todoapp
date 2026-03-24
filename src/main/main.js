@@ -151,27 +151,28 @@ function autofillLoginFormScript(username, password) {
 /* ═══════════════════════════════════════════════════════
    Path Helpers (handles packaged vs dev mode)
    ═══════════════════════════════════════════════════════ */
-function resourcePath(filename) {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, filename);
-  }
-  return path.join(__dirname, filename);
-}
-
-function resourceDir() {
+function resourceRootDir() {
   if (app.isPackaged) {
     return process.resourcesPath;
   }
-  return __dirname;
+  return path.resolve(__dirname, '..', '..');
+}
+
+function resourcePath(...segments) {
+  return path.join(resourceRootDir(), ...segments);
+}
+
+function resourceDir() {
+  return resourceRootDir();
 }
 
 /* ═══════════════════════════════════════════════════════
    Python Server
    ═══════════════════════════════════════════════════════ */
 function startPythonServer() {
-  const serverPath = resourcePath('server.py');
+  const serverPath = resourcePath('src', 'backend', 'server.py');
   serverProcess = spawn('python3', [serverPath], {
-    cwd: resourceDir(),
+    cwd: resourcePath('src', 'backend'),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -233,7 +234,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 550,
     title: 'ISENAPP',
-    icon: resourcePath('logo.svg'),
+    icon: resourcePath('assets', 'logo.svg'),
     frame: false,
     transparent: false,
     backgroundColor: '#1e1e2e',
