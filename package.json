@@ -30,20 +30,16 @@
     ],
     "extraResources": [
       {
-        "from": "src/renderer/index.html",
-        "to": "src/renderer/index.html"
+        "from": "src/renderer",
+        "to": "src/renderer"
       },
       {
         "from": "assets/logo.svg",
         "to": "assets/logo.svg"
       },
       {
-        "from": "src/backend/server.py",
-        "to": "src/backend/server.py"
-      },
-      {
-        "from": "src/backend/mail_to_md.py",
-        "to": "src/backend/mail_to_md.py"
+        "from": "src/backend",
+        "to": "src/backend"
       },
       {
         "from": "data/data.json",

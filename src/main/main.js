@@ -20,6 +20,8 @@ protocol.registerSchemesAsPrivileged([
 const PORT = 8080;
 let serverProcess = null;
 let mainWindow = null;
+let backendLastError = '';
+let backendLogBuffer = [];
 let browserVisible = false;
 let activeBrowserTabId = null;
 let browserBounds = { x: 0, y: 0, width: 0, height: 0 };
@@ -33,27 +35,74 @@ if (!gotSingleInstanceLock) {
 /* ═══════════════════════════════════════════════════════
    Python Server
    ═══════════════════════════════════════════════════════ */
+function pushBackendLog(line) {
+  if (!line) return;
+  backendLogBuffer.push(String(line));
+  if (backendLogBuffer.length > 80) {
+    backendLogBuffer = backendLogBuffer.slice(-80);
+  }
+}
+
+function detectPythonCommand() {
+  const fromEnv = String(process.env.ISENAPP_PYTHON || '').trim();
+  if (fromEnv) return fromEnv;
+  return 'python3';
+}
+
+function buildBackendFailureMessage() {
+  const logs = backendLogBuffer.slice(-12).join('\n').trim();
+  const details = logs || 'Aucun log backend disponible.';
+  return [
+    'Le backend Python n\'a pas pu démarrer.',
+    '',
+    'Cause probable: dépendances Python absentes (ex: html2text) dans l\'environnement système.',
+    '',
+    'Commande de correction (Linux):',
+    'python3 -m pip install --user -r requirements.txt',
+    '',
+    'Tu peux aussi forcer un interpréteur Python via la variable ISENAPP_PYTHON.',
+    '',
+    `Détail: ${backendLastError || 'timeout de démarrage'}`,
+    '',
+    'Derniers logs backend:',
+    details,
+  ].join('\n');
+}
+
 function startPythonServer() {
+  const pythonCmd = detectPythonCommand();
   const serverPath = resourcePath(app, 'src', 'backend', 'server.py');
-  serverProcess = spawn('python3', [serverPath], {
+  backendLastError = '';
+  backendLogBuffer = [];
+
+  serverProcess = spawn(pythonCmd, [serverPath], {
     cwd: resourcePath(app, 'src', 'backend'),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
   serverProcess.stdout.on('data', (data) => {
-    console.log(`[server] ${data.toString().trim()}`);
+    const line = data.toString().trim();
+    if (!line) return;
+    pushBackendLog(line);
+    console.log(`[server] ${line}`);
   });
 
   serverProcess.stderr.on('data', (data) => {
-    console.error(`[server] ${data.toString().trim()}`);
+    const line = data.toString().trim();
+    if (!line) return;
+    pushBackendLog(line);
+    console.error(`[server] ${line}`);
   });
 
   serverProcess.on('error', (err) => {
+    backendLastError = err.message;
+    pushBackendLog(`spawn error: ${err.message}`);
     console.error('Failed to start Python server:', err.message);
   });
 
   serverProcess.on('close', (code, signal) => {
     if (code && code !== 0) {
+      backendLastError = `backend exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`;
       console.error(`[server] exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`);
     }
     serverProcess = null;
@@ -656,7 +705,9 @@ app.whenReady().then(async () => {
   try {
     await waitForServer(PORT);
   } catch (e) {
+    backendLastError = backendLastError || e.message;
     console.error(e.message);
+    dialog.showErrorBox('ISENAPP - Erreur de démarrage', buildBackendFailureMessage());
     app.quit();
     return;
   }
