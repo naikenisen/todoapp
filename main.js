@@ -284,6 +284,17 @@ function sanitizeBrowserUrl(rawUrl) {
   return 'https://' + url;
 }
 
+function browserSessionPartitionForUrl(rawUrl) {
+  const safeUrl = sanitizeBrowserUrl(rawUrl);
+  try {
+    const host = (new URL(safeUrl).hostname || 'default').toLowerCase();
+    const slug = host.replace(/[^a-z0-9.-]/g, '-').slice(0, 80) || 'default';
+    return `persist:site-${slug}`;
+  } catch {
+    return 'persist:site-default';
+  }
+}
+
 function emitBrowserTabUpdate(tabId, payload = {}) {
   if (!mainWindow || !mainWindow.webContents || mainWindow.webContents.isDestroyed()) return;
   mainWindow.webContents.send('browser:tab-updated', { tabId, ...payload });
@@ -314,9 +325,10 @@ function applyBrowserViewLayout() {
   } catch {}
 }
 
-function ensureBrowserViewTab(tabId, initialUrl) {
+function ensureBrowserViewTab(tabId, initialUrl, partition) {
   if (browserViews.has(tabId)) return browserViews.get(tabId);
 
+  const tabPartition = String(partition || '').trim() || browserSessionPartitionForUrl(initialUrl);
   const view = new BrowserView({
     webPreferences: {
       nodeIntegration: false,
@@ -325,12 +337,57 @@ function ensureBrowserViewTab(tabId, initialUrl) {
       webSecurity: true,
       allowRunningInsecureContent: false,
       experimentalFeatures: false,
+      partition: tabPartition,
     },
   });
   browserViews.set(tabId, view);
 
+  /* Allow OAuth / login popups: open them in a real BrowserWindow
+     sharing the same session partition so auth cookies flow back. */
   view.webContents.setWindowOpenHandler(({ url }) => {
-    try { view.webContents.loadURL(sanitizeBrowserUrl(url)); } catch {}
+    const popupUrl = sanitizeBrowserUrl(url);
+    const popup = new BrowserWindow({
+      width: 600,
+      height: 700,
+      parent: mainWindow,
+      modal: false,
+      show: true,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        webSecurity: true,
+        partition: tabPartition,
+      },
+    });
+    popup.setMenuBarVisibility(false);
+    popup.loadURL(popupUrl).catch(() => {});
+
+    /* When the popup navigates back to the original site or closes,
+       refresh the parent BrowserView so it picks up the new session. */
+    popup.webContents.on('will-redirect', (_e, redirectUrl) => {
+      try {
+        const redirectHost = new URL(redirectUrl).hostname.toLowerCase();
+        const originalHost = new URL(sanitizeBrowserUrl(view.webContents.getURL())).hostname.toLowerCase();
+        if (redirectHost === originalHost) {
+          popup.close();
+          view.webContents.reload();
+        }
+      } catch {}
+    });
+
+    popup.on('closed', () => {
+      /* After any auth popup closes, reload parent view to pick up session */
+      try {
+        if (!view.webContents.isDestroyed()) {
+          emitBrowserTabUpdate(tabId, {
+            url: view.webContents.getURL(),
+            title: view.webContents.getTitle(),
+          });
+        }
+      } catch {}
+    });
+
     return { action: 'deny' };
   });
 
@@ -396,9 +453,11 @@ function activateBrowserViewTab(tabId) {
 ipcMain.handle('browser:createTab', async (_event, payload = {}) => {
   const tabId = String(payload.tabId || '').trim();
   const url = sanitizeBrowserUrl(payload.url || 'https://www.google.com');
+  const partition = String(payload.partition || '').trim() || browserSessionPartitionForUrl(url);
+  const shouldActivate = payload.activate !== false;
   if (!tabId) return { ok: false, error: 'tabId manquant' };
-  ensureBrowserViewTab(tabId, url);
-  activateBrowserViewTab(tabId);
+  ensureBrowserViewTab(tabId, url, partition);
+  if (shouldActivate) activateBrowserViewTab(tabId);
   return { ok: true };
 });
 

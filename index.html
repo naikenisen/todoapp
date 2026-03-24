@@ -884,6 +884,124 @@
             background: rgba(155,125,240,0.15); color: var(--accent-purple); font-weight: 600;
         }
 
+        /* ─── Leads Tab ──────────────────────────────── */
+        .leads-layout {
+            display: flex; gap: 0; height: calc(100vh - 230px);
+            background: var(--bg-surface); border: 1px solid var(--card-border);
+            border-radius: var(--radius-md); overflow: hidden;
+        }
+        .leads-sidebar {
+            width: 280px; min-width: 240px; border-right: 1px solid var(--card-border);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .leads-sidebar-header {
+            padding: 0.75rem; border-bottom: 1px solid var(--card-border);
+            display: flex; gap: 0.4rem; align-items: center;
+        }
+        .leads-sidebar-header input {
+            flex: 1; padding: 0.4rem 0.6rem; border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm); background: var(--progress-bg); color: var(--text);
+            font-size: 0.8rem;
+        }
+        .leads-sidebar-header input:focus { outline: none; border-color: var(--accent-blue); }
+        .leads-project-list { flex: 1; overflow-y: auto; }
+        .leads-project-item {
+            padding: 0.65rem 0.9rem; cursor: pointer; transition: background 0.12s;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .leads-project-item:hover { background: rgba(137,180,250,0.04); }
+        .leads-project-item.active { background: rgba(137,180,250,0.08); border-left: 2px solid var(--accent-blue); }
+        .leads-project-item .lp-name { flex: 1; font-size: 0.85rem; font-weight: 600; }
+        .leads-project-item .lp-count {
+            font-size: 0.72rem; padding: 0.1rem 0.45rem; border-radius: 10px;
+            background: rgba(137,180,250,0.12); color: var(--accent-blue); font-weight: 600;
+        }
+        .leads-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .leads-main-header {
+            padding: 0.75rem 1rem; border-bottom: 1px solid var(--card-border);
+            display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+        }
+        .leads-main-title { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
+        .leads-filters {
+            display: flex; gap: 0; 
+        }
+        .leads-filter-btn {
+            padding: 0.3rem 0.65rem; border: 1px solid var(--card-border);
+            background: transparent; color: var(--text-muted); cursor: pointer;
+            font-size: 0.72rem; font-weight: 600; transition: all 0.15s;
+        }
+        .leads-filter-btn:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+        .leads-filter-btn:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+        .leads-filter-btn.active {
+            background: rgba(137,180,250,0.1); border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+        .leads-table-wrap { flex: 1; overflow-y: auto; padding: 0; }
+        .leads-table {
+            width: 100%; border-collapse: collapse; font-size: 0.82rem;
+        }
+        .leads-table th {
+            position: sticky; top: 0; z-index: 10;
+            padding: 0.55rem 0.75rem; text-align: left; font-weight: 600;
+            background: var(--bg-surface); color: var(--text-muted); font-size: 0.75rem;
+            border-bottom: 1px solid var(--card-border); letter-spacing: 0.02em; text-transform: uppercase;
+        }
+        .leads-table td {
+            padding: 0.55rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.03);
+            vertical-align: middle;
+        }
+        .leads-table tr { transition: background 0.1s; cursor: pointer; }
+        .leads-table tbody tr:hover { background: rgba(137,180,250,0.04); }
+        .lead-status-badge {
+            display: inline-flex; align-items: center; gap: 0.25rem;
+            font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 10px; font-weight: 600;
+        }
+        .lead-status-badge.new { background: rgba(137,180,250,0.15); color: var(--accent-blue); }
+        .lead-status-badge.contacted { background: rgba(203,166,247,0.15); color: var(--accent-purple); }
+        .lead-status-badge.interested { background: rgba(166,227,161,0.15); color: var(--accent-green); }
+        .lead-status-badge.negotiation { background: rgba(250,179,135,0.15); color: var(--accent-orange); }
+        .lead-status-badge.won { background: rgba(166,227,161,0.25); color: var(--accent-green); }
+        .lead-status-badge.lost { background: rgba(243,139,168,0.15); color: var(--accent-pink); }
+        .lead-status-badge.followup { background: rgba(250,179,135,0.2); color: var(--accent-orange); }
+        .lead-role-badge {
+            font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 3px;
+            background: rgba(147,153,178,0.15); color: var(--accent-slate); font-weight: 500;
+        }
+        .lead-role-badge.manager { background: rgba(250,179,135,0.12); color: var(--accent-orange); }
+        .lead-role-badge.leader { background: rgba(203,166,247,0.12); color: var(--accent-purple); }
+        .leads-empty {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100%; color: var(--text-muted); gap: 0.5rem; padding: 2rem;
+        }
+        .leads-empty i { font-size: 2.5rem; }
+        .lead-reminder-dot {
+            display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+            margin-right: 0.3rem;
+        }
+        .lead-reminder-dot.due { background: var(--accent-orange); animation: pulse-dot 1.5s infinite; }
+        .lead-reminder-dot.upcoming { background: var(--accent-slate); }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .leads-team-tree {
+            padding: 0.5rem 0;
+        }
+        .leads-team-node {
+            padding: 0.35rem 0.75rem; display: flex; align-items: center; gap: 0.45rem;
+            font-size: 0.82rem; cursor: pointer; transition: background 0.1s;
+        }
+        .leads-team-node:hover { background: rgba(137,180,250,0.04); }
+        .leads-team-node.active { color: var(--accent-blue); font-weight: 600; }
+        .leads-team-node .team-indent { display: inline-block; }
+        .leads-sms-preview {
+            background: var(--progress-bg); border: 1px solid var(--card-border);
+            border-radius: var(--radius-md); padding: 0.75rem; margin-top: 0.5rem;
+            font-size: 0.82rem; color: var(--text); white-space: pre-wrap; max-height: 120px;
+            overflow-y: auto;
+        }
+
         /* ─── Inbox Tab ──────────────────────────────── */
         .inbox-layout {
             display: flex; gap: 0; height: calc(100vh - 230px);
@@ -1292,14 +1410,15 @@
 
 <div class="container">
     <!-- Tab Bar -->
-    <div class="tab-bar">
+    <div class="tab-bar" id="mainTabBar">
         <button class="tab-btn active" data-tab="todo" onclick="switchTab('todo')"><i class="icon-list-checks"></i> Todo</button>
         <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')"><i class="icon-inbox"></i> Inbox</button>
         <button class="tab-btn" data-tab="mail" onclick="switchTab('mail')"><i class="icon-send"></i> Rédiger</button>
         <button class="tab-btn" data-tab="graph" onclick="switchTab('graph')"><i class="icon-network"></i> Graph</button>
         <button class="tab-btn" data-tab="agenda" onclick="switchTab('agenda')"><i class="icon-calendar-days"></i> Agenda</button>
-        <button class="tab-btn" data-tab="browser" onclick="switchTab('browser')"><i class="icon-globe"></i> Navigateur</button>
-        <button class="tab-btn" data-tab="github" onclick="switchTab('github')"><i class="icon-github"></i> GitHub</button>
+        <button class="tab-btn" data-tab="leads" onclick="switchTab('leads')"><i class="icon-users"></i> Leads</button>
+        <span id="siteTabButtons"></span>
+        <button class="tab-btn" onclick="openAddSiteModal()" title="Ajouter un site" style="color:var(--accent-blue);font-size:1.1em;padding:0.6rem 0.7rem"><i class="icon-plus"></i></button>
     </div>
 
     <!-- TODO TAB -->
@@ -1483,73 +1602,258 @@
         <div id="agendaEvents" class="agenda-week-shell"></div>
     </div>
 
-    <!-- BROWSER TAB -->
-    <div class="tab-content" id="tab-browser">
-        <div class="inbox-layout" style="height: calc(100vh - 140px)">
-            <div class="inbox-list-panel" style="max-width:260px;display:flex;flex-direction:column;gap:0.4rem;overflow:hidden">
-                <div class="header-actions" style="justify-content:flex-start;margin-top:0;padding:0.6rem 0.6rem 0.2rem">
-                    <button onclick="addBrowserTab()"><i class="icon-plus"></i> Nouvel onglet</button>
+    <!-- LEADS TAB -->
+    <div class="tab-content" id="tab-leads">
+        <header>
+            <h1><i class="icon-users"></i> Gestion des Leads</h1>
+            <div class="header-actions">
+                <button onclick="openLeadProjectModal()"><i class="icon-plus"></i> Nouveau projet</button>
+                <button onclick="openLeadModal()"><i class="icon-user-plus"></i> Ajouter un lead</button>
+                <button onclick="openLeadTeamModal()"><i class="icon-network"></i> Equipe</button>
+                <button onclick="openLeadSmsModal()" id="leadSmsBtnHeader"><i class="icon-message-circle"></i> SMS groupé</button>
+            </div>
+        </header>
+        <div class="leads-layout">
+            <!-- Sidebar: projets + équipe -->
+            <div class="leads-sidebar">
+                <div class="leads-sidebar-header">
+                    <input type="text" id="leadsProjectSearch" placeholder="Filtrer projets…" oninput="renderLeadsProjectList()">
                 </div>
-                <div id="browserTabList" style="overflow:auto;padding:0.3rem"></div>
-                <div style="border-top:1px solid var(--card-border);padding:0.55rem;display:flex;flex-direction:column;gap:0.45rem">
-                    <div style="font-size:0.76rem;color:var(--text-muted);display:flex;justify-content:space-between;gap:0.5rem">
-                        <span><i class="icon-lock"></i> Coffre mots de passe</span>
-                        <span id="browserVaultStatus" style="color:var(--accent-green)">OK</span>
-                    </div>
-                    <input id="browserVaultOrigin" type="text" placeholder="site.com" style="background:var(--progress-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.35rem 0.5rem;color:var(--text);font-size:0.78rem">
-                    <input id="browserVaultLabel" type="text" placeholder="Libelle (optionnel)" style="background:var(--progress-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.35rem 0.5rem;color:var(--text);font-size:0.78rem">
-                    <input id="browserVaultUsername" type="text" placeholder="Identifiant" style="background:var(--progress-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.35rem 0.5rem;color:var(--text);font-size:0.78rem">
-                    <input id="browserVaultPassword" type="password" placeholder="Mot de passe" style="background:var(--progress-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.35rem 0.5rem;color:var(--text);font-size:0.78rem">
-                    <div class="header-actions" style="justify-content:flex-start;margin:0;padding:0;gap:0.35rem">
-                        <button onclick="saveBrowserCredential()"><i class="icon-save"></i> Sauver</button>
-                        <button onclick="useSelectedCredentialOnActiveTab()"><i class="icon-key-round"></i> Remplir</button>
-                    </div>
-                    <div id="browserVaultList" style="max-height:150px;overflow:auto;border:1px solid var(--card-border);border-radius:var(--radius-sm)"></div>
+                <div class="leads-project-list" id="leadsProjectList"></div>
+                <div style="border-top:1px solid var(--card-border);padding:0.5rem 0.75rem">
+                    <div style="font-size:0.72rem;color:var(--text-muted);font-weight:600;margin-bottom:0.3rem;text-transform:uppercase;letter-spacing:0.03em"><i class="icon-network"></i> Hiérarchie équipe</div>
+                    <div class="leads-team-tree" id="leadsTeamTree"></div>
                 </div>
             </div>
-            <div class="inbox-reader-panel" style="display:flex;flex-direction:column;min-width:0">
-                <div class="header-actions" style="justify-content:flex-start;margin:0;padding:0.55rem 0.6rem;gap:0.4rem;border-bottom:1px solid var(--card-border)">
-                    <button onclick="browserGoBack()">◀</button>
-                    <button onclick="browserGoForward()">▶</button>
-                    <button onclick="browserReload()"><i class="icon-refresh-cw"></i></button>
-                    <input id="browserAddress" type="text" placeholder="https://example.com" onkeydown="if(event.key==='Enter')browserNavigateAddress()" style="flex:1;min-width:220px;background:var(--progress-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.45rem 0.6rem;color:var(--text)">
-                    <button onclick="browserNavigateAddress()"><i class="icon-arrow-right"></i></button>
+            <!-- Main: table leads -->
+            <div class="leads-main">
+                <div class="leads-main-header">
+                    <div class="leads-main-title" id="leadsMainTitle"><i class="icon-users"></i> Sélectionne un projet</div>
+                    <div style="display:flex;gap:0.4rem;align-items:center">
+                        <input type="text" id="leadsSearch" placeholder="Rechercher lead…" oninput="renderLeadsTable()" style="padding:0.35rem 0.6rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.78rem;width:160px">
+                        <div class="leads-filters" id="leadsStatusFilter">
+                            <button class="leads-filter-btn active" onclick="setLeadsFilter('all',this)">Tous</button>
+                            <button class="leads-filter-btn" onclick="setLeadsFilter('new',this)">Nouveau</button>
+                            <button class="leads-filter-btn" onclick="setLeadsFilter('contacted',this)">Contacté</button>
+                            <button class="leads-filter-btn" onclick="setLeadsFilter('interested',this)">Intéressé</button>
+                            <button class="leads-filter-btn" onclick="setLeadsFilter('won',this)">Gagné</button>
+                            <button class="leads-filter-btn" onclick="setLeadsFilter('lost',this)">Perdu</button>
+                        </div>
+                    </div>
                 </div>
-                <div id="browserViewport" style="flex:1;background:var(--bg);position:relative">
-                    <div class="graph-placeholder" style="inset:0">
-                        <div class="gp-icon"><i class="icon-globe"></i></div>
-                        <div class="gp-text">Le navigateur s'affiche ici (BrowserView)</div>
+                <div class="leads-table-wrap" id="leadsTableWrap">
+                    <div class="leads-empty" id="leadsEmptyState">
+                        <i class="icon-users"></i>
+                        <p>Sélectionne ou crée un projet pour commencer</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- GITHUB TAB -->
-    <div class="tab-content" id="tab-github">
-        <div class="mail-composer" style="margin-bottom:0.8rem">
-            <h2><i class="icon-github"></i> Connexion GitHub</h2>
-            <div class="mail-field">
-                <label>Identifiant GitHub</label>
-                <input type="text" id="githubUser" placeholder="username" oninput="saveGithubCredentials()">
+    <!-- SITE TAB (dynamic, shared by all site tabs) -->
+    <div class="tab-content" id="tab-site">
+        <div style="height: calc(100vh - 140px); display:flex; flex-direction:column">
+            <div class="header-actions" style="justify-content:flex-start;margin:0;padding:0.55rem 0.6rem;gap:0.4rem;border-bottom:1px solid var(--card-border)">
+                <button onclick="siteTabGoBack()">◀</button>
+                <button onclick="siteTabGoForward()">▶</button>
+                <button onclick="siteTabReload()"><i class="icon-refresh-cw"></i></button>
+                <input id="siteTabAddress" type="text" placeholder="https://example.com" onkeydown="if(event.key==='Enter')siteTabNavigateAddress()" style="flex:1;min-width:220px;background:var(--progress-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.45rem 0.6rem;color:var(--text)">
+                <button onclick="siteTabNavigateAddress()"><i class="icon-arrow-right"></i></button>
+                <button onclick="openEditSiteModal()" title="Modifier ce site"><i class="icon-settings"></i></button>
+                <button onclick="removeSiteTab(currentTab)" title="Supprimer cet onglet" style="color:var(--accent-pink)"><i class="icon-trash-2"></i></button>
             </div>
-            <div class="mail-field">
-                <label>Mot de passe</label>
-                <input type="password" id="githubPassword" placeholder="mot de passe" oninput="saveGithubCredentials()">
-            </div>
-            <div class="mail-actions">
-                <button onclick="openGithubLogin()"><i class="icon-globe"></i> Ouvrir GitHub</button>
-                <button onclick="autofillGithubLogin()"><i class="icon-key-round"></i> Remplir identifiants</button>
-            </div>
-        </div>
-        <div id="githubViewport" style="height: calc(100vh - 420px); min-height: 320px; background: var(--bg); border:1px solid var(--card-border); border-radius: var(--radius-md); position: relative; overflow: hidden;">
-            <div class="graph-placeholder" style="inset:0">
-                <div class="gp-icon"><i class="icon-github"></i></div>
-                <div class="gp-text">GitHub s'affiche ici (BrowserView)</div>
+            <div id="siteTabViewport" style="flex:1;background:var(--bg);position:relative">
+                <div class="graph-placeholder" style="inset:0">
+                    <div class="gp-icon"><i class="icon-globe"></i></div>
+                    <div class="gp-text">Le site s'affiche ici</div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+    <!-- Modal : Ajouter / Modifier un site -->
+    <div class="modal-overlay" id="siteTabModal">
+        <div class="modal" style="max-width:420px">
+            <h2 id="siteTabModalTitle"><i class="icon-globe"></i> Ajouter un site</h2>
+            <div class="form-group">
+                <label>Nom de l'onglet</label>
+                <input type="text" id="siteTabLabel" placeholder="ex: GitHub, Outlook, Notion…">
+            </div>
+            <div class="form-group">
+                <label>URL du site</label>
+                <input type="text" id="siteTabUrl" placeholder="https://github.com">
+            </div>
+            <div class="form-group">
+                <label>Icone (classe Lucide, optionnel)</label>
+                <input type="text" id="siteTabIcon" placeholder="icon-github, icon-globe, icon-mail…">
+                <small>Laisser vide pour utiliser <code>icon-globe</code> par defaut</small>
+            </div>
+            <div style="font-size:0.78rem;color:var(--text-muted);padding-top:0.5rem"><i class="icon-lock"></i> Les sessions (cookies, connexion Google, etc.) sont conservees automatiquement entre chaque ouverture de l'application.</div>
+            <div class="modal-actions">
+                <button onclick="closeSiteTabModal()">Annuler</button>
+                <button class="btn-primary" onclick="saveSiteTabFromModal()"><i class="icon-save"></i> Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+                <button onclick="closeSiteTabModal()">Annuler</button>
+                <button class="btn-primary" onclick="saveSiteTabFromModal()"><i class="icon-save"></i> Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal : Projet lead -->
+    <div class="modal-overlay" id="leadProjectModal">
+        <div class="modal" style="max-width:420px">
+            <h2 id="leadProjectModalTitle"><i class="icon-folder"></i> Nouveau projet</h2>
+            <div class="form-group">
+                <label>Nom du projet</label>
+                <input type="text" id="leadProjectName" placeholder="BDE Gala 2026, Campagne sponsors…">
+            </div>
+            <div class="form-group">
+                <label>Description (optionnel)</label>
+                <textarea id="leadProjectDesc" rows="2" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem;font-family:inherit;resize:vertical" placeholder="Objectif, contexte…"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button onclick="closeLeadProjectModal()">Annuler</button>
+                <button class="btn-primary" onclick="saveLeadProject()"><i class="icon-save"></i> Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal : Lead (ajout/edition) -->
+    <div class="modal-overlay" id="leadModal">
+        <div class="modal" style="max-width:520px">
+            <h2 id="leadModalTitle"><i class="icon-user-plus"></i> Ajouter un lead</h2>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">
+                <div class="form-group">
+                    <label>Prénom</label>
+                    <input type="text" id="leadFirstName" placeholder="Jean">
+                </div>
+                <div class="form-group">
+                    <label>Nom</label>
+                    <input type="text" id="leadLastName" placeholder="Dupont">
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">
+                <div class="form-group">
+                    <label>Téléphone</label>
+                    <input type="text" id="leadPhone" placeholder="+33 6 12 34 56 78">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="text" id="leadEmail" placeholder="jean@example.com">
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">
+                <div class="form-group">
+                    <label>Statut</label>
+                    <select id="leadStatus" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem">
+                        <option value="new">Nouveau</option>
+                        <option value="contacted">Contacté</option>
+                        <option value="interested">Intéressé</option>
+                        <option value="negotiation">En négo</option>
+                        <option value="won">Gagné</option>
+                        <option value="lost">Perdu</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Assigné à</label>
+                    <select id="leadAssignee" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem">
+                        <option value="">Non assigné</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Entreprise / Organisation</label>
+                <input type="text" id="leadCompany" placeholder="Nom de l'entreprise">
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea id="leadNotes" rows="2" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem;font-family:inherit;resize:vertical" placeholder="Notes libres…"></textarea>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">
+                <div class="form-group">
+                    <label>Prochain rappel</label>
+                    <input type="date" id="leadReminderDate">
+                </div>
+                <div class="form-group">
+                    <label>Heure (optionnel)</label>
+                    <input type="time" id="leadReminderTime" value="09:00">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button onclick="closeLeadModal()">Annuler</button>
+                <button class="btn-danger" id="leadDeleteBtn" style="display:none" onclick="deleteLead()"><i class="icon-trash-2"></i></button>
+                <button class="btn-primary" onclick="saveLeadFromModal()"><i class="icon-save"></i> Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal : Equipe -->
+    <div class="modal-overlay" id="leadTeamModal">
+        <div class="modal" style="max-width:480px">
+            <h2><i class="icon-network"></i> Gestion de l'équipe</h2>
+            <div id="leadTeamList" style="margin-bottom:1rem"></div>
+            <div style="border-top:1px solid var(--card-border);padding-top:1rem">
+                <div style="font-size:0.85rem;font-weight:600;margin-bottom:0.6rem">Ajouter un membre</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">
+                    <div class="form-group">
+                        <label>Nom</label>
+                        <input type="text" id="teamMemberName" placeholder="Prénom Nom">
+                    </div>
+                    <div class="form-group">
+                        <label>Rôle</label>
+                        <select id="teamMemberRole" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem">
+                            <option value="member">Membre</option>
+                            <option value="leader">Chef d'équipe</option>
+                            <option value="manager">Responsable</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Responsable hiérarchique</label>
+                    <select id="teamMemberParent" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem">
+                        <option value="">Aucun (top level)</option>
+                    </select>
+                </div>
+                <div class="modal-actions" style="margin-top:0.5rem">
+                    <button class="btn-primary" onclick="addTeamMember()"><i class="icon-user-plus"></i> Ajouter</button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button onclick="closeLeadTeamModal()">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal : SMS groupé -->
+    <div class="modal-overlay" id="leadSmsModal">
+        <div class="modal" style="max-width:520px">
+            <h2><i class="icon-message-circle"></i> Envoyer des SMS personnalisés</h2>
+            <div class="form-group">
+                <label>Destinataires</label>
+                <div id="smsRecipientsSummary" style="font-size:0.82rem;color:var(--text-muted)"></div>
+            </div>
+            <div class="form-group">
+                <label>Message (variables : <code>{prenom}</code>, <code>{nom}</code>, <code>{entreprise}</code>, <code>{projet}</code>)</label>
+                <textarea id="smsMessageTemplate" rows="4" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem;font-family:inherit;resize:vertical" placeholder="Bonjour {prenom}, suite à notre échange concernant {projet}..." oninput="previewSmsMessage()"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Aperçu (1er destinataire)</label>
+                <div class="leads-sms-preview" id="smsPreview">—</div>
+            </div>
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:0.4rem"><input type="checkbox" id="smsLogActivity" checked> Enregistrer l'envoi dans l'historique du lead</label>
+            </div>
+            <div class="modal-actions">
+                <button onclick="closeLeadSmsModal()">Annuler</button>
+                <button class="btn-primary" onclick="sendLeadsSms()"><i class="icon-send"></i> Envoyer via Google Messages</button>
+            </div>
+        </div>
+    </div>
 
     <!-- GRAPH TAB -->
     <div class="tab-content" id="tab-graph">
@@ -1852,17 +2156,17 @@ let agendaSelectedCalendarIds = [];
 let agendaInteractionState = null;
 let agendaPointerSuppressClickUntil = 0;
 let selectedAgendaEventId = null;
-let browserTabs = [];
-let activeBrowserTabId = null;
-let browserCredentials = [];
-let selectedBrowserCredentialId = null;
-let browserVaultEncryptionAvailable = false;
-const GITHUB_BROWSER_TAB_ID = 'github-main';
-let agendaInitialized = false;
-let browserInitialized = false;
-let githubInitialized = false;
+let siteTabs = [];          // [{id, label, url, icon}]
+let siteTabsInitialized = {};  // {siteTabId: true} — tracks which BrowserViews are created
 let browserEventsBound = false;
+const SITE_TABS_STORAGE_KEY = 'site-tabs-v2';
+let agendaInitialized = false;
 let composerReplyContext = null;
+let leadsActiveProjectId = null;
+let leadsFilter = 'all';
+let leadsEditingId = null;
+let leadsEditingProjectId = null;
+let leadsTeamFilterMemberId = null;
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const esc = s => String(s)
@@ -1891,18 +2195,24 @@ let modalColor = 'blue';
    ═══════════════════════════════════════════════════════ */
 function switchTab(tab) {
     currentTab = tab;
+    const isSiteTab = tab.startsWith('site-');
     document.querySelectorAll('.tab-btn').forEach((b) => {
         b.classList.toggle('active', b.dataset.tab === tab);
     });
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-    document.getElementById('tab-' + tab).classList.add('active');
+    if (isSiteTab) {
+        document.getElementById('tab-site').classList.add('active');
+        initSiteTabView(tab);
+    } else {
+        const el = document.getElementById('tab-' + tab);
+        if (el) el.classList.add('active');
+    }
     if (tab === 'mail') renderMailTab();
     if (tab === 'inbox') loadInbox();
     if (tab === 'graph') initGraphIfNeeded();
     if (tab === 'agenda') initAgendaIfNeeded();
-    if (tab === 'browser') initBrowserIfNeeded();
-    if (tab === 'github') initGithubIfNeeded();
-    updateBrowserViewVisibility();
+    if (tab === 'leads') renderLeads();
+    updateSiteTabViewVisibility();
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -4594,15 +4904,14 @@ setInterval(() => {
     if (!state.settings) state.settings = {};
     applyThemeMode(state.settings.uiTheme || 'dark');
 
-    const ghUser = document.getElementById('githubUser');
-    const ghPass = document.getElementById('githubPassword');
     const geminiInput = document.getElementById('geminiKeyInput');
     const contactsCount = document.getElementById('contactsCount');
 
-    if (ghUser) ghUser.value = state.settings.githubUser || '';
-    if (ghPass) ghPass.value = '';
     if (geminiInput) geminiInput.value = state.settings.geminiKey || '';
     if (contactsCount) contactsCount.textContent = contacts.length ? `${contacts.length} contacts chargés` : '';
+
+    initSiteTabs();
+    initLeadsState();
 
     renderSignaturesList();
     updateSignatureSelectors();
@@ -5343,7 +5652,545 @@ function graphFit() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   BrowserView Tabs (Navigateur + GitHub)
+   Leads — CRM léger avec SMS, rappels, hiérarchie
+   ═══════════════════════════════════════════════════════ */
+const LEAD_STATUSES = {
+    new:         { label: 'Nouveau',   color: 'new' },
+    contacted:   { label: 'Contacté',  color: 'contacted' },
+    interested:  { label: 'Intéressé', color: 'interested' },
+    negotiation: { label: 'En négo',   color: 'negotiation' },
+    won:         { label: 'Gagné',     color: 'won' },
+    lost:        { label: 'Perdu',     color: 'lost' },
+};
+
+function initLeadsState() {
+    if (!state.leads) state.leads = { projects: [], team: [] };
+    if (!state.leads.projects) state.leads.projects = [];
+    if (!state.leads.team) state.leads.team = [];
+}
+
+function getLeadsProjects() { return state.leads.projects; }
+function getLeadsTeam() { return state.leads.team; }
+function getLeadsProject(pid) { return getLeadsProjects().find(p => p.id === pid) || null; }
+function getProjectLeads(pid) { const p = getLeadsProject(pid); return p ? (p.leads || []) : []; }
+
+/* ── Render orchestrator ──────────────────────── */
+function renderLeads() {
+    initLeadsState();
+    renderLeadsProjectList();
+    renderLeadsTeamTree();
+    renderLeadsTable();
+    checkLeadReminders();
+}
+
+/* ── Sidebar: project list ────────────────────── */
+function renderLeadsProjectList() {
+    const list = document.getElementById('leadsProjectList');
+    if (!list) return;
+    const searchVal = (document.getElementById('leadsProjectSearch')?.value || '').toLowerCase();
+    const projects = getLeadsProjects().filter(p => !searchVal || (p.name || '').toLowerCase().includes(searchVal));
+
+    if (!projects.length) {
+        list.innerHTML = '<div style="padding:1rem;color:var(--text-muted);font-size:0.8rem;text-align:center">Aucun projet. Clique sur « Nouveau projet ».</div>';
+        return;
+    }
+    list.innerHTML = projects.map(p => {
+        const count = (p.leads || []).length;
+        const isActive = leadsActiveProjectId === p.id;
+        return `<div class="leads-project-item ${isActive ? 'active' : ''}" onclick="selectLeadsProject('${esc(p.id)}')">
+            <span class="lp-name">${esc(p.emoji || '📁')} ${esc(p.name)}</span>
+            <span class="lp-count">${count}</span>
+        </div>`;
+    }).join('');
+}
+
+function selectLeadsProject(pid) {
+    leadsActiveProjectId = pid;
+    leadsTeamFilterMemberId = null;
+    renderLeadsProjectList();
+    renderLeadsTable();
+}
+
+/* ── Sidebar: team tree ───────────────────────── */
+function renderLeadsTeamTree() {
+    const tree = document.getElementById('leadsTeamTree');
+    if (!tree) return;
+    const team = getLeadsTeam();
+    if (!team.length) {
+        tree.innerHTML = '<div style="padding:0.3rem 0;font-size:0.78rem;color:var(--text-muted)">Aucun membre. Ajoute via « Equipe ».</div>';
+        return;
+    }
+    const roots = team.filter(m => !m.parentId);
+    let html = '';
+    function renderNode(member, depth) {
+        const indent = depth * 16;
+        const isActive = leadsTeamFilterMemberId === member.id;
+        const roleBadge = member.role !== 'member' ? ` <span class="lead-role-badge ${esc(member.role)}">${esc(member.role === 'manager' ? 'Responsable' : 'Chef')}</span>` : '';
+        const assignedCount = countLeadsAssignedTo(member.id);
+        html += `<div class="leads-team-node ${isActive ? 'active' : ''}" onclick="filterLeadsByTeamMember('${esc(member.id)}')" title="Filtrer par ${esc(member.name)}">
+            <span class="team-indent" style="width:${indent}px"></span>
+            <span style="flex:1">${esc(member.name)}${roleBadge}</span>
+            <span style="font-size:0.7rem;color:var(--text-muted)">${assignedCount}</span>
+        </div>`;
+        const children = team.filter(m => m.parentId === member.id);
+        children.forEach(c => renderNode(c, depth + 1));
+    }
+    roots.forEach(r => renderNode(r, 0));
+    tree.innerHTML = html;
+}
+
+function countLeadsAssignedTo(memberId) {
+    let count = 0;
+    getLeadsProjects().forEach(p => {
+        (p.leads || []).forEach(l => { if (l.assigneeId === memberId) count++; });
+    });
+    return count;
+}
+
+function filterLeadsByTeamMember(memberId) {
+    leadsTeamFilterMemberId = leadsTeamFilterMemberId === memberId ? null : memberId;
+    renderLeadsTeamTree();
+    renderLeadsTable();
+}
+
+/* ── Main: leads table ────────────────────────── */
+function renderLeadsTable() {
+    const wrap = document.getElementById('leadsTableWrap');
+    const empty = document.getElementById('leadsEmptyState');
+    const titleEl = document.getElementById('leadsMainTitle');
+    if (!wrap) return;
+
+    const project = getLeadsProject(leadsActiveProjectId);
+    if (!project) {
+        wrap.innerHTML = '';
+        if (empty) { wrap.appendChild(empty); empty.style.display = ''; }
+        if (titleEl) titleEl.innerHTML = '<i class="icon-users"></i> Sélectionne un projet';
+        return;
+    }
+
+    if (titleEl) titleEl.innerHTML = `<i class="icon-folder"></i> ${esc(project.emoji || '📁')} ${esc(project.name)}`;
+
+    let leads = (project.leads || []).slice();
+    const search = (document.getElementById('leadsSearch')?.value || '').toLowerCase();
+    if (search) {
+        leads = leads.filter(l =>
+            (l.firstName || '').toLowerCase().includes(search) ||
+            (l.lastName || '').toLowerCase().includes(search) ||
+            (l.company || '').toLowerCase().includes(search) ||
+            (l.email || '').toLowerCase().includes(search) ||
+            (l.phone || '').toLowerCase().includes(search)
+        );
+    }
+    if (leadsFilter !== 'all') leads = leads.filter(l => l.status === leadsFilter);
+    if (leadsTeamFilterMemberId) leads = leads.filter(l => l.assigneeId === leadsTeamFilterMemberId);
+
+    if (!leads.length) {
+        wrap.innerHTML = '<div class="leads-empty"><i class="icon-users"></i><p>Aucun lead' + (leadsFilter !== 'all' ? ' avec ce filtre' : '') + '</p></div>';
+        return;
+    }
+
+    const now = Date.now();
+    const team = getLeadsTeam();
+    let html = `<table class="leads-table"><thead><tr>
+        <th></th><th>Nom</th><th>Entreprise</th><th>Téléphone</th><th>Statut</th><th>Assigné</th><th>Rappel</th><th></th>
+    </tr></thead><tbody>`;
+
+    leads.forEach(l => {
+        const st = LEAD_STATUSES[l.status] || LEAD_STATUSES.new;
+        const assignee = team.find(m => m.id === l.assigneeId);
+        const hasReminder = l.reminderAt && l.reminderAt > 0;
+        const isDue = hasReminder && l.reminderAt <= now;
+        const reminderLabel = hasReminder ? new Date(l.reminderAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
+        const reminderDot = hasReminder ? `<span class="lead-reminder-dot ${isDue ? 'due' : 'upcoming'}"></span>` : '';
+
+        html += `<tr onclick="openEditLead('${esc(l.id)}')">
+            <td style="width:28px"><input type="checkbox" class="lead-select-cb" data-lead-id="${esc(l.id)}" onclick="event.stopPropagation()"></td>
+            <td><strong>${esc(l.firstName || '')} ${esc(l.lastName || '')}</strong>${l.email ? '<br><span style=\"font-size:0.72rem;color:var(--text-muted)\">' + esc(l.email) + '</span>' : ''}</td>
+            <td>${esc(l.company || '—')}</td>
+            <td>${esc(l.phone || '—')}</td>
+            <td><span class="lead-status-badge ${esc(st.color)}">${esc(st.label)}</span></td>
+            <td>${assignee ? esc(assignee.name) : '<span style="color:var(--text-muted)">—</span>'}</td>
+            <td>${reminderDot}${reminderLabel}</td>
+            <td style="width:30px"><button class="btn-icon" onclick="event.stopPropagation();sendSingleLeadSms('${esc(l.id)}')" title="SMS"><i class="icon-message-circle"></i></button></td>
+        </tr>`;
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+}
+
+function setLeadsFilter(filter, btn) {
+    leadsFilter = filter;
+    document.querySelectorAll('#leadsStatusFilter .leads-filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderLeadsTable();
+}
+
+/* ── Rappels automatiques ─────────────────────── */
+function checkLeadReminders() {
+    const now = Date.now();
+    let dueCount = 0;
+    getLeadsProjects().forEach(p => {
+        (p.leads || []).forEach(l => {
+            if (l.reminderAt && l.reminderAt <= now && l.status !== 'won' && l.status !== 'lost') {
+                dueCount++;
+            }
+        });
+    });
+    if (dueCount > 0) {
+        showToast(`🔔 ${dueCount} rappel${dueCount > 1 ? 's' : ''} lead${dueCount > 1 ? 's' : ''} en attente !`, 'error', 4000);
+    }
+}
+
+/* Auto-check reminders every 5 minutes */
+setInterval(() => {
+    if (currentTab === 'leads') checkLeadReminders();
+}, 5 * 60 * 1000);
+
+/* ── Project Modal ────────────────────────────── */
+function openLeadProjectModal(editId) {
+    leadsEditingProjectId = editId || null;
+    const m = document.getElementById('leadProjectModal');
+    if (editId) {
+        const p = getLeadsProject(editId);
+        if (!p) return;
+        document.getElementById('leadProjectModalTitle').innerHTML = '<i class="icon-folder"></i> Modifier le projet';
+        document.getElementById('leadProjectName').value = p.name || '';
+        document.getElementById('leadProjectDesc').value = p.description || '';
+    } else {
+        document.getElementById('leadProjectModalTitle').innerHTML = '<i class="icon-folder"></i> Nouveau projet';
+        document.getElementById('leadProjectName').value = '';
+        document.getElementById('leadProjectDesc').value = '';
+    }
+    m.classList.add('show');
+}
+
+function closeLeadProjectModal() {
+    document.getElementById('leadProjectModal').classList.remove('show');
+    leadsEditingProjectId = null;
+}
+
+function saveLeadProject() {
+    const name = (document.getElementById('leadProjectName').value || '').trim();
+    if (!name) return showToast('Nom du projet requis.', 'error');
+    const desc = (document.getElementById('leadProjectDesc').value || '').trim();
+
+    initLeadsState();
+    if (leadsEditingProjectId) {
+        const p = getLeadsProject(leadsEditingProjectId);
+        if (p) { p.name = name; p.description = desc; }
+    } else {
+        const id = 'proj-' + uid();
+        state.leads.projects.push({ id, name, description: desc, emoji: '📁', leads: [] });
+        leadsActiveProjectId = id;
+    }
+    autoSave();
+    closeLeadProjectModal();
+    renderLeads();
+}
+
+/* ── Lead Modal ───────────────────────────────── */
+function openLeadModal(editId) {
+    leadsEditingId = editId || null;
+    const m = document.getElementById('leadModal');
+    populateAssigneeSelect();
+
+    if (editId) {
+        const project = getLeadsProject(leadsActiveProjectId);
+        const lead = project ? (project.leads || []).find(l => l.id === editId) : null;
+        if (!lead) return;
+        document.getElementById('leadModalTitle').innerHTML = '<i class="icon-user"></i> Modifier le lead';
+        document.getElementById('leadFirstName').value = lead.firstName || '';
+        document.getElementById('leadLastName').value = lead.lastName || '';
+        document.getElementById('leadPhone').value = lead.phone || '';
+        document.getElementById('leadEmail').value = lead.email || '';
+        document.getElementById('leadStatus').value = lead.status || 'new';
+        document.getElementById('leadAssignee').value = lead.assigneeId || '';
+        document.getElementById('leadCompany').value = lead.company || '';
+        document.getElementById('leadNotes').value = lead.notes || '';
+        document.getElementById('leadDeleteBtn').style.display = '';
+        if (lead.reminderAt) {
+            const d = new Date(lead.reminderAt);
+            document.getElementById('leadReminderDate').value = d.toISOString().slice(0, 10);
+            document.getElementById('leadReminderTime').value = d.toTimeString().slice(0, 5);
+        } else {
+            document.getElementById('leadReminderDate').value = '';
+            document.getElementById('leadReminderTime').value = '09:00';
+        }
+    } else {
+        document.getElementById('leadModalTitle').innerHTML = '<i class="icon-user-plus"></i> Ajouter un lead';
+        document.getElementById('leadFirstName').value = '';
+        document.getElementById('leadLastName').value = '';
+        document.getElementById('leadPhone').value = '';
+        document.getElementById('leadEmail').value = '';
+        document.getElementById('leadStatus').value = 'new';
+        document.getElementById('leadAssignee').value = '';
+        document.getElementById('leadCompany').value = '';
+        document.getElementById('leadNotes').value = '';
+        document.getElementById('leadReminderDate').value = '';
+        document.getElementById('leadReminderTime').value = '09:00';
+        document.getElementById('leadDeleteBtn').style.display = 'none';
+    }
+    m.classList.add('show');
+}
+
+function closeLeadModal() {
+    document.getElementById('leadModal').classList.remove('show');
+    leadsEditingId = null;
+}
+
+function populateAssigneeSelect() {
+    const sel = document.getElementById('leadAssignee');
+    if (!sel) return;
+    const team = getLeadsTeam();
+    sel.innerHTML = '<option value="">Non assigné</option>' + team.map(m =>
+        `<option value="${esc(m.id)}">${esc(m.name)}${m.role !== 'member' ? ' (' + esc(m.role) + ')' : ''}</option>`
+    ).join('');
+}
+
+function saveLeadFromModal() {
+    if (!leadsActiveProjectId) return showToast('Sélectionne d\'abord un projet.', 'error');
+    const project = getLeadsProject(leadsActiveProjectId);
+    if (!project) return;
+
+    const firstName = (document.getElementById('leadFirstName').value || '').trim();
+    const lastName = (document.getElementById('leadLastName').value || '').trim();
+    if (!firstName && !lastName) return showToast('Nom ou prénom requis.', 'error');
+
+    const phone = (document.getElementById('leadPhone').value || '').trim();
+    const email = (document.getElementById('leadEmail').value || '').trim();
+    const status = document.getElementById('leadStatus').value || 'new';
+    const assigneeId = document.getElementById('leadAssignee').value || '';
+    const company = (document.getElementById('leadCompany').value || '').trim();
+    const notes = (document.getElementById('leadNotes').value || '').trim();
+
+    let reminderAt = 0;
+    const rDate = document.getElementById('leadReminderDate').value;
+    if (rDate) {
+        const rTime = document.getElementById('leadReminderTime').value || '09:00';
+        reminderAt = new Date(`${rDate}T${rTime}`).getTime();
+    }
+
+    if (!project.leads) project.leads = [];
+
+    if (leadsEditingId) {
+        const lead = project.leads.find(l => l.id === leadsEditingId);
+        if (lead) {
+            const oldStatus = lead.status;
+            Object.assign(lead, { firstName, lastName, phone, email, status, assigneeId, company, notes, reminderAt, updatedAt: Date.now() });
+            if (oldStatus !== status) {
+                if (!lead.history) lead.history = [];
+                lead.history.push({ type: 'status', from: oldStatus, to: status, at: Date.now() });
+            }
+        }
+    } else {
+        project.leads.push({
+            id: 'lead-' + uid(), firstName, lastName, phone, email, status, assigneeId, company, notes, reminderAt,
+            createdAt: Date.now(), updatedAt: Date.now(), history: [{ type: 'created', at: Date.now() }]
+        });
+    }
+
+    autoSave();
+    closeLeadModal();
+    renderLeads();
+}
+
+function openEditLead(leadId) {
+    openLeadModal(leadId);
+}
+
+function deleteLead() {
+    if (!leadsEditingId || !leadsActiveProjectId) return;
+    const project = getLeadsProject(leadsActiveProjectId);
+    if (!project) return;
+    const lead = (project.leads || []).find(l => l.id === leadsEditingId);
+    if (!lead || !confirm(`Supprimer ${lead.firstName} ${lead.lastName} ?`)) return;
+    project.leads = project.leads.filter(l => l.id !== leadsEditingId);
+    autoSave();
+    closeLeadModal();
+    renderLeads();
+}
+
+/* ── Team Modal ───────────────────────────────── */
+function openLeadTeamModal() {
+    initLeadsState();
+    renderTeamModalList();
+    populateTeamParentSelect();
+    document.getElementById('teamMemberName').value = '';
+    document.getElementById('teamMemberRole').value = 'member';
+    document.getElementById('teamMemberParent').value = '';
+    document.getElementById('leadTeamModal').classList.add('show');
+}
+
+function closeLeadTeamModal() {
+    document.getElementById('leadTeamModal').classList.remove('show');
+    renderLeads();
+}
+
+function renderTeamModalList() {
+    const list = document.getElementById('leadTeamList');
+    const team = getLeadsTeam();
+    if (!team.length) {
+        list.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:0.5rem 0">Aucun membre dans l\'équipe.</div>';
+        return;
+    }
+    list.innerHTML = team.map(m => {
+        const parent = team.find(t => t.id === m.parentId);
+        const roleBadge = `<span class="lead-role-badge ${esc(m.role)}">${esc(m.role === 'manager' ? 'Responsable' : m.role === 'leader' ? 'Chef' : 'Membre')}</span>`;
+        return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--card-border)">
+            <span style="flex:1;font-size:0.85rem">${esc(m.name)} ${roleBadge}${parent ? '<span style=\"font-size:0.72rem;color:var(--text-muted)\"> ← ' + esc(parent.name) + '</span>' : ''}</span>
+            <button class="btn-icon" onclick="removeTeamMember('${esc(m.id)}')" title="Supprimer">✕</button>
+        </div>`;
+    }).join('');
+}
+
+function populateTeamParentSelect() {
+    const sel = document.getElementById('teamMemberParent');
+    const team = getLeadsTeam();
+    sel.innerHTML = '<option value="">Aucun (top level)</option>' + team.map(m =>
+        `<option value="${esc(m.id)}">${esc(m.name)}</option>`
+    ).join('');
+}
+
+function addTeamMember() {
+    const name = (document.getElementById('teamMemberName').value || '').trim();
+    if (!name) return showToast('Nom requis.', 'error');
+    const role = document.getElementById('teamMemberRole').value || 'member';
+    const parentId = document.getElementById('teamMemberParent').value || '';
+    initLeadsState();
+    state.leads.team.push({ id: 'tm-' + uid(), name, role, parentId });
+    autoSave();
+    document.getElementById('teamMemberName').value = '';
+    renderTeamModalList();
+    populateTeamParentSelect();
+}
+
+function removeTeamMember(memberId) {
+    if (!confirm('Supprimer ce membre ?')) return;
+    // Reassign children to parent of removed member
+    const member = state.leads.team.find(m => m.id === memberId);
+    if (!member) return;
+    state.leads.team.forEach(m => {
+        if (m.parentId === memberId) m.parentId = member.parentId || '';
+    });
+    state.leads.team = state.leads.team.filter(m => m.id !== memberId);
+    // Unassign leads from this member
+    getLeadsProjects().forEach(p => {
+        (p.leads || []).forEach(l => {
+            if (l.assigneeId === memberId) l.assigneeId = '';
+        });
+    });
+    autoSave();
+    renderTeamModalList();
+    populateTeamParentSelect();
+}
+
+/* ── SMS Modal ────────────────────────────────── */
+function getSelectedLeadIds() {
+    return Array.from(document.querySelectorAll('.lead-select-cb:checked')).map(cb => cb.dataset.leadId);
+}
+
+function getLeadsForSms(leadIds) {
+    const project = getLeadsProject(leadsActiveProjectId);
+    if (!project) return [];
+    return (project.leads || []).filter(l => leadIds.includes(l.id) && l.phone);
+}
+
+function openLeadSmsModal() {
+    const ids = getSelectedLeadIds();
+    if (!ids.length) {
+        // If none selected, use all leads with phone in current project
+        const project = getLeadsProject(leadsActiveProjectId);
+        if (!project) return showToast('Sélectionne un projet d\'abord.', 'error');
+        const allWithPhone = (project.leads || []).filter(l => l.phone);
+        if (!allWithPhone.length) return showToast('Aucun lead avec numéro de téléphone.', 'error');
+        document.getElementById('smsRecipientsSummary').textContent = `${allWithPhone.length} destinataire(s) avec numéro — tous les leads du projet`;
+        document.getElementById('leadSmsModal').dataset.leadIds = JSON.stringify(allWithPhone.map(l => l.id));
+    } else {
+        const withPhone = getLeadsForSms(ids);
+        if (!withPhone.length) return showToast('Aucun des leads sélectionnés n\'a de numéro.', 'error');
+        document.getElementById('smsRecipientsSummary').textContent = `${withPhone.length} destinataire(s) sélectionné(s)`;
+        document.getElementById('leadSmsModal').dataset.leadIds = JSON.stringify(withPhone.map(l => l.id));
+    }
+    document.getElementById('smsMessageTemplate').value = '';
+    document.getElementById('smsPreview').textContent = '—';
+    document.getElementById('leadSmsModal').classList.add('show');
+}
+
+function sendSingleLeadSms(leadId) {
+    const project = getLeadsProject(leadsActiveProjectId);
+    if (!project) return;
+    const lead = (project.leads || []).find(l => l.id === leadId);
+    if (!lead || !lead.phone) return showToast('Ce lead n\'a pas de numéro de téléphone.', 'error');
+    document.getElementById('smsRecipientsSummary').textContent = `1 destinataire : ${lead.firstName} ${lead.lastName} (${lead.phone})`;
+    document.getElementById('leadSmsModal').dataset.leadIds = JSON.stringify([leadId]);
+    document.getElementById('smsMessageTemplate').value = '';
+    document.getElementById('smsPreview').textContent = '—';
+    document.getElementById('leadSmsModal').classList.add('show');
+}
+
+function closeLeadSmsModal() {
+    document.getElementById('leadSmsModal').classList.remove('show');
+}
+
+function previewSmsMessage() {
+    const tpl = document.getElementById('smsMessageTemplate').value || '';
+    const leadIdsRaw = document.getElementById('leadSmsModal').dataset.leadIds;
+    let ids = [];
+    try { ids = JSON.parse(leadIdsRaw || '[]'); } catch {}
+    const project = getLeadsProject(leadsActiveProjectId);
+    if (!project || !ids.length) { document.getElementById('smsPreview').textContent = '—'; return; }
+    const first = (project.leads || []).find(l => l.id === ids[0]);
+    if (!first) { document.getElementById('smsPreview').textContent = '—'; return; }
+    document.getElementById('smsPreview').textContent = interpolateSmsTemplate(tpl, first, project);
+}
+
+function interpolateSmsTemplate(tpl, lead, project) {
+    return tpl
+        .replace(/\{prenom\}/gi, lead.firstName || '')
+        .replace(/\{nom\}/gi, lead.lastName || '')
+        .replace(/\{entreprise\}/gi, lead.company || '')
+        .replace(/\{projet\}/gi, project.name || '');
+}
+
+function sendLeadsSms() {
+    const tpl = (document.getElementById('smsMessageTemplate').value || '').trim();
+    if (!tpl) return showToast('Message requis.', 'error');
+    const leadIdsRaw = document.getElementById('leadSmsModal').dataset.leadIds;
+    let ids = [];
+    try { ids = JSON.parse(leadIdsRaw || '[]'); } catch {}
+    const project = getLeadsProject(leadsActiveProjectId);
+    if (!project || !ids.length) return;
+
+    const logActivity = document.getElementById('smsLogActivity')?.checked !== false;
+    let sentCount = 0;
+
+    ids.forEach(id => {
+        const lead = (project.leads || []).find(l => l.id === id);
+        if (!lead || !lead.phone) return;
+        const msg = interpolateSmsTemplate(tpl, lead, project);
+
+        // Open Google Messages web SMS link — the user's default SMS app/site handles sending
+        const phoneClean = lead.phone.replace(/\s+/g, '');
+        const smsUrl = `https://messages.google.com/web/conversations/new?phone=${encodeURIComponent(phoneClean)}&body=${encodeURIComponent(msg)}`;
+        window.open(smsUrl, '_blank');
+
+        if (logActivity) {
+            if (!lead.history) lead.history = [];
+            lead.history.push({ type: 'sms', message: msg, at: Date.now() });
+        }
+        sentCount++;
+    });
+
+    if (sentCount) {
+        autoSave();
+        showToast(`${sentCount} SMS préparé${sentCount > 1 ? 's' : ''} dans Google Messages.`, 'success');
+    }
+    closeLeadSmsModal();
+    renderLeadsTable();
+}
+
+/* ═══════════════════════════════════════════════════════
+   Site Tabs — Dynamic favourite-site tabs with persistent sessions
    ═══════════════════════════════════════════════════════ */
 function getBrowserApi() {
     return window.electronAPI || null;
@@ -5367,268 +6214,161 @@ function hostFromAnyUrl(raw) {
     }
 }
 
-function getActiveBrowserOrigin() {
-    const active = getActiveBrowserTab();
-    return hostFromAnyUrl(active?.url || '');
+/* ── Persistence ──────────────────────────────── */
+function saveSiteTabs() {
+    try {
+        localStorage.setItem(SITE_TABS_STORAGE_KEY, JSON.stringify(siteTabs));
+    } catch {}
 }
 
-function renderBrowserVaultList() {
-    const box = document.getElementById('browserVaultList');
-    if (!box) return;
-    const activeOrigin = getActiveBrowserOrigin();
-
-    if (!browserCredentials.length) {
-        box.innerHTML = '<div style="padding:0.45rem 0.5rem;color:var(--text-muted);font-size:0.76rem">Aucun identifiant sauvegarde.</div>';
-        return;
+function loadSiteTabs() {
+    try {
+        const raw = localStorage.getItem(SITE_TABS_STORAGE_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter(t => t && t.id && t.url) : [];
+    } catch {
+        return [];
     }
+}
 
-    box.innerHTML = browserCredentials.map((cred) => {
-        const selected = cred.id === selectedBrowserCredentialId;
-        const matchesActive = activeOrigin && cred.origin === activeOrigin;
-        const label = esc(cred.label || cred.origin);
-        const user = esc(cred.username || '');
-        return `<div class="inbox-item ${selected ? 'selected' : ''}" style="padding:0.35rem 0.45rem;${matchesActive ? 'border-left:2px solid var(--accent-green);' : ''}" onclick="selectBrowserCredential('${cred.id}')">
-            <div class="inbox-item-content" style="min-width:0">
-                <div class="inbox-item-top">
-                    <span class="inbox-item-from" style="max-width:128px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
-                    <button class="btn-icon" onclick="event.stopPropagation();deleteBrowserCredential('${cred.id}')" title="Supprimer">✕</button>
-                </div>
-                <div class="inbox-item-preview" style="font-size:0.72rem">${esc(cred.origin)} • ${user}</div>
-            </div>
-        </div>`;
+function getSiteTab(tabId) {
+    return siteTabs.find(t => t.id === tabId) || null;
+}
+
+/* ── Tab-bar rendering ────────────────────────── */
+function renderSiteTabButtons() {
+    const container = document.getElementById('siteTabButtons');
+    if (!container) return;
+    container.innerHTML = siteTabs.map(t => {
+        const icon = esc(t.icon || 'icon-globe');
+        const label = esc(t.label || hostFromAnyUrl(t.url) || 'Site');
+        const isActive = currentTab === t.id;
+        return `<button class="tab-btn ${isActive ? 'active' : ''}" data-tab="${esc(t.id)}" onclick="switchTab('${esc(t.id)}')" title="${esc(t.url)}"><i class="${icon}"></i> ${label}</button>`;
     }).join('');
 }
 
-function selectBrowserCredential(credentialId) {
-    selectedBrowserCredentialId = credentialId;
-    const cred = browserCredentials.find((c) => c.id === credentialId);
-    if (cred) {
-        document.getElementById('browserVaultOrigin').value = cred.origin || '';
-        document.getElementById('browserVaultLabel').value = cred.label || '';
-        document.getElementById('browserVaultUsername').value = cred.username || '';
-        document.getElementById('browserVaultPassword').value = '';
-    }
-    renderBrowserVaultList();
+/* ── Modal: add / edit site ───────────────────── */
+let editingSiteTabId = null;
+
+function openAddSiteModal() {
+    editingSiteTabId = null;
+    document.getElementById('siteTabModalTitle').innerHTML = '<i class="icon-globe"></i> Ajouter un site';
+    document.getElementById('siteTabLabel').value = '';
+    document.getElementById('siteTabUrl').value = '';
+    document.getElementById('siteTabIcon').value = '';
+    document.getElementById('siteTabModal').classList.add('show');
 }
 
-async function loadBrowserCredentials() {
-    const api = getBrowserApi();
-    if (!api || !api.passwordVaultList || !api.passwordVaultStatus) return;
-
-    const status = await api.passwordVaultStatus();
-    browserVaultEncryptionAvailable = !!(status && status.encryptionAvailable);
-    const statusNode = document.getElementById('browserVaultStatus');
-    if (statusNode) {
-        statusNode.textContent = browserVaultEncryptionAvailable ? 'Chiffre' : 'Non disponible';
-        statusNode.style.color = browserVaultEncryptionAvailable ? 'var(--accent-green)' : 'var(--accent-orange)';
-    }
-
-    const res = await api.passwordVaultList();
-    if (!res || !res.ok) {
-        browserCredentials = [];
-        renderBrowserVaultList();
-        return;
-    }
-    browserCredentials = Array.isArray(res.entries) ? res.entries : [];
-    if (selectedBrowserCredentialId && !browserCredentials.find((c) => c.id === selectedBrowserCredentialId)) {
-        selectedBrowserCredentialId = null;
-    }
-
-    const originInput = document.getElementById('browserVaultOrigin');
-    if (originInput && !originInput.value.trim()) {
-        originInput.value = getActiveBrowserOrigin();
-    }
-    renderBrowserVaultList();
+function openEditSiteModal() {
+    const tab = getSiteTab(currentTab);
+    if (!tab) return;
+    editingSiteTabId = tab.id;
+    document.getElementById('siteTabModalTitle').innerHTML = '<i class="icon-settings"></i> Modifier le site';
+    document.getElementById('siteTabLabel').value = tab.label || '';
+    document.getElementById('siteTabUrl').value = tab.url || '';
+    document.getElementById('siteTabIcon').value = tab.icon || '';
+    document.getElementById('siteTabModal').classList.add('show');
 }
 
-async function saveBrowserCredential() {
-    const api = getBrowserApi();
-    if (!api || !api.passwordVaultUpsert) return;
-    if (!browserVaultEncryptionAvailable) {
-        showToast('Coffre indisponible: keyring systeme manquant.', 'error', 5000);
-        return;
-    }
-
-    const originRaw = document.getElementById('browserVaultOrigin')?.value || getActiveBrowserOrigin();
-    const origin = hostFromAnyUrl(originRaw);
-    const label = (document.getElementById('browserVaultLabel')?.value || '').trim();
-    const username = (document.getElementById('browserVaultUsername')?.value || '').trim();
-    const password = document.getElementById('browserVaultPassword')?.value || '';
-    if (!origin) return showToast('Site invalide.', 'error');
-    if (!username || !password) return showToast('Identifiant et mot de passe requis.', 'error');
-
-    const res = await api.passwordVaultUpsert({
-        id: selectedBrowserCredentialId || '',
-        origin,
-        label,
-        username,
-        password,
-    });
-    if (!res || !res.ok) {
-        showToast('Erreur coffre: ' + esc((res && res.error) || 'inconnue'), 'error', 5000);
-        return;
-    }
-
-    selectedBrowserCredentialId = res.entryId || selectedBrowserCredentialId;
-    document.getElementById('browserVaultPassword').value = '';
-    await loadBrowserCredentials();
-    showToast('Identifiant securise enregistre.', 'success');
+function closeSiteTabModal() {
+    document.getElementById('siteTabModal').classList.remove('show');
+    editingSiteTabId = null;
 }
 
-async function deleteBrowserCredential(credentialId) {
-    const api = getBrowserApi();
-    if (!api || !api.passwordVaultDelete) return;
-    const cred = browserCredentials.find((c) => c.id === credentialId);
-    if (!cred) return;
-    if (!confirm(`Supprimer l'identifiant ${cred.username} pour ${cred.origin} ?`)) return;
-    const res = await api.passwordVaultDelete(credentialId);
-    if (!res || !res.ok) {
-        showToast('Suppression impossible.', 'error');
-        return;
+function saveSiteTabFromModal() {
+    const label = (document.getElementById('siteTabLabel').value || '').trim();
+    const url = ensureUrlWithScheme(document.getElementById('siteTabUrl').value || '');
+    const icon = (document.getElementById('siteTabIcon').value || '').trim() || 'icon-globe';
+
+    if (!label) return showToast('Nom d\'onglet requis.', 'error');
+    if (!url || url === 'https://www.google.com' && !document.getElementById('siteTabUrl').value.trim()) {
+        return showToast('URL du site requise.', 'error');
     }
-    if (selectedBrowserCredentialId === credentialId) selectedBrowserCredentialId = null;
-    await loadBrowserCredentials();
-}
 
-async function useSelectedCredentialOnActiveTab() {
     const api = getBrowserApi();
-    if (!api || !api.browserAutofillSavedCredential) return;
-    const active = getActiveBrowserTab();
-    if (!active) return showToast('Aucun onglet actif.', 'error');
-    if (!selectedBrowserCredentialId) return showToast('Selectionne un identifiant.', 'error');
 
-    const res = await api.browserAutofillSavedCredential({
-        tabId: active.id,
-        credentialId: selectedBrowserCredentialId,
-    });
-    if (res && res.ok && res.filled) {
-        showToast('Identifiants remplis dans la page active.', 'success');
+    if (editingSiteTabId) {
+        const tab = getSiteTab(editingSiteTabId);
+        if (tab) {
+            const urlChanged = ensureUrlWithScheme(tab.url) !== url;
+            tab.label = label;
+            tab.url = url;
+            tab.icon = icon;
+            saveSiteTabs();
+            renderSiteTabButtons();
+            if (urlChanged && siteTabsInitialized[tab.id] && api && api.browserNavigate) {
+                api.browserNavigate({ tabId: tab.id, url });
+            }
+        }
     } else {
-        showToast('Impossible de remplir ce formulaire automatiquement.', 'error');
+        const id = 'site-' + uid();
+        siteTabs.push({ id, label, url, icon });
+        saveSiteTabs();
+        renderSiteTabButtons();
+        switchTab(id);
     }
+
+    closeSiteTabModal();
 }
 
-function getActiveBrowserTab() {
-    return browserTabs.find(t => t.id === activeBrowserTabId) || null;
-}
+async function removeSiteTab(tabId) {
+    const tab = getSiteTab(tabId);
+    if (!tab) return;
+    if (!confirm(`Supprimer l'onglet "${tab.label}" ?`)) return;
 
-function renderBrowserTabList() {
-    const list = document.getElementById('browserTabList');
-    if (!list) return;
-    list.innerHTML = browserTabs.map(t => {
-        const isActive = t.id === activeBrowserTabId;
-        const title = esc(t.title || t.url || 'Nouvel onglet');
-        return `<div class="inbox-item ${isActive ? 'selected' : ''}" style="padding:0.45rem 0.5rem" onclick="activateBrowserTab('${t.id}')">
-            <div class="inbox-item-content" style="min-width:0">
-                <div class="inbox-item-top">
-                    <span class="inbox-item-from" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</span>
-                    <button class="btn-icon" onclick="event.stopPropagation();closeBrowserTab('${t.id}')" title="Fermer">✕</button>
-                </div>
-                <div class="inbox-item-preview" style="max-width:185px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.url || '')}</div>
-            </div>
-        </div>`;
-    }).join('');
-
-    const active = getActiveBrowserTab();
-    const address = document.getElementById('browserAddress');
-    if (address && active) address.value = active.url || '';
-}
-
-async function addBrowserTab(url) {
     const api = getBrowserApi();
-    if (!api || !api.browserCreateTab) {
-        showToast('BrowserView non disponible hors Electron.', 'error');
-        return;
+    siteTabs = siteTabs.filter(t => t.id !== tabId);
+    delete siteTabsInitialized[tabId];
+    saveSiteTabs();
+
+    // Close the BrowserView in main process
+    if (api && api.browserCloseTab) await api.browserCloseTab(tabId);
+
+    renderSiteTabButtons();
+    if (currentTab === tabId) switchTab('todo');
+}
+
+/* ── BrowserView lifecycle per site tab ───────── */
+async function initSiteTabView(tabId) {
+    const api = getBrowserApi();
+    if (!api || !api.browserCreateTab) return;
+    bindBrowserEventsIfNeeded();
+
+    const tab = getSiteTab(tabId);
+    if (!tab) return;
+
+    if (!siteTabsInitialized[tabId]) {
+        siteTabsInitialized[tabId] = true;
+        await api.browserCreateTab({ tabId, url: tab.url, activate: true });
+    } else {
+        await api.browserActivateTab(tabId);
     }
-    const id = 'b-' + uid();
-    const targetUrl = ensureUrlWithScheme(url || 'https://www.google.com');
-    browserTabs.push({ id, title: 'Chargement…', url: targetUrl, loading: true, canGoBack: false, canGoForward: false });
-    activeBrowserTabId = id;
-    renderBrowserTabList();
-    await api.browserCreateTab({ tabId: id, url: targetUrl });
-    updateBrowserViewVisibility();
+
+    // Update address bar
+    const addr = document.getElementById('siteTabAddress');
+    if (addr) addr.value = tab.url || '';
+
+    updateSiteTabViewVisibility();
 }
 
-async function activateBrowserTab(tabId) {
-    const api = getBrowserApi();
-    if (!api || !api.browserActivateTab) return;
-    if (!browserTabs.find(t => t.id === tabId)) return;
-    activeBrowserTabId = tabId;
-    renderBrowserTabList();
-    await api.browserActivateTab(tabId);
-    updateBrowserViewVisibility();
-}
-
-async function closeBrowserTab(tabId) {
-    const api = getBrowserApi();
-    browserTabs = browserTabs.filter(t => t.id !== tabId);
-    if (activeBrowserTabId === tabId) {
-        activeBrowserTabId = browserTabs.length ? browserTabs[browserTabs.length - 1].id : null;
-    }
-    renderBrowserTabList();
-    if (api && api.browserCloseTab) {
-        const res = await api.browserCloseTab(tabId);
-        if (res && res.activeTabId) activeBrowserTabId = res.activeTabId;
-    }
-    if (!browserTabs.length && currentTab === 'browser') {
-        await addBrowserTab('https://www.google.com');
-    }
-    updateBrowserViewVisibility();
-}
-
-async function browserNavigateAddress() {
-    const api = getBrowserApi();
-    const active = getActiveBrowserTab();
-    const input = document.getElementById('browserAddress');
-    if (!api || !active || !input) return;
-    const targetUrl = ensureUrlWithScheme(input.value);
-    await api.browserNavigate({ tabId: active.id, url: targetUrl });
-}
-
-async function browserGoBack() {
-    const api = getBrowserApi();
-    const active = getActiveBrowserTab();
-    if (!api || !active) return;
-    await api.browserGoBack(active.id);
-}
-
-async function browserGoForward() {
-    const api = getBrowserApi();
-    const active = getActiveBrowserTab();
-    if (!api || !active) return;
-    await api.browserGoForward(active.id);
-}
-
-async function browserReload() {
-    const api = getBrowserApi();
-    const active = getActiveBrowserTab();
-    if (!api || !active) return;
-    await api.browserReload(active.id);
-}
-
-function updateBrowserViewVisibility() {
+function updateSiteTabViewVisibility() {
     const api = getBrowserApi();
     if (!api || !api.browserSetVisible) return;
-    const needsBrowserView = currentTab === 'browser' || currentTab === 'github';
-    api.browserSetVisible(needsBrowserView).then(() => {
-        if (!needsBrowserView) return;
-        if (currentTab === 'browser' && activeBrowserTabId) {
-            api.browserActivateTab(activeBrowserTabId).then(() => updateBrowserViewBounds());
-        } else if (currentTab === 'github') {
-            api.browserActivateTab(GITHUB_BROWSER_TAB_ID).then(() => updateBrowserViewBounds());
+    const isSiteTab = currentTab.startsWith('site-');
+    api.browserSetVisible(isSiteTab).then(() => {
+        if (!isSiteTab) return;
+        if (siteTabsInitialized[currentTab]) {
+            api.browserActivateTab(currentTab).then(() => updateSiteTabViewBounds());
         }
     });
 }
 
-function updateBrowserViewBounds() {
+function updateSiteTabViewBounds() {
     const api = getBrowserApi();
     if (!api || !api.browserSetBounds) return;
-
-    const host = currentTab === 'github'
-        ? document.getElementById('githubViewport')
-        : document.getElementById('browserViewport');
+    const host = document.getElementById('siteTabViewport');
     if (!host) return;
-
     const rect = host.getBoundingClientRect();
     if (rect.width < 20 || rect.height < 20) return;
     api.browserSetBounds({
@@ -5640,12 +6380,40 @@ function updateBrowserViewBounds() {
 }
 
 window.addEventListener('resize', () => {
-    if (currentTab === 'browser' || currentTab === 'github') updateBrowserViewBounds();
+    if (currentTab.startsWith('site-')) updateSiteTabViewBounds();
 });
 document.getElementById('app-content').addEventListener('scroll', () => {
-    if (currentTab === 'browser' || currentTab === 'github') updateBrowserViewBounds();
+    if (currentTab.startsWith('site-')) updateSiteTabViewBounds();
 });
 
+/* ── Navigation toolbar actions ───────────────── */
+async function siteTabNavigateAddress() {
+    const api = getBrowserApi();
+    const input = document.getElementById('siteTabAddress');
+    if (!api || !input || !currentTab.startsWith('site-')) return;
+    const targetUrl = ensureUrlWithScheme(input.value);
+    await api.browserNavigate({ tabId: currentTab, url: targetUrl });
+}
+
+async function siteTabGoBack() {
+    const api = getBrowserApi();
+    if (!api || !currentTab.startsWith('site-')) return;
+    await api.browserGoBack(currentTab);
+}
+
+async function siteTabGoForward() {
+    const api = getBrowserApi();
+    if (!api || !currentTab.startsWith('site-')) return;
+    await api.browserGoForward(currentTab);
+}
+
+async function siteTabReload() {
+    const api = getBrowserApi();
+    if (!api || !currentTab.startsWith('site-')) return;
+    await api.browserReload(currentTab);
+}
+
+/* ── IPC event listener ───────────────────────── */
 function bindBrowserEventsIfNeeded() {
     if (browserEventsBound) return;
     const api = getBrowserApi();
@@ -5653,93 +6421,19 @@ function bindBrowserEventsIfNeeded() {
     api.onBrowserTabUpdated((payload) => {
         const tabId = payload?.tabId;
         if (!tabId) return;
-        const t = browserTabs.find(x => x.id === tabId);
-        if (t) {
-            if (typeof payload.title === 'string') t.title = payload.title || t.title;
-            if (typeof payload.url === 'string') t.url = payload.url || t.url;
-            if (typeof payload.loading === 'boolean') t.loading = payload.loading;
-            if (typeof payload.canGoBack === 'boolean') t.canGoBack = payload.canGoBack;
-            if (typeof payload.canGoForward === 'boolean') t.canGoForward = payload.canGoForward;
-        }
-        renderBrowserTabList();
-        renderBrowserVaultList();
-
-        const originInput = document.getElementById('browserVaultOrigin');
-        if (originInput && !originInput.value.trim()) {
-            originInput.value = getActiveBrowserOrigin();
+        // Update address bar if this is the active site tab
+        if (tabId === currentTab && currentTab.startsWith('site-')) {
+            const addr = document.getElementById('siteTabAddress');
+            if (addr && typeof payload.url === 'string') addr.value = payload.url;
         }
     });
     browserEventsBound = true;
 }
 
-async function initBrowserIfNeeded() {
-    bindBrowserEventsIfNeeded();
-    await loadBrowserCredentials();
-    if (browserInitialized) {
-        updateBrowserViewVisibility();
-        return;
-    }
-    browserInitialized = true;
-    await addBrowserTab('https://www.google.com');
-}
-
-async function initGithubIfNeeded() {
-    const api = getBrowserApi();
-    if (!api || !api.browserCreateTab) return;
-    if (!githubInitialized) {
-        githubInitialized = true;
-        await api.browserCreateTab({ tabId: GITHUB_BROWSER_TAB_ID, url: 'https://github.com/login' });
-        document.getElementById('githubUser').value = state.settings.githubUser || '';
-        document.getElementById('githubPassword').value = '';
-
-        if (api.passwordVaultFindByOrigin) {
-            const match = await api.passwordVaultFindByOrigin('github.com');
-            if (match && match.ok && match.entry && !document.getElementById('githubUser').value.trim()) {
-                document.getElementById('githubUser').value = match.entry.username || '';
-            }
-        }
-    }
-    updateBrowserViewVisibility();
-}
-
-function saveGithubCredentials() {
-    state.settings.githubUser = document.getElementById('githubUser').value;
-    autoSave();
-}
-
-async function openGithubLogin() {
-    const api = getBrowserApi();
-    if (!api || !api.browserNavigate) return;
-    await api.browserNavigate({ tabId: GITHUB_BROWSER_TAB_ID, url: 'https://github.com/login' });
-    switchTab('github');
-}
-
-async function autofillGithubLogin() {
-    const api = getBrowserApi();
-    if (!api || !api.browserAutofillGithub) return;
-    const username = document.getElementById('githubUser').value.trim();
-    const password = document.getElementById('githubPassword').value;
-
-    if (!username || !password) {
-        if (api.passwordVaultFindByOrigin && api.browserAutofillSavedCredential) {
-            const match = await api.passwordVaultFindByOrigin('github.com');
-            if (match && match.ok && match.entry && match.entry.id) {
-                const resSaved = await api.browserAutofillSavedCredential({ tabId: GITHUB_BROWSER_TAB_ID, credentialId: match.entry.id });
-                if (resSaved && resSaved.ok && resSaved.filled) {
-                    showToast('Identifiants GitHub remplis depuis le coffre securise.', 'success');
-                    return;
-                }
-            }
-        }
-        showToast('Renseigne identifiant/mot de passe ou enregistre github.com dans le coffre.', 'error');
-        return;
-    }
-    const res = await api.browserAutofillGithub({ tabId: GITHUB_BROWSER_TAB_ID, username, password });
-    if (res && res.ok && res.filled) {
-        showToast('Identifiants injectés dans la page GitHub.', 'success');
-    } else {
-        showToast('Impossible de remplir automatiquement sur cette page.', 'error');
-    }
+/* ── Startup restore ──────────────────────────── */
+function initSiteTabs() {
+    siteTabs = loadSiteTabs();
+    renderSiteTabButtons();
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -6571,15 +7265,18 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault();
         switchTab('agenda');
     }
-    // Ctrl+6 — switch to Browser tab
+    // Ctrl+6 — switch to Leads tab
     if ((e.ctrlKey || e.metaKey) && e.key === '6') {
         e.preventDefault();
-        switchTab('browser');
+        switchTab('leads');
     }
-    // Ctrl+7 — switch to GitHub tab
-    if ((e.ctrlKey || e.metaKey) && e.key === '7') {
-        e.preventDefault();
-        switchTab('github');
+    // Ctrl+7..9 — switch to site tabs (dynamic)
+    if ((e.ctrlKey || e.metaKey) && ['7','8','9'].includes(e.key)) {
+        const idx = parseInt(e.key) - 7;
+        if (siteTabs[idx]) {
+            e.preventDefault();
+            switchTab(siteTabs[idx].id);
+        }
     }
     // Ctrl+N — new section (when in edit mode)
     if ((e.ctrlKey || e.metaKey) && e.key === 'n' && editMode) {
@@ -6596,6 +7293,10 @@ document.addEventListener('keydown', (e) => {
         if (typeof closeDeleteMailModal === 'function') closeDeleteMailModal();
         if (typeof closeAgendaCreateModal === 'function') closeAgendaCreateModal();
         if (typeof closeAgendaEventModal === 'function') closeAgendaEventModal();
+        if (typeof closeLeadProjectModal === 'function') closeLeadProjectModal();
+        if (typeof closeLeadModal === 'function') closeLeadModal();
+        if (typeof closeLeadTeamModal === 'function') closeLeadTeamModal();
+        if (typeof closeLeadSmsModal === 'function') closeLeadSmsModal();
     }
     // Delete — delete selected inbox mail
     if (e.key === 'Delete' && currentTab === 'inbox' && selectedInboxId) {
