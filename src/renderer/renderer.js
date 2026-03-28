@@ -26,8 +26,6 @@ let composerReplyContext = null;
 let leadsActiveProjectId = null;
 let leadsFilter = 'all';
 let leadsEditingId = null;
-let leadsEditingProjectId = null;
-let leadsTeamFilterMemberId = null;
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const esc = s => String(s)
@@ -3553,239 +3551,514 @@ function graphFit() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   Leads — CRM léger avec SMS, rappels, hiérarchie
+   Leads — CRM avec hiérarchie, tâches, SMS, rappels
    ═══════════════════════════════════════════════════════ */
-const LEAD_STATUSES = {
-    new:         { label: 'Nouveau',   color: 'new' },
-    contacted:   { label: 'Contacté',  color: 'contacted' },
-    interested:  { label: 'Intéressé', color: 'interested' },
-    negotiation: { label: 'En négo',   color: 'negotiation' },
-    won:         { label: 'Gagné',     color: 'won' },
-    lost:        { label: 'Perdu',     color: 'lost' },
+const ORG_TYPES = {
+    association:  { label: 'Association', emoji: '🏛️', color: 'association' },
+    organisation: { label: 'Organisation', emoji: '🏢', color: 'organisation' },
+    entreprise:   { label: 'Entreprise', emoji: '🏭', color: 'entreprise' },
 };
 
+let leadsCurrentView = 'table'; // 'table' | 'dashboard'
+let leadsEditingOrgId = null;
+let leadsEditingTaskId = null;
+let leadsEditingTaskLeadId = null;
+
 function initLeadsState() {
-    if (!state.leads) state.leads = { projects: [], team: [] };
-    if (!state.leads.projects) state.leads.projects = [];
-    if (!state.leads.team) state.leads.team = [];
+    if (!state.leads) state.leads = { orgs: [], projects: [], team: [] };
+    if (!state.leads.orgs) state.leads.orgs = [];
+    // Migrate old projects to orgs if needed
+    if (state.leads.projects && state.leads.projects.length && !state.leads.orgs.length) {
+        state.leads.orgs = state.leads.projects.map(p => ({
+            id: p.id, name: p.name, type: 'organisation', description: p.description || '',
+            emoji: p.emoji || '🏢', parentId: '', leads: (p.leads || []).map(l => ({
+                ...l, role: l.company || '', tasks: [], orgId: p.id
+            }))
+        }));
+        autoSave();
+    }
 }
 
-function getLeadsProjects() { return state.leads.projects; }
-function getLeadsTeam() { return state.leads.team; }
-function getLeadsProject(pid) { return getLeadsProjects().find(p => p.id === pid) || null; }
-function getProjectLeads(pid) { const p = getLeadsProject(pid); return p ? (p.leads || []) : []; }
+function getLeadsOrgs() { return state.leads.orgs; }
+function getLeadsOrg(oid) { return getLeadsOrgs().find(o => o.id === oid) || null; }
+function getOrgLeads(oid) { const o = getLeadsOrg(oid); return o ? (o.leads || []) : []; }
+
+function getAllLeads() {
+    const all = [];
+    getLeadsOrgs().forEach(o => {
+        (o.leads || []).forEach(l => all.push({ ...l, orgId: o.id, orgName: o.name }));
+    });
+    return all;
+}
+
+function getAllTasks() {
+    const all = [];
+    getLeadsOrgs().forEach(o => {
+        (o.leads || []).forEach(l => {
+            (l.tasks || []).forEach(t => all.push({
+                ...t, leadId: l.id, leadName: `${l.firstName || ''} ${l.lastName || ''}`.trim(),
+                leadPhone: l.phone, orgId: o.id, orgName: o.name
+            }));
+        });
+    });
+    return all;
+}
+
+/* ── View switcher ────────────────────────────── */
+function setLeadsView(view, btn) {
+    leadsCurrentView = view;
+    document.querySelectorAll('.leads-view-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    document.querySelectorAll('.leads-view-panel').forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById(view === 'dashboard' ? 'leadsViewDashboard' : 'leadsViewTable');
+    if (panel) panel.classList.add('active');
+    if (view === 'dashboard') renderLeadsDashboard();
+    else renderLeadsTable();
+}
 
 /* ── Render orchestrator ──────────────────────── */
 function renderLeads() {
     initLeadsState();
-    renderLeadsProjectList();
-    renderLeadsTeamTree();
-    renderLeadsTable();
+    renderLeadsOrgTree();
+    if (leadsCurrentView === 'dashboard') renderLeadsDashboard();
+    else renderLeadsTable();
     checkLeadReminders();
 }
 
-/* ── Sidebar: project list ────────────────────── */
-function renderLeadsProjectList() {
-    const list = document.getElementById('leadsProjectList');
-    if (!list) return;
-    const searchVal = (document.getElementById('leadsProjectSearch')?.value || '').toLowerCase();
-    const projects = getLeadsProjects().filter(p => !searchVal || (p.name || '').toLowerCase().includes(searchVal));
-
-    if (!projects.length) {
-        list.innerHTML = '<div style="padding:1rem;color:var(--text-muted);font-size:0.8rem;text-align:center">Aucun projet. Clique sur « Nouveau projet ».</div>';
-        return;
-    }
-    list.innerHTML = projects.map(p => {
-        const count = (p.leads || []).length;
-        const isActive = leadsActiveProjectId === p.id;
-        return `<div class="leads-project-item ${isActive ? 'active' : ''}" onclick="selectLeadsProject('${esc(p.id)}')">
-            <span class="lp-name">${esc(p.emoji || '📁')} ${esc(p.name)}</span>
-            <span class="lp-count">${count}</span>
-        </div>`;
-    }).join('');
-}
-
-function selectLeadsProject(pid) {
-    leadsActiveProjectId = pid;
-    leadsTeamFilterMemberId = null;
-    renderLeadsProjectList();
-    renderLeadsTable();
-}
-
-/* ── Sidebar: team tree ───────────────────────── */
-function renderLeadsTeamTree() {
-    const tree = document.getElementById('leadsTeamTree');
+/* ── Sidebar: Organization tree ───────────────── */
+function renderLeadsOrgTree() {
+    const tree = document.getElementById('leadsOrgTree');
     if (!tree) return;
-    const team = getLeadsTeam();
-    if (!team.length) {
-        tree.innerHTML = '<div style="padding:0.3rem 0;font-size:0.78rem;color:var(--text-muted)">Aucun membre. Ajoute via « Equipe ».</div>';
+    const searchVal = (document.getElementById('leadsOrgSearch')?.value || '').toLowerCase();
+    const orgs = getLeadsOrgs().filter(o => !searchVal || (o.name || '').toLowerCase().includes(searchVal));
+
+    if (!orgs.length) {
+        tree.innerHTML = '<div style="padding:1rem;color:var(--text-muted);font-size:0.8rem;text-align:center">Aucune organisation.<br>Clique sur « Nouvelle organisation ».</div>';
         return;
     }
-    const roots = team.filter(m => !m.parentId);
+
+    const roots = orgs.filter(o => !o.parentId);
     let html = '';
-    function renderNode(member, depth) {
-        const indent = depth * 16;
-        const isActive = leadsTeamFilterMemberId === member.id;
-        const roleBadge = member.role !== 'member' ? ` <span class="lead-role-badge ${esc(member.role)}">${esc(member.role === 'manager' ? 'Responsable' : 'Chef')}</span>` : '';
-        const assignedCount = countLeadsAssignedTo(member.id);
-        html += `<div class="leads-team-node ${isActive ? 'active' : ''}" onclick="filterLeadsByTeamMember('${esc(member.id)}')" title="Filtrer par ${esc(member.name)}">
-            <span class="team-indent" style="width:${indent}px"></span>
-            <span style="flex:1">${esc(member.name)}${roleBadge}</span>
-            <span style="font-size:0.7rem;color:var(--text-muted)">${assignedCount}</span>
+    function renderNode(org, depth) {
+        const indent = depth * 18;
+        const isActive = leadsActiveProjectId === org.id;
+        const type = ORG_TYPES[org.type] || ORG_TYPES.organisation;
+        const leadCount = (org.leads || []).length;
+        const taskCount = (org.leads || []).reduce((sum, l) => sum + (l.tasks || []).filter(t => !t.done).length, 0);
+        const children = orgs.filter(c => c.parentId === org.id);
+        const hasChildren = children.length > 0;
+
+        html += `<div class="leads-org-node ${isActive ? 'active' : ''}" onclick="selectLeadsOrg('${esc(org.id)}')" oncontextmenu="event.preventDefault();openLeadOrgModal('${esc(org.id)}')">
+            <span class="org-indent" style="width:${indent}px"></span>
+            ${hasChildren ? '<span class="org-toggle">▾</span>' : '<span class="org-toggle" style="visibility:hidden">▾</span>'}
+            <span class="org-type-badge ${esc(type.color)}">${type.emoji}</span>
+            <span class="org-name">${esc(org.name)}</span>
+            <span class="org-counts">
+                <span title="${leadCount} lead(s)">${leadCount}<i class="icon-user" style="font-size:0.6rem"></i></span>
+                ${taskCount > 0 ? `<span class="org-task-count" title="${taskCount} tâche(s) en cours">${taskCount}<i class="icon-list-checks" style="font-size:0.6rem"></i></span>` : ''}
+            </span>
         </div>`;
-        const children = team.filter(m => m.parentId === member.id);
         children.forEach(c => renderNode(c, depth + 1));
     }
     roots.forEach(r => renderNode(r, 0));
     tree.innerHTML = html;
 }
 
-function countLeadsAssignedTo(memberId) {
-    let count = 0;
-    getLeadsProjects().forEach(p => {
-        (p.leads || []).forEach(l => { if (l.assigneeId === memberId) count++; });
-    });
-    return count;
-}
-
-function filterLeadsByTeamMember(memberId) {
-    leadsTeamFilterMemberId = leadsTeamFilterMemberId === memberId ? null : memberId;
-    renderLeadsTeamTree();
+function selectLeadsOrg(oid) {
+    leadsActiveProjectId = oid;
+    renderLeadsOrgTree();
     renderLeadsTable();
 }
 
-/* ── Main: leads table ────────────────────────── */
+/* ── Main: leads table with tasks ─────────────── */
 function renderLeadsTable() {
     const wrap = document.getElementById('leadsTableWrap');
-    const empty = document.getElementById('leadsEmptyState');
     const titleEl = document.getElementById('leadsMainTitle');
     if (!wrap) return;
 
-    const project = getLeadsProject(leadsActiveProjectId);
-    if (!project) {
-        wrap.innerHTML = '';
-        if (empty) { wrap.appendChild(empty); empty.style.display = ''; }
-        if (titleEl) titleEl.innerHTML = '<i class="icon-users"></i> Sélectionne un projet';
+    const org = getLeadsOrg(leadsActiveProjectId);
+    if (!org) {
+        wrap.innerHTML = '<div class="leads-empty"><i class="icon-building-2"></i><p>Sélectionne une organisation pour voir ses leads et tâches</p></div>';
+        if (titleEl) titleEl.innerHTML = '<i class="icon-building-2"></i> Sélectionne une organisation';
         return;
     }
 
-    if (titleEl) titleEl.innerHTML = `<i class="icon-folder"></i> ${esc(project.emoji || '📁')} ${esc(project.name)}`;
+    const type = ORG_TYPES[org.type] || ORG_TYPES.organisation;
+    if (titleEl) titleEl.innerHTML = `${type.emoji} ${esc(org.name)} <span class="lead-role-badge ${esc(type.color)}" style="margin-left:0.3rem">${esc(type.label)}</span>`;
 
-    let leads = (project.leads || []).slice();
+    let leads = (org.leads || []).slice();
     const search = (document.getElementById('leadsSearch')?.value || '').toLowerCase();
     if (search) {
         leads = leads.filter(l =>
             (l.firstName || '').toLowerCase().includes(search) ||
             (l.lastName || '').toLowerCase().includes(search) ||
-            (l.company || '').toLowerCase().includes(search) ||
-            (l.email || '').toLowerCase().includes(search) ||
-            (l.phone || '').toLowerCase().includes(search)
+            (l.role || '').toLowerCase().includes(search) ||
+            (l.phone || '').toLowerCase().includes(search) ||
+            (l.email || '').toLowerCase().includes(search)
         );
     }
-    if (leadsFilter !== 'all') leads = leads.filter(l => l.status === leadsFilter);
-    if (leadsTeamFilterMemberId) leads = leads.filter(l => l.assigneeId === leadsTeamFilterMemberId);
 
     if (!leads.length) {
-        wrap.innerHTML = '<div class="leads-empty"><i class="icon-users"></i><p>Aucun lead' + (leadsFilter !== 'all' ? ' avec ce filtre' : '') + '</p></div>';
+        wrap.innerHTML = `<div class="leads-empty"><i class="icon-user-plus"></i><p>Aucun lead dans cette organisation</p><button class="btn-primary" onclick="openLeadModal()" style="margin-top:0.5rem"><i class="icon-user-plus"></i> Ajouter un lead</button></div>`;
         return;
     }
 
-    const now = Date.now();
-    const team = getLeadsTeam();
-    let html = `<table class="leads-table"><thead><tr>
-        <th></th><th>Nom</th><th>Entreprise</th><th>Téléphone</th><th>Statut</th><th>Assigné</th><th>Rappel</th><th></th>
-    </tr></thead><tbody>`;
-
+    let html = '';
     leads.forEach(l => {
-        const st = LEAD_STATUSES[l.status] || LEAD_STATUSES.new;
-        const assignee = team.find(m => m.id === l.assigneeId);
-        const hasReminder = l.reminderAt && l.reminderAt > 0;
-        const isDue = hasReminder && l.reminderAt <= now;
-        const reminderLabel = hasReminder ? new Date(l.reminderAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
-        const reminderDot = hasReminder ? `<span class="lead-reminder-dot ${isDue ? 'due' : 'upcoming'}"></span>` : '';
+        const tasks = l.tasks || [];
+        const doneTasks = tasks.filter(t => t.done).length;
+        const totalTasks = tasks.length;
+        const pendingTasks = totalTasks - doneTasks;
 
-        html += `<tr onclick="openEditLead('${esc(l.id)}')">
-            <td style="width:28px"><input type="checkbox" class="lead-select-cb" data-lead-id="${esc(l.id)}" onclick="event.stopPropagation()"></td>
-            <td><strong>${esc(l.firstName || '')} ${esc(l.lastName || '')}</strong>${l.email ? '<br><span style=\"font-size:0.72rem;color:var(--text-muted)\">' + esc(l.email) + '</span>' : ''}</td>
-            <td>${esc(l.company || '—')}</td>
-            <td>${esc(l.phone || '—')}</td>
-            <td><span class="lead-status-badge ${esc(st.color)}">${esc(st.label)}</span></td>
-            <td>${assignee ? esc(assignee.name) : '<span style="color:var(--text-muted)">—</span>'}</td>
-            <td>${reminderDot}${reminderLabel}</td>
-            <td style="width:30px"><button class="btn-icon" onclick="event.stopPropagation();sendSingleLeadSms('${esc(l.id)}')" title="SMS"><i class="icon-message-circle"></i></button></td>
-        </tr>`;
+        html += `<div class="lead-card">
+            <div class="lead-card-header" onclick="openEditLead('${esc(l.id)}')">
+                <div class="lead-card-identity">
+                    <div class="lead-avatar">${esc((l.firstName || '?')[0])}${esc((l.lastName || '?')[0])}</div>
+                    <div>
+                        <div class="lead-card-name">${esc(l.firstName || '')} ${esc(l.lastName || '')}</div>
+                        <div class="lead-card-role">${esc(l.role || '—')}</div>
+                    </div>
+                </div>
+                <div class="lead-card-meta">
+                    ${l.phone ? `<span class="lead-contact-chip"><i class="icon-phone" style="font-size:0.65rem"></i> ${esc(l.phone)}</span>` : ''}
+                    ${l.email ? `<span class="lead-contact-chip"><i class="icon-mail" style="font-size:0.65rem"></i> ${esc(l.email)}</span>` : ''}
+                    <span class="lead-task-progress ${pendingTasks > 0 ? 'has-pending' : totalTasks > 0 ? 'all-done' : ''}">${doneTasks}/${totalTasks} tâches</span>
+                    <button class="btn-icon" onclick="event.stopPropagation();openLeadTaskModalForLead('${esc(l.id)}')" title="Ajouter une tâche"><i class="icon-plus"></i></button>
+                    <button class="btn-icon" onclick="event.stopPropagation();sendSingleLeadSms('${esc(l.id)}')" title="SMS"><i class="icon-message-circle"></i></button>
+                </div>
+            </div>`;
+
+        if (tasks.length) {
+            html += `<div class="lead-tasks-list">`;
+            tasks.forEach(t => {
+                const isDue = t.dueDate && !t.done && new Date(t.dueDate) < new Date();
+                const smsStatus = getTaskSmsStatus(t);
+                html += `<div class="lead-task-row ${t.done ? 'done' : ''} ${isDue ? 'overdue' : ''}">
+                    <input type="checkbox" ${t.done ? 'checked' : ''} onclick="event.stopPropagation();toggleLeadTask('${esc(l.id)}','${esc(t.id)}')" class="lead-task-cb">
+                    <span class="lead-task-title" onclick="openEditLeadTask('${esc(l.id)}','${esc(t.id)}')">${esc(t.title)}</span>
+                    ${t.dueDate ? `<span class="lead-task-due ${isDue ? 'overdue' : ''}">${new Date(t.dueDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>` : ''}
+                    <span class="lead-task-sms-status ${esc(smsStatus.class)}" title="${esc(smsStatus.tooltip)}">${smsStatus.icon}</span>
+                    ${!t.done && t.smsSentAt && !t.smsResponseReceived ? `<button class="btn-icon btn-tiny" onclick="event.stopPropagation();markTaskResponseReceived('${esc(l.id)}','${esc(t.id)}')" title="Marquer comme répondu">✓ Répondu</button>` : ''}
+                </div>`;
+            });
+            html += `</div>`;
+        }
+        html += `</div>`;
     });
-    html += '</tbody></table>';
+
     wrap.innerHTML = html;
 }
 
-function setLeadsFilter(filter, btn) {
-    leadsFilter = filter;
-    document.querySelectorAll('#leadsStatusFilter .leads-filter-btn').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
+function getTaskSmsStatus(task) {
+    if (!task.smsTemplate) return { class: 'no-sms', icon: '', tooltip: 'Pas de SMS configuré' };
+    if (task.smsResponseReceived) return { class: 'sms-responded', icon: '✅', tooltip: 'Réponse reçue' };
+    if (task.smsReminderSentAt) return { class: 'sms-reminded', icon: '🔔', tooltip: `Rappel envoyé le ${new Date(task.smsReminderSentAt).toLocaleDateString('fr-FR')}` };
+    if (task.smsSentAt) {
+        const daysSince = Math.floor((Date.now() - task.smsSentAt) / (1000 * 60 * 60 * 24));
+        return { class: 'sms-sent', icon: '📨', tooltip: `SMS envoyé il y a ${daysSince}j — en attente de réponse` };
+    }
+    return { class: 'sms-pending', icon: '📝', tooltip: 'SMS à envoyer' };
+}
+
+/* ── Dashboard: synthesis view ────────────────── */
+function renderLeadsDashboard() {
+    const wrap = document.getElementById('leadsDashboardWrap');
+    if (!wrap) return;
+
+    const allTasks = getAllTasks();
+    const allLeads = getAllLeads();
+    const orgs = getLeadsOrgs();
+
+    const pendingTasks = allTasks.filter(t => !t.done);
+    const doneTasks = allTasks.filter(t => t.done);
+    const overdueTasks = pendingTasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date());
+    const awaitingResponse = pendingTasks.filter(t => t.smsSentAt && !t.smsResponseReceived);
+    const needsReminder = awaitingResponse.filter(t => {
+        const daysSince = (Date.now() - t.smsSentAt) / (1000 * 60 * 60 * 24);
+        return daysSince >= 3 && !t.smsReminderSentAt;
+    });
+
+    let html = `<div class="dash-stats">
+        <div class="dash-stat-card">
+            <div class="dash-stat-number">${allTasks.length}</div>
+            <div class="dash-stat-label">Tâches totales</div>
+        </div>
+        <div class="dash-stat-card accent-green">
+            <div class="dash-stat-number">${doneTasks.length}</div>
+            <div class="dash-stat-label">Terminées</div>
+        </div>
+        <div class="dash-stat-card accent-orange">
+            <div class="dash-stat-number">${pendingTasks.length}</div>
+            <div class="dash-stat-label">En cours</div>
+        </div>
+        <div class="dash-stat-card accent-pink">
+            <div class="dash-stat-number">${overdueTasks.length}</div>
+            <div class="dash-stat-label">En retard</div>
+        </div>
+        <div class="dash-stat-card accent-blue">
+            <div class="dash-stat-number">${awaitingResponse.length}</div>
+            <div class="dash-stat-label">En attente de réponse</div>
+        </div>
+        <div class="dash-stat-card accent-purple">
+            <div class="dash-stat-number">${needsReminder.length}</div>
+            <div class="dash-stat-label">Rappels à envoyer</div>
+        </div>
+    </div>`;
+
+    if (needsReminder.length) {
+        html += `<div class="dash-section">
+            <div class="dash-section-title">🔔 Rappels à envoyer (3j+ sans réponse)</div>
+            <button class="btn-primary" onclick="sendAllPendingReminders()" style="margin-bottom:0.5rem;font-size:0.8rem"><i class="icon-send"></i> Envoyer tous les rappels</button>
+            <div class="dash-task-list">`;
+        needsReminder.forEach(t => {
+            const daysSince = Math.floor((Date.now() - t.smsSentAt) / (1000 * 60 * 60 * 24));
+            html += `<div class="dash-task-item reminder">
+                <div class="dash-task-info">
+                    <strong>${esc(t.leadName)}</strong> <span class="text-muted">— ${esc(t.orgName)}</span>
+                    <div class="dash-task-title">${esc(t.title)}</div>
+                </div>
+                <span class="dash-task-badge">${daysSince}j sans réponse</span>
+                <button class="btn-icon" onclick="sendTaskReminder('${esc(t.orgId)}','${esc(t.leadId)}','${esc(t.id)}')" title="Envoyer rappel"><i class="icon-send"></i></button>
+            </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    // Pending tasks grouped by org
+    if (pendingTasks.length) {
+        html += `<div class="dash-section">
+            <div class="dash-section-title">📋 Tâches en cours par organisation</div>
+            <div class="dash-task-list">`;
+        
+        const byOrg = {};
+        pendingTasks.forEach(t => {
+            if (!byOrg[t.orgId]) byOrg[t.orgId] = { name: t.orgName, tasks: [] };
+            byOrg[t.orgId].tasks.push(t);
+        });
+
+        Object.entries(byOrg).forEach(([orgId, data]) => {
+            html += `<div class="dash-org-group">
+                <div class="dash-org-header">${esc(data.name)} <span class="text-muted">(${data.tasks.length})</span></div>`;
+            data.tasks.forEach(t => {
+                const isDue = t.dueDate && new Date(t.dueDate) < new Date();
+                const smsStatus = getTaskSmsStatus(t);
+                html += `<div class="dash-task-item ${isDue ? 'overdue' : ''}">
+                    <input type="checkbox" onclick="toggleLeadTaskById('${esc(t.orgId)}','${esc(t.leadId)}','${esc(t.id)}')" class="lead-task-cb">
+                    <div class="dash-task-info">
+                        <div class="dash-task-title">${esc(t.title)}</div>
+                        <div class="dash-task-assignee"><i class="icon-user" style="font-size:0.6rem"></i> ${esc(t.leadName)} ${t.leadPhone ? `<span class="text-muted">(${esc(t.leadPhone)})</span>` : ''}</div>
+                    </div>
+                    ${t.dueDate ? `<span class="lead-task-due ${isDue ? 'overdue' : ''}">${new Date(t.dueDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>` : ''}
+                    <span class="lead-task-sms-status ${esc(smsStatus.class)}" title="${esc(smsStatus.tooltip)}">${smsStatus.icon}</span>
+                </div>`;
+            });
+            html += `</div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    // Recently completed
+    const recentDone = doneTasks.sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0)).slice(0, 15);
+    if (recentDone.length) {
+        html += `<div class="dash-section">
+            <div class="dash-section-title">✅ Récemment terminées</div>
+            <div class="dash-task-list">`;
+        recentDone.forEach(t => {
+            html += `<div class="dash-task-item done">
+                <span class="dash-done-check">✓</span>
+                <div class="dash-task-info">
+                    <div class="dash-task-title">${esc(t.title)}</div>
+                    <div class="dash-task-assignee">${esc(t.leadName)} — ${esc(t.orgName)}${t.doneAt ? ` <span class="text-muted">le ${new Date(t.doneAt).toLocaleDateString('fr-FR')}</span>` : ''}</div>
+                </div>
+            </div>`;
+        });
+        html += `</div></div>`;
+    }
+
+    if (!allTasks.length) {
+        html += `<div class="leads-empty"><i class="icon-list-checks"></i><p>Aucune tâche créée.<br>Ajoute des tâches aux leads pour voir la synthèse.</p></div>`;
+    }
+
+    wrap.innerHTML = html;
+}
+
+/* ── Task toggle ──────────────────────────────── */
+function toggleLeadTask(leadId, taskId) {
+    const org = getLeadsOrg(leadsActiveProjectId);
+    if (!org) return;
+    const lead = (org.leads || []).find(l => l.id === leadId);
+    if (!lead) return;
+    const task = (lead.tasks || []).find(t => t.id === taskId);
+    if (!task) return;
+    task.done = !task.done;
+    task.doneAt = task.done ? Date.now() : null;
+    autoSave();
     renderLeadsTable();
+}
+
+function toggleLeadTaskById(orgId, leadId, taskId) {
+    const org = getLeadsOrg(orgId);
+    if (!org) return;
+    const lead = (org.leads || []).find(l => l.id === leadId);
+    if (!lead) return;
+    const task = (lead.tasks || []).find(t => t.id === taskId);
+    if (!task) return;
+    task.done = !task.done;
+    task.doneAt = task.done ? Date.now() : null;
+    autoSave();
+    renderLeadsDashboard();
+}
+
+function markTaskResponseReceived(leadId, taskId) {
+    const org = getLeadsOrg(leadsActiveProjectId);
+    if (!org) return;
+    const lead = (org.leads || []).find(l => l.id === leadId);
+    if (!lead) return;
+    const task = (lead.tasks || []).find(t => t.id === taskId);
+    if (!task) return;
+    task.smsResponseReceived = true;
+    if (!lead.history) lead.history = [];
+    lead.history.push({ type: 'sms_response', taskId, at: Date.now() });
+    autoSave();
+    renderLeadsTable();
+    showToast('Réponse marquée ✓', 'success');
 }
 
 /* ── Rappels automatiques ─────────────────────── */
 function checkLeadReminders() {
-    const now = Date.now();
-    let dueCount = 0;
-    getLeadsProjects().forEach(p => {
-        (p.leads || []).forEach(l => {
-            if (l.reminderAt && l.reminderAt <= now && l.status !== 'won' && l.status !== 'lost') {
-                dueCount++;
-            }
-        });
-    });
-    if (dueCount > 0) {
-        showToast(`🔔 ${dueCount} rappel${dueCount > 1 ? 's' : ''} lead${dueCount > 1 ? 's' : ''} en attente !`, 'error', 4000);
+    const allTasks = getAllTasks();
+    const needsReminder = allTasks.filter(t =>
+        !t.done && t.smsSentAt && !t.smsResponseReceived && !t.smsReminderSentAt &&
+        (Date.now() - t.smsSentAt) / (1000 * 60 * 60 * 24) >= 3
+    );
+    if (needsReminder.length > 0) {
+        showToast(`🔔 ${needsReminder.length} rappel${needsReminder.length > 1 ? 's' : ''} SMS à envoyer (3j+ sans réponse) !`, 'error', 5000);
+    }
+    const overdue = allTasks.filter(t => !t.done && t.dueDate && new Date(t.dueDate) < new Date());
+    if (overdue.length > 0) {
+        showToast(`⚠️ ${overdue.length} tâche${overdue.length > 1 ? 's' : ''} en retard !`, 'error', 4000);
     }
 }
 
-/* Auto-check reminders every 5 minutes */
 setInterval(() => {
     if (currentTab === 'leads') checkLeadReminders();
 }, 5 * 60 * 1000);
 
-/* ── Project Modal ────────────────────────────── */
-function openLeadProjectModal(editId) {
-    leadsEditingProjectId = editId || null;
-    const m = document.getElementById('leadProjectModal');
+/* ── Send reminders ───────────────────────────── */
+function sendTaskReminder(orgId, leadId, taskId) {
+    const org = getLeadsOrg(orgId);
+    if (!org) return;
+    const lead = (org.leads || []).find(l => l.id === leadId);
+    if (!lead || !lead.phone) return showToast('Ce lead n\'a pas de numéro.', 'error');
+    const task = (lead.tasks || []).find(t => t.id === taskId);
+    if (!task) return;
+
+    const reminderMsg = task.smsTemplate
+        ? `Rappel : ${interpolateTaskSms(task.smsTemplate, lead, org, task)}`
+        : `Bonjour ${lead.firstName || ''}, ceci est un rappel concernant : ${task.title}. Merci de me recontacter.`;
+
+    const phoneClean = lead.phone.replace(/[\s\-()]/g, '').replace(/^0/, '33');
+    const waUrl = `https://wa.me/${phoneClean}?text=${encodeURIComponent(reminderMsg)}`;
+    if (window.electronAPI?.openExternal) window.electronAPI.openExternal(waUrl);
+    else window.open(waUrl, '_blank');
+
+    task.smsReminderSentAt = Date.now();
+    if (!lead.history) lead.history = [];
+    lead.history.push({ type: 'sms_reminder', taskId, message: reminderMsg, at: Date.now() });
+    autoSave();
+    showToast('Rappel SMS préparé ✓', 'success');
+    if (leadsCurrentView === 'dashboard') renderLeadsDashboard();
+    else renderLeadsTable();
+}
+
+function sendAllPendingReminders() {
+    const allTasks = getAllTasks();
+    const needsReminder = allTasks.filter(t =>
+        !t.done && t.smsSentAt && !t.smsResponseReceived && !t.smsReminderSentAt &&
+        (Date.now() - t.smsSentAt) / (1000 * 60 * 60 * 24) >= 3
+    );
+    if (!needsReminder.length) return showToast('Aucun rappel à envoyer.', 'success');
+    let sent = 0;
+    needsReminder.forEach(t => {
+        sendTaskReminder(t.orgId, t.leadId, t.id);
+        sent++;
+    });
+    showToast(`${sent} rappel${sent > 1 ? 's' : ''} préparé${sent > 1 ? 's' : ''}.`, 'success');
+}
+
+/* ── Organization Modal ───────────────────────── */
+function openLeadOrgModal(editId) {
+    leadsEditingOrgId = editId || null;
+    const m = document.getElementById('leadOrgModal');
+    populateOrgParentSelect(editId);
+
     if (editId) {
-        const p = getLeadsProject(editId);
-        if (!p) return;
-        document.getElementById('leadProjectModalTitle').innerHTML = '<i class="icon-folder"></i> Modifier le projet';
-        document.getElementById('leadProjectName').value = p.name || '';
-        document.getElementById('leadProjectDesc').value = p.description || '';
+        const o = getLeadsOrg(editId);
+        if (!o) return;
+        document.getElementById('leadOrgModalTitle').innerHTML = '<i class="icon-building-2"></i> Modifier l\'organisation';
+        document.getElementById('leadOrgName').value = o.name || '';
+        document.getElementById('leadOrgType').value = o.type || 'organisation';
+        document.getElementById('leadOrgParent').value = o.parentId || '';
+        document.getElementById('leadOrgDesc').value = o.description || '';
+        document.getElementById('leadOrgDeleteBtn').style.display = '';
     } else {
-        document.getElementById('leadProjectModalTitle').innerHTML = '<i class="icon-folder"></i> Nouveau projet';
-        document.getElementById('leadProjectName').value = '';
-        document.getElementById('leadProjectDesc').value = '';
+        document.getElementById('leadOrgModalTitle').innerHTML = '<i class="icon-building-2"></i> Nouvelle organisation';
+        document.getElementById('leadOrgName').value = '';
+        document.getElementById('leadOrgType').value = 'association';
+        document.getElementById('leadOrgParent').value = '';
+        document.getElementById('leadOrgDesc').value = '';
+        document.getElementById('leadOrgDeleteBtn').style.display = 'none';
     }
     m.classList.add('show');
 }
 
-function closeLeadProjectModal() {
-    document.getElementById('leadProjectModal').classList.remove('show');
-    leadsEditingProjectId = null;
+function closeLeadOrgModal() {
+    document.getElementById('leadOrgModal').classList.remove('show');
+    leadsEditingOrgId = null;
 }
 
-function saveLeadProject() {
-    const name = (document.getElementById('leadProjectName').value || '').trim();
-    if (!name) return showToast('Nom du projet requis.', 'error');
-    const desc = (document.getElementById('leadProjectDesc').value || '').trim();
+function populateOrgParentSelect(excludeId) {
+    const sel = document.getElementById('leadOrgParent');
+    const orgs = getLeadsOrgs().filter(o => o.id !== excludeId);
+    sel.innerHTML = '<option value="">Aucune (racine)</option>' + orgs.map(o => {
+        const type = ORG_TYPES[o.type] || ORG_TYPES.organisation;
+        return `<option value="${esc(o.id)}">${type.emoji} ${esc(o.name)}</option>`;
+    }).join('');
+}
+
+function saveLeadOrg() {
+    const name = (document.getElementById('leadOrgName').value || '').trim();
+    if (!name) return showToast('Nom requis.', 'error');
+    const type = document.getElementById('leadOrgType').value || 'organisation';
+    const parentId = document.getElementById('leadOrgParent').value || '';
+    const description = (document.getElementById('leadOrgDesc').value || '').trim();
 
     initLeadsState();
-    if (leadsEditingProjectId) {
-        const p = getLeadsProject(leadsEditingProjectId);
-        if (p) { p.name = name; p.description = desc; }
+    if (leadsEditingOrgId) {
+        const o = getLeadsOrg(leadsEditingOrgId);
+        if (o) { o.name = name; o.type = type; o.parentId = parentId; o.description = description; }
     } else {
-        const id = 'proj-' + uid();
-        state.leads.projects.push({ id, name, description: desc, emoji: '📁', leads: [] });
+        const id = 'org-' + uid();
+        state.leads.orgs.push({ id, name, type, parentId, description, leads: [] });
         leadsActiveProjectId = id;
     }
     autoSave();
-    closeLeadProjectModal();
+    closeLeadOrgModal();
+    renderLeads();
+}
+
+function deleteLeadOrg() {
+    if (!leadsEditingOrgId) return;
+    const org = getLeadsOrg(leadsEditingOrgId);
+    if (!org || !confirm(`Supprimer "${org.name}" et tous ses leads ?`)) return;
+    // Reassign children
+    getLeadsOrgs().forEach(o => {
+        if (o.parentId === leadsEditingOrgId) o.parentId = org.parentId || '';
+    });
+    state.leads.orgs = state.leads.orgs.filter(o => o.id !== leadsEditingOrgId);
+    if (leadsActiveProjectId === leadsEditingOrgId) leadsActiveProjectId = null;
+    autoSave();
+    closeLeadOrgModal();
     renderLeads();
 }
 
@@ -3793,42 +4066,33 @@ function saveLeadProject() {
 function openLeadModal(editId) {
     leadsEditingId = editId || null;
     const m = document.getElementById('leadModal');
-    populateAssigneeSelect();
+    populateLeadOrgSelect();
 
     if (editId) {
-        const project = getLeadsProject(leadsActiveProjectId);
-        const lead = project ? (project.leads || []).find(l => l.id === editId) : null;
+        let lead = null, orgId = null;
+        getLeadsOrgs().forEach(o => {
+            const l = (o.leads || []).find(l => l.id === editId);
+            if (l) { lead = l; orgId = o.id; }
+        });
         if (!lead) return;
         document.getElementById('leadModalTitle').innerHTML = '<i class="icon-user"></i> Modifier le lead';
         document.getElementById('leadFirstName').value = lead.firstName || '';
         document.getElementById('leadLastName').value = lead.lastName || '';
         document.getElementById('leadPhone').value = lead.phone || '';
         document.getElementById('leadEmail').value = lead.email || '';
-        document.getElementById('leadStatus').value = lead.status || 'new';
-        document.getElementById('leadAssignee').value = lead.assigneeId || '';
-        document.getElementById('leadCompany').value = lead.company || '';
+        document.getElementById('leadRole').value = lead.role || '';
+        document.getElementById('leadOrg').value = orgId || '';
         document.getElementById('leadNotes').value = lead.notes || '';
         document.getElementById('leadDeleteBtn').style.display = '';
-        if (lead.reminderAt) {
-            const d = new Date(lead.reminderAt);
-            document.getElementById('leadReminderDate').value = d.toISOString().slice(0, 10);
-            document.getElementById('leadReminderTime').value = d.toTimeString().slice(0, 5);
-        } else {
-            document.getElementById('leadReminderDate').value = '';
-            document.getElementById('leadReminderTime').value = '09:00';
-        }
     } else {
         document.getElementById('leadModalTitle').innerHTML = '<i class="icon-user-plus"></i> Ajouter un lead';
         document.getElementById('leadFirstName').value = '';
         document.getElementById('leadLastName').value = '';
         document.getElementById('leadPhone').value = '';
         document.getElementById('leadEmail').value = '';
-        document.getElementById('leadStatus').value = 'new';
-        document.getElementById('leadAssignee').value = '';
-        document.getElementById('leadCompany').value = '';
+        document.getElementById('leadRole').value = '';
+        document.getElementById('leadOrg').value = leadsActiveProjectId || '';
         document.getElementById('leadNotes').value = '';
-        document.getElementById('leadReminderDate').value = '';
-        document.getElementById('leadReminderTime').value = '09:00';
         document.getElementById('leadDeleteBtn').style.display = 'none';
     }
     m.classList.add('show');
@@ -3839,19 +4103,20 @@ function closeLeadModal() {
     leadsEditingId = null;
 }
 
-function populateAssigneeSelect() {
-    const sel = document.getElementById('leadAssignee');
-    if (!sel) return;
-    const team = getLeadsTeam();
-    sel.innerHTML = '<option value="">Non assigné</option>' + team.map(m =>
-        `<option value="${esc(m.id)}">${esc(m.name)}${m.role !== 'member' ? ' (' + esc(m.role) + ')' : ''}</option>`
-    ).join('');
+function populateLeadOrgSelect() {
+    const sel = document.getElementById('leadOrg');
+    const orgs = getLeadsOrgs();
+    sel.innerHTML = '<option value="">— Sélectionner —</option>' + orgs.map(o => {
+        const type = ORG_TYPES[o.type] || ORG_TYPES.organisation;
+        return `<option value="${esc(o.id)}">${type.emoji} ${esc(o.name)}</option>`;
+    }).join('');
 }
 
 function saveLeadFromModal() {
-    if (!leadsActiveProjectId) return showToast('Sélectionne d\'abord un projet.', 'error');
-    const project = getLeadsProject(leadsActiveProjectId);
-    if (!project) return;
+    const orgId = document.getElementById('leadOrg').value;
+    if (!orgId) return showToast('Sélectionne une organisation.', 'error');
+    const org = getLeadsOrg(orgId);
+    if (!org) return;
 
     const firstName = (document.getElementById('leadFirstName').value || '').trim();
     const lastName = (document.getElementById('leadLastName').value || '').trim();
@@ -3859,33 +4124,29 @@ function saveLeadFromModal() {
 
     const phone = (document.getElementById('leadPhone').value || '').trim();
     const email = (document.getElementById('leadEmail').value || '').trim();
-    const status = document.getElementById('leadStatus').value || 'new';
-    const assigneeId = document.getElementById('leadAssignee').value || '';
-    const company = (document.getElementById('leadCompany').value || '').trim();
+    const role = (document.getElementById('leadRole').value || '').trim();
     const notes = (document.getElementById('leadNotes').value || '').trim();
 
-    let reminderAt = 0;
-    const rDate = document.getElementById('leadReminderDate').value;
-    if (rDate) {
-        const rTime = document.getElementById('leadReminderTime').value || '09:00';
-        reminderAt = new Date(`${rDate}T${rTime}`).getTime();
-    }
-
-    if (!project.leads) project.leads = [];
+    if (!org.leads) org.leads = [];
 
     if (leadsEditingId) {
-        const lead = project.leads.find(l => l.id === leadsEditingId);
+        // Find and update lead (may have moved orgs)
+        let lead = null, oldOrg = null;
+        getLeadsOrgs().forEach(o => {
+            const l = (o.leads || []).find(l => l.id === leadsEditingId);
+            if (l) { lead = l; oldOrg = o; }
+        });
         if (lead) {
-            const oldStatus = lead.status;
-            Object.assign(lead, { firstName, lastName, phone, email, status, assigneeId, company, notes, reminderAt, updatedAt: Date.now() });
-            if (oldStatus !== status) {
-                if (!lead.history) lead.history = [];
-                lead.history.push({ type: 'status', from: oldStatus, to: status, at: Date.now() });
+            Object.assign(lead, { firstName, lastName, phone, email, role, notes, updatedAt: Date.now() });
+            // Move to new org if changed
+            if (oldOrg && oldOrg.id !== orgId) {
+                oldOrg.leads = oldOrg.leads.filter(l => l.id !== leadsEditingId);
+                org.leads.push(lead);
             }
         }
     } else {
-        project.leads.push({
-            id: 'lead-' + uid(), firstName, lastName, phone, email, status, assigneeId, company, notes, reminderAt,
+        org.leads.push({
+            id: 'lead-' + uid(), firstName, lastName, phone, email, role, notes, tasks: [],
             createdAt: Date.now(), updatedAt: Date.now(), history: [{ type: 'created', at: Date.now() }]
         });
     }
@@ -3900,130 +4161,186 @@ function openEditLead(leadId) {
 }
 
 function deleteLead() {
-    if (!leadsEditingId || !leadsActiveProjectId) return;
-    const project = getLeadsProject(leadsActiveProjectId);
-    if (!project) return;
-    const lead = (project.leads || []).find(l => l.id === leadsEditingId);
-    if (!lead || !confirm(`Supprimer ${lead.firstName} ${lead.lastName} ?`)) return;
-    project.leads = project.leads.filter(l => l.id !== leadsEditingId);
+    if (!leadsEditingId) return;
+    let lead = null, org = null;
+    getLeadsOrgs().forEach(o => {
+        const l = (o.leads || []).find(l => l.id === leadsEditingId);
+        if (l) { lead = l; org = o; }
+    });
+    if (!lead || !org || !confirm(`Supprimer ${lead.firstName} ${lead.lastName} ?`)) return;
+    org.leads = org.leads.filter(l => l.id !== leadsEditingId);
     autoSave();
     closeLeadModal();
     renderLeads();
 }
 
-/* ── Team Modal ───────────────────────────────── */
-function openLeadTeamModal() {
-    initLeadsState();
-    renderTeamModalList();
-    populateTeamParentSelect();
-    document.getElementById('teamMemberName').value = '';
-    document.getElementById('teamMemberRole').value = 'member';
-    document.getElementById('teamMemberParent').value = '';
-    document.getElementById('leadTeamModal').classList.add('show');
+/* ── Task Modal ───────────────────────────────── */
+function openLeadTaskModal() {
+    leadsEditingTaskId = null;
+    leadsEditingTaskLeadId = null;
+    const m = document.getElementById('leadTaskModal');
+    document.getElementById('leadTaskModalTitle').innerHTML = '<i class="icon-list-checks"></i> Nouvelle tâche';
+    document.getElementById('leadTaskTitle').value = '';
+    document.getElementById('leadTaskDesc').value = '';
+    document.getElementById('leadTaskDueDate').value = '';
+    document.getElementById('leadTaskSmsTemplate').value = '';
+    document.getElementById('leadTaskAutoSms').checked = true;
+    document.getElementById('leadTaskAutoReminder').checked = true;
+    document.getElementById('leadTaskDeleteBtn').style.display = 'none';
+    populateTaskAssigneeSelect();
+    m.classList.add('show');
 }
 
-function closeLeadTeamModal() {
-    document.getElementById('leadTeamModal').classList.remove('show');
-    renderLeads();
+function openLeadTaskModalForLead(leadId) {
+    openLeadTaskModal();
+    document.getElementById('leadTaskAssignee').value = leadId;
 }
 
-function renderTeamModalList() {
-    const list = document.getElementById('leadTeamList');
-    const team = getLeadsTeam();
-    if (!team.length) {
-        list.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:0.5rem 0">Aucun membre dans l\'équipe.</div>';
-        return;
-    }
-    list.innerHTML = team.map(m => {
-        const parent = team.find(t => t.id === m.parentId);
-        const roleBadge = `<span class="lead-role-badge ${esc(m.role)}">${esc(m.role === 'manager' ? 'Responsable' : m.role === 'leader' ? 'Chef' : 'Membre')}</span>`;
-        return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--card-border)">
-            <span style="flex:1;font-size:0.85rem">${esc(m.name)} ${roleBadge}${parent ? '<span style=\"font-size:0.72rem;color:var(--text-muted)\"> ← ' + esc(parent.name) + '</span>' : ''}</span>
-            <button class="btn-icon" onclick="removeTeamMember('${esc(m.id)}')" title="Supprimer">✕</button>
-        </div>`;
-    }).join('');
+function openEditLeadTask(leadId, taskId) {
+    leadsEditingTaskId = taskId;
+    leadsEditingTaskLeadId = leadId;
+
+    const org = getLeadsOrg(leadsActiveProjectId);
+    if (!org) return;
+    const lead = (org.leads || []).find(l => l.id === leadId);
+    if (!lead) return;
+    const task = (lead.tasks || []).find(t => t.id === taskId);
+    if (!task) return;
+
+    document.getElementById('leadTaskModalTitle').innerHTML = '<i class="icon-list-checks"></i> Modifier la tâche';
+    document.getElementById('leadTaskTitle').value = task.title || '';
+    document.getElementById('leadTaskDesc').value = task.description || '';
+    document.getElementById('leadTaskDueDate').value = task.dueDate || '';
+    document.getElementById('leadTaskSmsTemplate').value = task.smsTemplate || '';
+    document.getElementById('leadTaskAutoSms').checked = !!task.autoSms;
+    document.getElementById('leadTaskAutoReminder').checked = task.autoReminder !== false;
+    document.getElementById('leadTaskDeleteBtn').style.display = '';
+    populateTaskAssigneeSelect();
+    document.getElementById('leadTaskAssignee').value = leadId;
+    document.getElementById('leadTaskModal').classList.add('show');
 }
 
-function populateTeamParentSelect() {
-    const sel = document.getElementById('teamMemberParent');
-    const team = getLeadsTeam();
-    sel.innerHTML = '<option value="">Aucun (top level)</option>' + team.map(m =>
-        `<option value="${esc(m.id)}">${esc(m.name)}</option>`
+function closeLeadTaskModal() {
+    document.getElementById('leadTaskModal').classList.remove('show');
+    leadsEditingTaskId = null;
+    leadsEditingTaskLeadId = null;
+}
+
+function populateTaskAssigneeSelect() {
+    const sel = document.getElementById('leadTaskAssignee');
+    const leads = leadsActiveProjectId ? getOrgLeads(leadsActiveProjectId) : getAllLeads();
+    sel.innerHTML = '<option value="">— Sélectionner un lead —</option>' + leads.map(l =>
+        `<option value="${esc(l.id)}">${esc(l.firstName || '')} ${esc(l.lastName || '')}${l.phone ? ' (' + esc(l.phone) + ')' : ''}</option>`
     ).join('');
 }
 
-function addTeamMember() {
-    const name = (document.getElementById('teamMemberName').value || '').trim();
-    if (!name) return showToast('Nom requis.', 'error');
-    const role = document.getElementById('teamMemberRole').value || 'member';
-    const parentId = document.getElementById('teamMemberParent').value || '';
-    initLeadsState();
-    state.leads.team.push({ id: 'tm-' + uid(), name, role, parentId });
-    autoSave();
-    document.getElementById('teamMemberName').value = '';
-    renderTeamModalList();
-    populateTeamParentSelect();
-}
+function saveLeadTask() {
+    const title = (document.getElementById('leadTaskTitle').value || '').trim();
+    if (!title) return showToast('Titre requis.', 'error');
+    const leadId = document.getElementById('leadTaskAssignee').value;
+    if (!leadId) return showToast('Sélectionne un lead.', 'error');
 
-function removeTeamMember(memberId) {
-    if (!confirm('Supprimer ce membre ?')) return;
-    // Reassign children to parent of removed member
-    const member = state.leads.team.find(m => m.id === memberId);
-    if (!member) return;
-    state.leads.team.forEach(m => {
-        if (m.parentId === memberId) m.parentId = member.parentId || '';
+    const description = (document.getElementById('leadTaskDesc').value || '').trim();
+    const dueDate = document.getElementById('leadTaskDueDate').value || '';
+    const smsTemplate = (document.getElementById('leadTaskSmsTemplate').value || '').trim();
+    const autoSmsChecked = document.getElementById('leadTaskAutoSms').checked;
+    const autoReminder = document.getElementById('leadTaskAutoReminder').checked;
+
+    // Find the lead across all orgs
+    let lead = null, org = null;
+    getLeadsOrgs().forEach(o => {
+        const l = (o.leads || []).find(l => l.id === leadId);
+        if (l) { lead = l; org = o; }
     });
-    state.leads.team = state.leads.team.filter(m => m.id !== memberId);
-    // Unassign leads from this member
-    getLeadsProjects().forEach(p => {
-        (p.leads || []).forEach(l => {
-            if (l.assigneeId === memberId) l.assigneeId = '';
-        });
-    });
-    autoSave();
-    renderTeamModalList();
-    populateTeamParentSelect();
-}
+    if (!lead || !org) return showToast('Lead introuvable.', 'error');
+    if (!lead.tasks) lead.tasks = [];
 
-/* ── SMS Modal ────────────────────────────────── */
-function getSelectedLeadIds() {
-    return Array.from(document.querySelectorAll('.lead-select-cb:checked')).map(cb => cb.dataset.leadId);
-}
-
-function getLeadsForSms(leadIds) {
-    const project = getLeadsProject(leadsActiveProjectId);
-    if (!project) return [];
-    return (project.leads || []).filter(l => leadIds.includes(l.id) && l.phone);
-}
-
-function openLeadSmsModal() {
-    const ids = getSelectedLeadIds();
-    if (!ids.length) {
-        // If none selected, use all leads with phone in current project
-        const project = getLeadsProject(leadsActiveProjectId);
-        if (!project) return showToast('Sélectionne un projet d\'abord.', 'error');
-        const allWithPhone = (project.leads || []).filter(l => l.phone);
-        if (!allWithPhone.length) return showToast('Aucun lead avec numéro de téléphone.', 'error');
-        document.getElementById('smsRecipientsSummary').textContent = `${allWithPhone.length} destinataire(s) avec numéro — tous les leads du projet`;
-        document.getElementById('leadSmsModal').dataset.leadIds = JSON.stringify(allWithPhone.map(l => l.id));
+    if (leadsEditingTaskId && leadsEditingTaskLeadId) {
+        // Editing existing task
+        const oldLead = (getLeadsOrg(leadsActiveProjectId)?.leads || []).find(l => l.id === leadsEditingTaskLeadId);
+        if (oldLead) {
+            const task = (oldLead.tasks || []).find(t => t.id === leadsEditingTaskId);
+            if (task) {
+                Object.assign(task, { title, description, dueDate, smsTemplate, autoSms: autoSmsChecked, autoReminder });
+                // If reassigned to different lead, move the task
+                if (leadsEditingTaskLeadId !== leadId) {
+                    oldLead.tasks = oldLead.tasks.filter(t => t.id !== leadsEditingTaskId);
+                    lead.tasks.push(task);
+                }
+            }
+        }
     } else {
-        const withPhone = getLeadsForSms(ids);
-        if (!withPhone.length) return showToast('Aucun des leads sélectionnés n\'a de numéro.', 'error');
-        document.getElementById('smsRecipientsSummary').textContent = `${withPhone.length} destinataire(s) sélectionné(s)`;
-        document.getElementById('leadSmsModal').dataset.leadIds = JSON.stringify(withPhone.map(l => l.id));
+        const taskId = 'task-' + uid();
+        const newTask = {
+            id: taskId, title, description, dueDate, smsTemplate,
+            autoSms: autoSmsChecked, autoReminder,
+            done: false, smsSentAt: null, smsReminderSentAt: null, smsResponseReceived: false,
+            createdAt: Date.now(), doneAt: null
+        };
+        lead.tasks.push(newTask);
+
+        // Auto-send SMS if enabled and template provided
+        if (autoSmsChecked && smsTemplate && lead.phone) {
+            const msg = interpolateTaskSms(smsTemplate, lead, org, newTask);
+            const phoneClean = lead.phone.replace(/[\s\-()]/g, '').replace(/^0/, '33');
+            const waUrl = `https://wa.me/${phoneClean}?text=${encodeURIComponent(msg)}`;
+            if (window.electronAPI?.openExternal) window.electronAPI.openExternal(waUrl);
+            else window.open(waUrl, '_blank');
+            newTask.smsSentAt = Date.now();
+            if (!lead.history) lead.history = [];
+            lead.history.push({ type: 'sms', taskId, message: msg, at: Date.now() });
+            showToast('Message WhatsApp prêt à envoyer ✓', 'success');
+        }
     }
+
+    autoSave();
+    closeLeadTaskModal();
+    renderLeads();
+}
+
+function deleteLeadTask() {
+    if (!leadsEditingTaskId || !leadsEditingTaskLeadId) return;
+    const org = getLeadsOrg(leadsActiveProjectId);
+    if (!org) return;
+    const lead = (org.leads || []).find(l => l.id === leadsEditingTaskLeadId);
+    if (!lead) return;
+    if (!confirm('Supprimer cette tâche ?')) return;
+    lead.tasks = (lead.tasks || []).filter(t => t.id !== leadsEditingTaskId);
+    autoSave();
+    closeLeadTaskModal();
+    renderLeads();
+}
+
+function interpolateTaskSms(tpl, lead, org, task) {
+    return tpl
+        .replace(/\{prenom\}/gi, lead.firstName || '')
+        .replace(/\{nom\}/gi, lead.lastName || '')
+        .replace(/\{org\}/gi, org.name || '')
+        .replace(/\{tache\}/gi, task.title || '');
+}
+
+/* ── SMS Modal (bulk) ─────────────────────────── */
+function openLeadSmsModal() {
+    const org = getLeadsOrg(leadsActiveProjectId);
+    if (!org) return showToast('Sélectionne une organisation d\'abord.', 'error');
+    const withPhone = (org.leads || []).filter(l => l.phone);
+    if (!withPhone.length) return showToast('Aucun lead avec numéro de téléphone.', 'error');
+    document.getElementById('smsRecipientsSummary').textContent = `${withPhone.length} destinataire(s) — ${org.name}`;
+    document.getElementById('leadSmsModal').dataset.leadIds = JSON.stringify(withPhone.map(l => l.id));
+    document.getElementById('leadSmsModal').dataset.orgId = org.id;
     document.getElementById('smsMessageTemplate').value = '';
     document.getElementById('smsPreview').textContent = '—';
     document.getElementById('leadSmsModal').classList.add('show');
 }
 
 function sendSingleLeadSms(leadId) {
-    const project = getLeadsProject(leadsActiveProjectId);
-    if (!project) return;
-    const lead = (project.leads || []).find(l => l.id === leadId);
-    if (!lead || !lead.phone) return showToast('Ce lead n\'a pas de numéro de téléphone.', 'error');
+    const org = getLeadsOrg(leadsActiveProjectId);
+    if (!org) return;
+    const lead = (org.leads || []).find(l => l.id === leadId);
+    if (!lead || !lead.phone) return showToast('Ce lead n\'a pas de numéro.', 'error');
     document.getElementById('smsRecipientsSummary').textContent = `1 destinataire : ${lead.firstName} ${lead.lastName} (${lead.phone})`;
     document.getElementById('leadSmsModal').dataset.leadIds = JSON.stringify([leadId]);
+    document.getElementById('leadSmsModal').dataset.orgId = org.id;
     document.getElementById('smsMessageTemplate').value = '';
     document.getElementById('smsPreview').textContent = '—';
     document.getElementById('leadSmsModal').classList.add('show');
@@ -4036,44 +4353,46 @@ function closeLeadSmsModal() {
 function previewSmsMessage() {
     const tpl = document.getElementById('smsMessageTemplate').value || '';
     const leadIdsRaw = document.getElementById('leadSmsModal').dataset.leadIds;
+    const orgId = document.getElementById('leadSmsModal').dataset.orgId;
     let ids = [];
     try { ids = JSON.parse(leadIdsRaw || '[]'); } catch {}
-    const project = getLeadsProject(leadsActiveProjectId);
-    if (!project || !ids.length) { document.getElementById('smsPreview').textContent = '—'; return; }
-    const first = (project.leads || []).find(l => l.id === ids[0]);
+    const org = getLeadsOrg(orgId);
+    if (!org || !ids.length) { document.getElementById('smsPreview').textContent = '—'; return; }
+    const first = (org.leads || []).find(l => l.id === ids[0]);
     if (!first) { document.getElementById('smsPreview').textContent = '—'; return; }
-    document.getElementById('smsPreview').textContent = interpolateSmsTemplate(tpl, first, project);
-}
-
-function interpolateSmsTemplate(tpl, lead, project) {
-    return tpl
-        .replace(/\{prenom\}/gi, lead.firstName || '')
-        .replace(/\{nom\}/gi, lead.lastName || '')
-        .replace(/\{entreprise\}/gi, lead.company || '')
-        .replace(/\{projet\}/gi, project.name || '');
+    document.getElementById('smsPreview').textContent = tpl
+        .replace(/\{prenom\}/gi, first.firstName || '')
+        .replace(/\{nom\}/gi, first.lastName || '')
+        .replace(/\{org\}/gi, org.name || '')
+        .replace(/\{tache\}/gi, '(tâche)');
 }
 
 function sendLeadsSms() {
     const tpl = (document.getElementById('smsMessageTemplate').value || '').trim();
     if (!tpl) return showToast('Message requis.', 'error');
     const leadIdsRaw = document.getElementById('leadSmsModal').dataset.leadIds;
+    const orgId = document.getElementById('leadSmsModal').dataset.orgId;
     let ids = [];
     try { ids = JSON.parse(leadIdsRaw || '[]'); } catch {}
-    const project = getLeadsProject(leadsActiveProjectId);
-    if (!project || !ids.length) return;
+    const org = getLeadsOrg(orgId);
+    if (!org || !ids.length) return;
 
     const logActivity = document.getElementById('smsLogActivity')?.checked !== false;
     let sentCount = 0;
 
     ids.forEach(id => {
-        const lead = (project.leads || []).find(l => l.id === id);
+        const lead = (org.leads || []).find(l => l.id === id);
         if (!lead || !lead.phone) return;
-        const msg = interpolateSmsTemplate(tpl, lead, project);
+        const msg = tpl
+            .replace(/\{prenom\}/gi, lead.firstName || '')
+            .replace(/\{nom\}/gi, lead.lastName || '')
+            .replace(/\{org\}/gi, org.name || '')
+            .replace(/\{tache\}/gi, '');
 
-        // Open Google Messages web SMS link — the user's default SMS app/site handles sending
-        const phoneClean = lead.phone.replace(/\s+/g, '');
-        const smsUrl = `https://messages.google.com/web/conversations/new?phone=${encodeURIComponent(phoneClean)}&body=${encodeURIComponent(msg)}`;
-        window.open(smsUrl, '_blank');
+        const phoneClean = lead.phone.replace(/[\s\-()]/g, '').replace(/^0/, '33');
+        const waUrl = `https://wa.me/${phoneClean}?text=${encodeURIComponent(msg)}`;
+        if (window.electronAPI?.openExternal) window.electronAPI.openExternal(waUrl);
+        else window.open(waUrl, '_blank');
 
         if (logActivity) {
             if (!lead.history) lead.history = [];
@@ -4084,10 +4403,10 @@ function sendLeadsSms() {
 
     if (sentCount) {
         autoSave();
-        showToast(`${sentCount} SMS préparé${sentCount > 1 ? 's' : ''} dans Google Messages.`, 'success');
+        showToast(`${sentCount} message${sentCount > 1 ? 's' : ''} WhatsApp prêt${sentCount > 1 ? 's' : ''} à envoyer.`, 'success');
     }
     closeLeadSmsModal();
-    renderLeadsTable();
+    renderLeads();
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -5194,9 +5513,9 @@ document.addEventListener('keydown', (e) => {
         if (typeof closeDeleteMailModal === 'function') closeDeleteMailModal();
         if (typeof closeAgendaCreateModal === 'function') closeAgendaCreateModal();
         if (typeof closeAgendaEventModal === 'function') closeAgendaEventModal();
-        if (typeof closeLeadProjectModal === 'function') closeLeadProjectModal();
+        if (typeof closeLeadOrgModal === 'function') closeLeadOrgModal();
         if (typeof closeLeadModal === 'function') closeLeadModal();
-        if (typeof closeLeadTeamModal === 'function') closeLeadTeamModal();
+        if (typeof closeLeadTaskModal === 'function') closeLeadTaskModal();
         if (typeof closeLeadSmsModal === 'function') closeLeadSmsModal();
     }
     // Delete — delete selected inbox mail
