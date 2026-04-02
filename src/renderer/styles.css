@@ -613,6 +613,8 @@
         .mail-item:hover { background: rgba(137,180,250,0.04); }
         .mail-item.selected { background: rgba(137,180,250,0.08); border-left: 2px solid var(--accent-blue); }
         .mail-item.is-sent { opacity: 0.7; }
+        .mail-item.awaiting-response-over-3days { background: rgba(239,68,68,0.12); border-left: 2px solid #ef4444; }
+        .mail-item.awaiting-response-over-3days:hover { background: rgba(239,68,68,0.18); }
         .mail-item-check {
             width: 20px; height: 20px; min-width: 20px;
             border: 2px solid var(--card-border); border-radius: 50%;

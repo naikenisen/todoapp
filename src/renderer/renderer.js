@@ -1076,7 +1076,6 @@ function getMailStatusLabel(status) {
    Mail Tab — Main Render
    ═══════════════════════════════════════════════════════ */
 function renderMailTab() {
-    renderTimeline();
     renderMailList();
     updateMailComposerState();
     updateMailBadge();
@@ -1114,7 +1113,11 @@ function renderMailGroup(title, mails) {
         const status = getMailTaskStatus(m);
         const statusLabel = getMailStatusLabel(status);
         const isSelected = selectedMailTask && selectedMailTask.tid === m.id;
-        const cls = ['mail-item', isSelected ? 'selected' : '', m.sentAt ? 'is-sent' : ''].filter(Boolean).join(' ');
+        
+        // Check if mail is over 3 days old
+        const isOverThreeDays = m.sentAt && !m.respondedAt && (Date.now() - m.sentAt) > 3 * 24 * 60 * 60 * 1000;
+        
+        const cls = ['mail-item', isSelected ? 'selected' : '', m.sentAt ? 'is-sent' : '', isOverThreeDays ? 'awaiting-response-over-3days' : ''].filter(Boolean).join(' ');
         const checkDone = m.sentAt ? 'done' : '';
 
         let actionsHtml = '';
