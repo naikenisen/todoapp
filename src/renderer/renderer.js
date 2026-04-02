@@ -3584,6 +3584,14 @@ function hostFromAnyUrl(raw) {
     }
 }
 
+function sitePartitionForTabId(tabId) {
+    const slug = String(tabId || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9-]/g, '-')
+        .slice(0, 64) || 'default';
+    return `persist:site-tab-${slug}`;
+}
+
 /* ── Persistence ──────────────────────────────── */
 function saveSiteTabs() {
     try {
@@ -3596,7 +3604,16 @@ function loadSiteTabs() {
         const raw = localStorage.getItem(SITE_TABS_STORAGE_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed.filter(t => t && t.id && t.url) : [];
+        return Array.isArray(parsed)
+            ? parsed
+                .filter(t => t && t.id && t.url)
+                .map(t => ({
+                    ...t,
+                    partition: (typeof t.partition === 'string' && t.partition.trim())
+                        ? t.partition.trim()
+                        : sitePartitionForTabId(t.id),
+                }))
+            : [];
     } catch {
         return [];
     }
@@ -3673,7 +3690,7 @@ function saveSiteTabFromModal() {
         }
     } else {
         const id = 'site-' + uid();
-        siteTabs.push({ id, label, url, icon });
+        siteTabs.push({ id, label, url, icon, partition: sitePartitionForTabId(id) });
         saveSiteTabs();
         renderSiteTabButtons();
         switchTab(id);
@@ -3710,7 +3727,12 @@ async function initSiteTabView(tabId) {
 
     if (!siteTabsInitialized[tabId]) {
         siteTabsInitialized[tabId] = true;
-        await api.browserCreateTab({ tabId, url: tab.url, activate: true });
+        await api.browserCreateTab({
+            tabId,
+            url: tab.url,
+            partition: tab.partition || sitePartitionForTabId(tab.id),
+            activate: true
+        });
     } else {
         await api.browserActivateTab(tabId);
     }
@@ -3803,6 +3825,7 @@ function bindBrowserEventsIfNeeded() {
 /* ── Startup restore ──────────────────────────── */
 function initSiteTabs() {
     siteTabs = loadSiteTabs();
+    saveSiteTabs(); // persist partition migration for old tabs
     renderSiteTabButtons();
 }
 
@@ -4104,7 +4127,7 @@ function renderAgendaWeek(events) {
         return `<div class="agenda-all-day-cell">${cards}</div>`;
     }).join('');
 
-    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const hours = Array.from({ length: 14 }, (_, i) => i + 8);
     const hoursHtml = hours.map((h) => `<div class="agenda-hour-slot">${String(h).padStart(2, '0')}:00</div>`).join('');
 
     const dayColumns = weekDays.map((day) => {
@@ -4113,7 +4136,7 @@ function renderAgendaWeek(events) {
         const segments = (timedByDay[key] || []).sort((a, b) => a.startMin - b.startMin);
         const eventsHtml = segments.map((segment) => {
             const k = encodeURIComponent(agendaEventKey(segment.event));
-            const top = Math.max(0, (segment.startMin / 60) * 48);
+            const top = Math.max(0, ((segment.startMin - 480) / 60) * 48);
             const duration = Math.max(18, ((segment.endMin - segment.startMin) / 60) * 48);
             const startLabel = `${String(Math.floor(segment.startMin / 60)).padStart(2, '0')}:${String(segment.startMin % 60).padStart(2, '0')}`;
             const endLabel = `${String(Math.floor(segment.endMin / 60)).padStart(2, '0')}:${String(segment.endMin % 60).padStart(2, '0')}`;
@@ -4340,7 +4363,6 @@ async function loadAgendaWeek() {
         return;
     }
 
-    container.innerHTML = '<div class="agenda-empty-state">Chargement des evenements...</div>';
     try {
         const start = toYmd(agendaWeekStart);
         const end = toYmd(weekEndExclusive);
