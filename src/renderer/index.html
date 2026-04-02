@@ -48,7 +48,6 @@
             <button class="tab-btn" data-tab="mail" onclick="switchTab('mail')"><i class="icon-send"></i> Rédiger</button>
             <button class="tab-btn" data-tab="graph" onclick="switchTab('graph')"><i class="icon-network"></i> Graph</button>
             <button class="tab-btn" data-tab="agenda" onclick="switchTab('agenda')"><i class="icon-calendar-days"></i> Agenda</button>
-            <button class="tab-btn" data-tab="leads" onclick="switchTab('leads')"><i class="icon-users"></i> Leads</button>
         </div>
         <div class="tab-bar-scroll" id="siteTabButtons"></div>
         <button class="tab-btn tab-btn-add-site" onclick="openAddSiteModal()" title="Ajouter un site" style="color:var(--accent-blue);font-size:1.1em;padding:0.6rem 0.7rem"><i class="icon-plus"></i></button>
@@ -221,58 +220,7 @@
         <div id="agendaEvents" class="agenda-week-shell"></div>
     </div>
 
-    <!-- LEADS TAB -->
-    <div class="tab-content" id="tab-leads">
-        <header>
-            <h1><i class="icon-users"></i> Gestion des Leads</h1>
-            <div class="header-actions">
-                <button onclick="openLeadOrgModal()"><i class="icon-plus"></i> Nouvelle organisation</button>
-                <button onclick="openLeadModal()"><i class="icon-user-plus"></i> Ajouter un lead</button>
-                <button onclick="openLeadTaskModal()"><i class="icon-list-checks"></i> Nouvelle tâche</button>
-                <button onclick="openLeadSmsModal()" id="leadSmsBtnHeader"><i class="icon-message-circle"></i> SMS groupé</button>
-            </div>
-        </header>
-        <!-- View switcher -->
-        <div class="leads-view-switcher">
-            <button class="leads-view-btn active" data-view="table" onclick="setLeadsView('table', this)"><i class="icon-table"></i> Leads &amp; Tâches</button>
-            <button class="leads-view-btn" data-view="dashboard" onclick="setLeadsView('dashboard', this)"><i class="icon-layout-dashboard"></i> Synthèse</button>
-        </div>
-        <div class="leads-layout">
-            <!-- Sidebar: org hierarchy -->
-            <div class="leads-sidebar">
-                <div class="leads-sidebar-header">
-                    <input type="text" id="leadsOrgSearch" placeholder="Filtrer organisations…" oninput="renderLeadsOrgTree()">
-                </div>
-                <div class="leads-org-tree" id="leadsOrgTree"></div>
-            </div>
-            <!-- Main: table or dashboard -->
-            <div class="leads-main">
-                <!-- TABLE VIEW -->
-                <div class="leads-view-panel active" id="leadsViewTable">
-                    <div class="leads-main-header">
-                        <div class="leads-main-title" id="leadsMainTitle"><i class="icon-building-2"></i> Sélectionne une organisation</div>
-                        <div style="display:flex;gap:0.4rem;align-items:center">
-                            <input type="text" id="leadsSearch" placeholder="Rechercher…" oninput="renderLeadsTable()" style="padding:0.35rem 0.6rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.78rem;width:160px">
-                        </div>
-                    </div>
-                    <div class="leads-table-wrap" id="leadsTableWrap">
-                        <div class="leads-empty" id="leadsEmptyState">
-                            <i class="icon-building-2"></i>
-                            <p>Sélectionne ou crée une organisation pour commencer</p>
-                        </div>
-                    </div>
-                </div>
-                <!-- DASHBOARD VIEW -->
-                <div class="leads-view-panel" id="leadsViewDashboard">
-                    <div class="leads-main-header">
-                        <div class="leads-main-title"><i class="icon-layout-dashboard"></i> Synthèse globale</div>
-                    </div>
-                    <div class="leads-dashboard-wrap" id="leadsDashboardWrap"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    
     <!-- SITE TAB (dynamic, shared by all site tabs) -->
     <div class="tab-content" id="tab-site">
         <div style="height: calc(100vh - 140px); display:flex; flex-direction:column">
@@ -320,156 +268,7 @@
         </div>
     </div>
 
-    <!-- Modal : Organisation -->
-    <div class="modal-overlay" id="leadOrgModal">
-        <div class="modal" style="max-width:450px">
-            <h2 id="leadOrgModalTitle"><i class="icon-building-2"></i> Nouvelle organisation</h2>
-            <div class="form-group">
-                <label>Nom</label>
-                <input type="text" id="leadOrgName" placeholder="BDE ESTP, Sponsor Corp, Mairie…">
-            </div>
-            <div class="form-group">
-                <label>Type</label>
-                <select id="leadOrgType" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem">
-                    <option value="association">🏛️ Association</option>
-                    <option value="organisation">🏢 Organisation</option>
-                    <option value="entreprise">🏭 Entreprise</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Organisation parente (optionnel)</label>
-                <select id="leadOrgParent" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem">
-                    <option value="">Aucune (racine)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Description (optionnel)</label>
-                <textarea id="leadOrgDesc" rows="2" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem;font-family:inherit;resize:vertical" placeholder="Objectif, contexte…"></textarea>
-            </div>
-            <div class="modal-actions">
-                <button onclick="closeLeadOrgModal()">Annuler</button>
-                <button class="btn-danger" id="leadOrgDeleteBtn" style="display:none" onclick="deleteLeadOrg()"><i class="icon-trash-2"></i></button>
-                <button class="btn-primary" onclick="saveLeadOrg()"><i class="icon-save"></i> Enregistrer</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal : Lead (ajout/edition) -->
-    <div class="modal-overlay" id="leadModal">
-        <div class="modal" style="max-width:520px">
-            <h2 id="leadModalTitle"><i class="icon-user-plus"></i> Ajouter un lead</h2>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">
-                <div class="form-group">
-                    <label>Prénom</label>
-                    <input type="text" id="leadFirstName" placeholder="Jean">
-                </div>
-                <div class="form-group">
-                    <label>Nom</label>
-                    <input type="text" id="leadLastName" placeholder="Dupont">
-                </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">
-                <div class="form-group">
-                    <label>Téléphone</label>
-                    <input type="text" id="leadPhone" placeholder="+33 6 12 34 56 78">
-                </div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <input type="text" id="leadEmail" placeholder="jean@example.com">
-                </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">
-                <div class="form-group">
-                    <label>Rôle / Poste</label>
-                    <input type="text" id="leadRole" placeholder="Président, Trésorier, Directeur…">
-                </div>
-                <div class="form-group">
-                    <label>Organisation</label>
-                    <select id="leadOrg" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem">
-                        <option value="">— Sélectionner —</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Notes</label>
-                <textarea id="leadNotes" rows="2" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem;font-family:inherit;resize:vertical" placeholder="Notes libres…"></textarea>
-            </div>
-            <div class="modal-actions">
-                <button onclick="closeLeadModal()">Annuler</button>
-                <button class="btn-danger" id="leadDeleteBtn" style="display:none" onclick="deleteLead()"><i class="icon-trash-2"></i></button>
-                <button class="btn-primary" onclick="saveLeadFromModal()"><i class="icon-save"></i> Enregistrer</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal : Tâche lead -->
-    <div class="modal-overlay" id="leadTaskModal">
-        <div class="modal" style="max-width:520px">
-            <h2 id="leadTaskModalTitle"><i class="icon-list-checks"></i> Nouvelle tâche</h2>
-            <div class="form-group">
-                <label>Titre de la tâche</label>
-                <input type="text" id="leadTaskTitle" placeholder="Envoyer devis, Relancer partenariat…">
-            </div>
-            <div class="form-group">
-                <label>Description (optionnel)</label>
-                <textarea id="leadTaskDesc" rows="2" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem;font-family:inherit;resize:vertical" placeholder="Détails…"></textarea>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 1rem">
-                <div class="form-group">
-                    <label>Assigner à (lead)</label>
-                    <select id="leadTaskAssignee" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem">
-                        <option value="">— Sélectionner —</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Date limite (optionnel)</label>
-                    <input type="date" id="leadTaskDueDate">
-                </div>
-            </div>
-            <div class="form-group">
-                <label>Message SMS à envoyer (variables : <code>{prenom}</code>, <code>{nom}</code>, <code>{org}</code>, <code>{tache}</code>)</label>
-                <textarea id="leadTaskSmsTemplate" rows="3" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem;font-family:inherit;resize:vertical" placeholder="Bonjour {prenom}, pour {org} merci de {tache}…"></textarea>
-            </div>
-            <div class="form-group">
-                <label style="display:flex;align-items:center;gap:0.4rem"><input type="checkbox" id="leadTaskAutoSms" checked> Envoyer le SMS automatiquement à la création</label>
-            </div>
-            <div class="form-group">
-                <label style="display:flex;align-items:center;gap:0.4rem"><input type="checkbox" id="leadTaskAutoReminder" checked> Rappel automatique après 3 jours sans réponse</label>
-            </div>
-            <div class="modal-actions">
-                <button onclick="closeLeadTaskModal()">Annuler</button>
-                <button class="btn-danger" id="leadTaskDeleteBtn" style="display:none" onclick="deleteLeadTask()"><i class="icon-trash-2"></i></button>
-                <button class="btn-primary" onclick="saveLeadTask()"><i class="icon-save"></i> Enregistrer</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal : SMS groupé -->
-    <div class="modal-overlay" id="leadSmsModal">
-        <div class="modal" style="max-width:520px">
-            <h2><i class="icon-message-circle"></i> Envoyer des SMS personnalisés</h2>
-            <div class="form-group">
-                <label>Destinataires</label>
-                <div id="smsRecipientsSummary" style="font-size:0.82rem;color:var(--text-muted)"></div>
-            </div>
-            <div class="form-group">
-                <label>Message (variables : <code>{prenom}</code>, <code>{nom}</code>, <code>{org}</code>, <code>{tache}</code>)</label>
-                <textarea id="smsMessageTemplate" rows="4" style="width:100%;padding:0.5rem 0.7rem;border:1px solid var(--card-border);border-radius:var(--radius-sm);background:var(--progress-bg);color:var(--text);font-size:0.85rem;font-family:inherit;resize:vertical" placeholder="Bonjour {prenom}, suite à notre échange concernant {org}..." oninput="previewSmsMessage()"></textarea>
-            </div>
-            <div class="form-group">
-                <label>Aperçu (1er destinataire)</label>
-                <div class="leads-sms-preview" id="smsPreview">—</div>
-            </div>
-            <div class="form-group">
-                <label style="display:flex;align-items:center;gap:0.4rem"><input type="checkbox" id="smsLogActivity" checked> Enregistrer l'envoi dans l'historique</label>
-            </div>
-            <div class="modal-actions">
-                <button onclick="closeLeadSmsModal()">Annuler</button>
-                <button class="btn-primary" onclick="sendLeadsSms()"><i class="icon-send"></i> Envoyer via WhatsApp</button>
-            </div>
-        </div>
-    </div>
-
+    
     <!-- GRAPH TAB -->
     <div class="tab-content" id="tab-graph">
         <div class="graph-sidebar">
