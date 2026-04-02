@@ -190,6 +190,9 @@ function createWindow() {
     },
   });
 
+  // Multiple BrowserViews/tabs can register lifecycle listeners on the window.
+  mainWindow.setMaxListeners(50);
+
   winState.manage(mainWindow);
 
   mainWindow.loadURL(`http://localhost:${PORT}`);
@@ -239,6 +242,17 @@ function browserSessionPartitionForUrl(rawUrl) {
 function emitBrowserTabUpdate(tabId, payload = {}) {
   if (!mainWindow || !mainWindow.webContents || mainWindow.webContents.isDestroyed()) return;
   mainWindow.webContents.send('browser:tab-updated', { tabId, ...payload });
+}
+
+function getNavigationState(webContents) {
+  const history = webContents && webContents.navigationHistory;
+  const canGoBack = history && typeof history.canGoBack === 'function'
+    ? history.canGoBack()
+    : webContents.canGoBack();
+  const canGoForward = history && typeof history.canGoForward === 'function'
+    ? history.canGoForward()
+    : webContents.canGoForward();
+  return { canGoBack, canGoForward };
 }
 
 function detachAllBrowserViews() {
@@ -338,28 +352,31 @@ function ensureBrowserViewTab(tabId, initialUrl, partition) {
     emitBrowserTabUpdate(tabId, { loading: true });
   });
   view.webContents.on('did-stop-loading', () => {
+    const nav = getNavigationState(view.webContents);
     emitBrowserTabUpdate(tabId, {
       loading: false,
       url: view.webContents.getURL(),
       title: view.webContents.getTitle(),
-      canGoBack: view.webContents.canGoBack(),
-      canGoForward: view.webContents.canGoForward(),
+      canGoBack: nav.canGoBack,
+      canGoForward: nav.canGoForward,
     });
   });
   view.webContents.on('did-navigate', (_event, url) => {
+    const nav = getNavigationState(view.webContents);
     emitBrowserTabUpdate(tabId, {
       url,
       title: view.webContents.getTitle(),
-      canGoBack: view.webContents.canGoBack(),
-      canGoForward: view.webContents.canGoForward(),
+      canGoBack: nav.canGoBack,
+      canGoForward: nav.canGoForward,
     });
   });
   view.webContents.on('did-navigate-in-page', (_event, url) => {
+    const nav = getNavigationState(view.webContents);
     emitBrowserTabUpdate(tabId, {
       url,
       title: view.webContents.getTitle(),
-      canGoBack: view.webContents.canGoBack(),
-      canGoForward: view.webContents.canGoForward(),
+      canGoBack: nav.canGoBack,
+      canGoForward: nav.canGoForward,
     });
   });
   view.webContents.on('page-title-updated', () => {
@@ -384,12 +401,13 @@ function activateBrowserViewTab(tabId) {
     applyBrowserViewLayout();
   }
 
+  const nav = getNavigationState(view.webContents);
   emitBrowserTabUpdate(tabId, {
     url: view.webContents.getURL(),
     title: view.webContents.getTitle(),
     loading: view.webContents.isLoading(),
-    canGoBack: view.webContents.canGoBack(),
-    canGoForward: view.webContents.canGoForward(),
+    canGoBack: nav.canGoBack,
+    canGoForward: nav.canGoForward,
     active: true,
   });
   return true;
@@ -449,14 +467,20 @@ ipcMain.handle('browser:navigate', async (_event, payload = {}) => {
 ipcMain.handle('browser:goBack', async (_event, tabIdRaw) => {
   const view = browserViews.get(String(tabIdRaw || '').trim());
   if (!view) return { ok: false, error: 'onglet introuvable' };
-  if (view.webContents.canGoBack()) view.webContents.goBack();
+  const history = view.webContents.navigationHistory;
+  if (history && typeof history.canGoBack === 'function' && history.canGoBack()) {
+    history.goBack();
+  }
   return { ok: true };
 });
 
 ipcMain.handle('browser:goForward', async (_event, tabIdRaw) => {
   const view = browserViews.get(String(tabIdRaw || '').trim());
   if (!view) return { ok: false, error: 'onglet introuvable' };
-  if (view.webContents.canGoForward()) view.webContents.goForward();
+  const history = view.webContents.navigationHistory;
+  if (history && typeof history.canGoForward === 'function' && history.canGoForward()) {
+    history.goForward();
+  }
   return { ok: true };
 });
 

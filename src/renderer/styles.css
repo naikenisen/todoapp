@@ -255,6 +255,7 @@
             display: flex;
             flex: 0 0 auto;
             min-width: 0;
+            gap: 0.3rem;
         }
         .tab-bar-scroll {
             display: flex;
@@ -264,6 +265,8 @@
             overflow-y: hidden;
             scrollbar-width: thin;
             scrollbar-color: var(--card-border) transparent;
+            gap: 0.3rem;
+            padding-right: 0.25rem;
         }
         .tab-bar-scroll::-webkit-scrollbar {
             height: 5px;

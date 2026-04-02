@@ -3790,15 +3790,26 @@ async function initSiteTabView(tabId) {
 }
 
 function updateSiteTabViewVisibility() {
+    syncBrowserVisibilityForUiState();
+}
+
+function hasOpenModalOverlay() {
+    return !!document.querySelector('.modal-overlay.show');
+}
+
+async function syncBrowserVisibilityForUiState() {
     const api = getBrowserApi();
     if (!api || !api.browserSetVisible) return;
     const isSiteTab = currentTab.startsWith('site-');
-    api.browserSetVisible(isSiteTab).then(() => {
-        if (!isSiteTab) return;
-        if (siteTabsInitialized[currentTab]) {
-            api.browserActivateTab(currentTab).then(() => updateSiteTabViewBounds());
+    const shouldShowBrowser = isSiteTab && !hasOpenModalOverlay();
+
+    try {
+        await api.browserSetVisible(shouldShowBrowser);
+        if (shouldShowBrowser && siteTabsInitialized[currentTab]) {
+            await api.browserActivateTab(currentTab);
+            updateSiteTabViewBounds();
         }
-    });
+    } catch {}
 }
 
 function updateSiteTabViewBounds() {
@@ -3867,11 +3878,31 @@ function bindBrowserEventsIfNeeded() {
     browserEventsBound = true;
 }
 
+let siteModalVisibilityObserverStarted = false;
+function initSiteModalVisibilityBridge() {
+    if (siteModalVisibilityObserverStarted) return;
+    siteModalVisibilityObserverStarted = true;
+
+    const overlays = Array.from(document.querySelectorAll('.modal-overlay'));
+    if (!overlays.length) return;
+
+    const observer = new MutationObserver(() => {
+        if (currentTab.startsWith('site-')) {
+            syncBrowserVisibilityForUiState();
+        }
+    });
+
+    overlays.forEach((el) => {
+        observer.observe(el, { attributes: true, attributeFilter: ['class'] });
+    });
+}
+
 /* ── Startup restore ──────────────────────────── */
 function initSiteTabs() {
     siteTabs = loadSiteTabs();
     saveSiteTabs(); // persist partition migration for old tabs
     renderSiteTabButtons();
+    initSiteModalVisibilityBridge();
 }
 
 /* ═══════════════════════════════════════════════════════
