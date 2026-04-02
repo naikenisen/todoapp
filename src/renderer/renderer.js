@@ -144,7 +144,6 @@ function render() {
 function renderHeader() {
     return `
     <header>
-        <h1><i class="icon-list-checks"></i> Plan d'action</h1>
         <div class="header-actions">
             <button onclick="toggleEdit()" class="${editMode ? 'active' : ''}">
                 ${editMode ? '<i class="icon-check"></i> Terminer' : '<i class="icon-pencil"></i> Éditer'}
@@ -189,7 +188,7 @@ function renderSections() {
         <div class="section" data-color="${esc(s.color)}" data-sid="${s.id}">
             <div class="section-header" onclick="onSectionClick('${s.id}')">
                 <span class="section-title">
-                    ${s.emoji} ${esc(s.title)}
+                    ${esc(s.title)}
                     <span class="section-badge">${esc(s.badge || '')}</span>
                 </span>
                 <div class="section-header-right">
@@ -427,8 +426,8 @@ function setupDragDrop() {
 }
 
 /* ═══════════════════════════════════════════════════════
-   Section Modal (create / edit + emoji picker)
-   ═══════════════════════════════════════════════════════ */
+    Section Modal (create / edit)
+    ═══════════════════════════════════════════════════════ */
 function openSectionModal(sid) {
     editingSectionId = sid || null;
     const s = sid ? state.sections.find(x => x.id === sid) : null;
@@ -438,10 +437,9 @@ function openSectionModal(sid) {
     document.getElementById('sectionBadgeInput').value = s ? (s.badge || '') : '';
     document.getElementById('sectionDescInput').value = s ? (s.description || '') : '';
 
-    modalEmoji = s ? s.emoji : '📋';
+    modalEmoji = '';
     modalColor = s ? s.color : 'blue';
 
-    renderEmojiGrid();
     renderColorPicker();
     document.getElementById('sectionModal').classList.add('show');
 }
@@ -452,7 +450,9 @@ function closeSectionModal() {
 }
 
 function renderEmojiGrid() {
-    document.getElementById('emojiGrid').innerHTML = EMOJIS.map((e, i) =>
+    const grid = document.getElementById('emojiGrid');
+    if (!grid) return;
+    grid.innerHTML = EMOJIS.map((e, i) =>
         `<button type="button" class="emoji-btn ${e === modalEmoji ? 'selected' : ''}"
             onclick="selectEmoji(${i})">${e}</button>`
     ).join('');
@@ -485,11 +485,11 @@ function saveSectionModal() {
         const s = state.sections.find(x => x.id === editingSectionId);
         if (s) {
             s.title = title; s.badge = badge; s.description = desc;
-            s.emoji = modalEmoji; s.color = modalColor;
+            s.emoji = ''; s.color = modalColor;
         }
     } else {
         state.sections.push({
-            id: uid(), emoji: modalEmoji, title, badge, color: modalColor,
+            id: uid(), emoji: '', title, badge, color: modalColor,
             description: desc, collapsed: false, tasks: []
         });
     }
@@ -2699,9 +2699,10 @@ function renderAttachmentList() {
     placeholder.style.display = 'none';
     list.innerHTML = pendingAttachments.map((a, i) => {
         const sizeKB = (a.file.size / 1024).toFixed(1);
-        return `<span style="display:inline-flex;align-items:center;gap:0.25rem;background:var(--bg-surface);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.15rem 0.5rem;font-size:0.75rem;color:var(--text)">
-            📎 ${esc(a.name)} <span style="color:var(--text-muted)">(${sizeKB} Ko)</span>
-            <button onclick="event.stopPropagation();removeAttachment(${i})" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.85rem;padding:0 0.15rem">&times;</button>
+        return `<span class="attachment-chip">
+            <span class="attachment-chip-name">${esc(a.name)}</span>
+            <span class="attachment-chip-size">(${sizeKB} Ko)</span>
+            <button class="attachment-chip-remove" onclick="event.stopPropagation();removeAttachment(${i})">&times;</button>
         </span>`;
     }).join('');
 }
@@ -4118,8 +4119,7 @@ function renderAgendaWeek(events) {
             const k = encodeURIComponent(agendaEventKey(ev));
             const bg = hexToRgba(ev.calendarColor || '#6c8aff', 0.2);
             const border = ev.calendarColor || '#6c8aff';
-            const text = ev.calendarTextColor || 'var(--text)';
-            return `<div class="agenda-event-card all-day" style="background:${esc(bg)};border-color:${esc(border)};color:${esc(text)}" onclick="handleAgendaCardClick(event, '${k}')">
+            return `<div class="agenda-event-card all-day" style="background:${esc(bg)};border-color:${esc(border)}" onclick="handleAgendaCardClick(event, '${k}')">
                 <strong>${esc(ev.summary || '(Sans titre)')}</strong>
                 <div class="agenda-event-meta">${esc(ev.calendarName || 'Agenda')} • Journee entiere</div>
             </div>`;
@@ -4149,10 +4149,9 @@ function renderAgendaWeek(events) {
             const endLabel = `${String(Math.floor(segment.endMin / 60)).padStart(2, '0')}:${String(segment.endMin % 60).padStart(2, '0')}`;
             const bg = hexToRgba(segment.event.calendarColor || '#6c8aff', 0.2);
             const border = segment.event.calendarColor || '#6c8aff';
-            const text = segment.event.calendarTextColor || 'var(--text)';
             const ro = segment.movable ? '' : 'readonly';
             const handles = segment.movable ? '<div class="agenda-resize-handle top"></div><div class="agenda-resize-handle bottom"></div>' : '';
-            return `<div class="agenda-event-card timed ${ro}" data-event-key="${k}" style="top:${top}px;height:${duration}px;border-color:${esc(border)};background:${esc(bg)};color:${esc(text)}" onclick="handleAgendaCardClick(event, '${k}')">${handles}
+            return `<div class="agenda-event-card timed ${ro}" data-event-key="${k}" style="top:${top}px;height:${duration}px;border-color:${esc(border)};background:${esc(bg)}" onclick="handleAgendaCardClick(event, '${k}')">${handles}
                 <strong>${esc(segment.event.summary || '(Sans titre)')}</strong>
                 <div class="agenda-event-meta">${esc(startLabel)} - ${esc(endLabel)} • ${esc(segment.event.calendarName || 'Agenda')}</div>
             </div>`;

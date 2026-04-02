@@ -166,7 +166,7 @@
                 <div id="attachmentZone" class="attachment-zone" onclick="document.getElementById('attachmentInput').click()">
                     <input type="file" id="attachmentInput" class="is-hidden" multiple onchange="handleAttachmentFiles(this.files)">
                     <div id="attachmentList" class="attachment-list"></div>
-                    <p id="attachmentPlaceholder" class="attachment-placeholder">📎 Cliquer ou glisser des fichiers ici</p>
+                    <p id="attachmentPlaceholder" class="attachment-placeholder">Cliquer ou glisser des fichiers ici</p>
                 </div>
             </div>
             <div class="mail-actions">
@@ -317,10 +317,6 @@
     <div class="modal">
         <h2 id="sectionModalTitle">Nouvelle section</h2>
         <div class="form-group">
-            <label>Emoji</label>
-            <div class="emoji-grid" id="emojiGrid"></div>
-        </div>
-        <div class="form-group">
             <label>Titre</label>
             <input type="text" id="sectionTitleInput" placeholder="Nom de la section">
         </div>
@@ -400,11 +396,11 @@
                     <button onclick="openAccountsModal();closeSettings()"><i class="icon-user"></i> Gérer les comptes</button>
                 </div>
                 <div class="settings-row column settings-row-mt-09">
-                    <label class="settings-label">📇 Importer un annuaire de contacts (CSV)</label>
+                    <label class="settings-label">Importer un annuaire de contacts (CSV)</label>
                     <small>Colonnes: Display Name, First Name, Last Name, Primary Email</small>
                     <div class="contacts-import-row">
                         <input type="file" id="contactsCsvInput" class="contacts-csv-input" accept=".csv">
-                        <button onclick="importContactsCsv()">📥 Importer</button>
+                        <button onclick="importContactsCsv()">Importer</button>
                     </div>
                     <small id="contactsCount" class="contacts-count"></small>
                 </div>
