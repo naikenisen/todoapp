@@ -50,7 +50,7 @@
             <button class="tab-btn" data-tab="agenda" onclick="switchTab('agenda')"><i class="icon-calendar-days"></i> Agenda</button>
         </div>
         <div class="tab-bar-scroll" id="siteTabButtons"></div>
-        <button class="tab-btn tab-btn-add-site" onclick="openAddSiteModal()" title="Ajouter un site" style="color:var(--accent-blue);font-size:1.1em;padding:0.6rem 0.7rem"><i class="icon-plus"></i></button>
+        <button class="tab-btn tab-btn-add-site tab-btn-add-site-accent" onclick="openAddSiteModal()" title="Ajouter un site"><i class="icon-plus"></i></button>
     </div>
 
     <!-- TODO TAB -->
@@ -69,8 +69,8 @@
             </div>
         </header>
 
-        <div id="inbox-status" style="display:none" class="inbox-status"></div>
-        <div class="terminal-output" id="v3output" style="display:none"></div>
+        <div id="inbox-status" class="inbox-status is-hidden"></div>
+        <div class="terminal-output is-hidden" id="v3output"></div>
 
         <div class="inbox-layout">
             <div class="inbox-list-panel" id="inboxListPanel">
@@ -87,7 +87,7 @@
             <div class="inbox-reader-panel" id="inboxReaderPanel">
                 <div id="inboxReader" class="inbox-reader">
                     <div class="inbox-reader-empty">
-                        <i class="icon-mail-open" style="font-size:2.5rem;color:var(--text-muted)"></i>
+                        <i class="icon-mail-open inbox-empty-icon"></i>
                         <p>Sélectionne un mail pour le lire</p>
                     </div>
                 </div>
@@ -141,15 +141,15 @@
                 <label>Corps du message</label>
                 <textarea id="mailBody" placeholder="Rédigez votre mail ici…"></textarea>
             </div>
-            <div class="mail-field" id="replyPromptField" style="display:none">
+            <div class="mail-field is-hidden" id="replyPromptField">
                 <label>Prompt Gemini (mode réponse)</label>
-                <textarea id="replyPromptInput" style="min-height:80px" placeholder="Ex: Réponse courte, ton ferme mais cordial, proposer un créneau jeudi matin."></textarea>
-                <small style="color:var(--text-muted)">Utilisé uniquement pour générer votre réponse lors d'un Répondre / Répondre à tous.</small>
+                <textarea id="replyPromptInput" class="reply-prompt-input" placeholder="Ex: Réponse courte, ton ferme mais cordial, proposer un créneau jeudi matin."></textarea>
+                <small class="muted-help-text">Utilisé uniquement pour générer votre réponse lors d'un Répondre / Répondre à tous.</small>
             </div>
-            <div class="mail-field" id="originalMailField" style="display:none">
+            <div class="mail-field is-hidden" id="originalMailField">
                 <label>Message original (figé)</label>
-                <textarea id="originalMailBody" readonly style="min-height:180px;opacity:0.9" placeholder="Le message original s'affiche ici"></textarea>
-                <small style="color:var(--text-muted)">Ce contenu est verrouillé et n'est jamais modifié par « Reformuler ».</small>
+                <textarea id="originalMailBody" class="original-mail-body" readonly placeholder="Le message original s'affiche ici"></textarea>
+                <small class="muted-help-text">Ce contenu est verrouillé et n'est jamais modifié par « Reformuler ».</small>
             </div>
             <div class="mail-field">
                 <label>Signature</label>
@@ -157,32 +157,32 @@
                     <option value="">-- Aucune signature --</option>
                 </select>
             </div>
-            <div class="mail-field" id="signaturePreviewField" style="display:none">
-                <label style="color:var(--text-muted);font-size:0.78rem">Aperçu de la signature</label>
-                <div id="signaturePreview" style="border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.6rem;background:var(--card-bg);pointer-events:none;user-select:none"></div>
+            <div class="mail-field is-hidden" id="signaturePreviewField">
+                <label class="signature-preview-label">Aperçu de la signature</label>
+                <div id="signaturePreview" class="signature-preview-box"></div>
             </div>
             <div class="mail-field">
                 <label>Pièces jointes</label>
-                <div id="attachmentZone" style="border:1px dashed var(--card-border);border-radius:var(--radius-sm);padding:0.6rem;min-height:2.4rem;cursor:pointer;position:relative" onclick="document.getElementById('attachmentInput').click()">
-                    <input type="file" id="attachmentInput" multiple style="display:none" onchange="handleAttachmentFiles(this.files)">
-                    <div id="attachmentList" style="display:flex;flex-wrap:wrap;gap:0.4rem"></div>
-                    <p id="attachmentPlaceholder" style="color:var(--text-muted);font-size:0.78rem;margin:0;text-align:center">📎 Cliquer ou glisser des fichiers ici</p>
+                <div id="attachmentZone" class="attachment-zone" onclick="document.getElementById('attachmentInput').click()">
+                    <input type="file" id="attachmentInput" class="is-hidden" multiple onchange="handleAttachmentFiles(this.files)">
+                    <div id="attachmentList" class="attachment-list"></div>
+                    <p id="attachmentPlaceholder" class="attachment-placeholder">📎 Cliquer ou glisser des fichiers ici</p>
                 </div>
             </div>
             <div class="mail-actions">
-                <button onclick="sendMailSMTP()" style="background:var(--accent-blue)!important;border-color:var(--accent-blue)!important;color:white!important"><i class="icon-send"></i> Envoyer</button>
-                <button class="accent-blue" id="generateReplyBtn" style="display:none" onclick="generateReplyFromPrompt()"><i class="icon-sparkles"></i> Générer réponse IA</button>
+                <button class="accent-blue" onclick="sendMailSMTP()"><i class="icon-send"></i> Envoyer</button>
+                <button class="accent-blue is-hidden" id="generateReplyBtn" onclick="generateReplyFromPrompt()"><i class="icon-sparkles"></i> Générer réponse IA</button>
                 <button class="accent-purple" onclick="reformulateMail()"><i class="icon-sparkles"></i> Reformuler</button>
                 <button class="accent-green" onclick="saveMailEml()"><i class="icon-save"></i> Enregistrer .eml</button>
             </div>
-            <div class="mail-actions" id="mailSentActions" style="margin-top:0.5rem; display:none"></div>
+            <div class="mail-actions mt-05 is-hidden" id="mailSentActions"></div>
         </div>
 
-        <div class="mail-composer signatures-panel" style="margin-top:0.8rem">
+        <div class="mail-composer signatures-panel mt-08">
             <h2><i class="icon-signature"></i> Signatures</h2>
-            <div class="mail-field" style="margin-top:0.8rem">
+            <div class="mail-field mt-08">
                 <div id="signaturesList"></div>
-                <div class="mail-actions" style="margin-top:0.5rem">
+                <div class="mail-actions mt-05">
                     <button class="signature-add-btn" onclick="openSignatureModal()"><i class="icon-plus"></i> Nouvelle signature</button>
                 </div>
             </div>
@@ -194,7 +194,7 @@
     <div class="tab-content" id="tab-agenda">
         <header>
             <div class="header-actions">
-                <select id="agendaAccount" onchange="onAgendaAccountChange()" style="min-width:260px"></select>
+                <select id="agendaAccount" class="agenda-account-select" onchange="onAgendaAccountChange()"></select>
                 <button onclick="connectAgendaOAuth()"><i class="icon-link"></i> Connecter Google</button>
                 <button onclick="agendaPrevWeek()">◀</button>
                 <button onclick="agendaToday()">Aujourd'hui</button>
@@ -204,7 +204,7 @@
             </div>
         </header>
         <div id="agendaCalendarFilters" class="agenda-cal-filters"></div>
-        <div class="global-progress" style="position:static">
+        <div class="global-progress agenda-progress">
             <div class="global-progress-header">
                 <span id="agendaMonthLabel">Semaine</span>
                 <span class="counter" id="agendaCountLabel">0 événement</span>
@@ -216,18 +216,18 @@
     
     <!-- SITE TAB (dynamic, shared by all site tabs) -->
     <div class="tab-content" id="tab-site">
-        <div style="height: calc(100vh - 140px); display:flex; flex-direction:column">
-            <div class="header-actions" style="justify-content:flex-start;margin:0;padding:0.55rem 0.6rem;gap:0.4rem;border-bottom:1px solid var(--card-border)">
+        <div class="site-tab-shell">
+            <div class="header-actions site-tab-header-actions">
                 <button onclick="siteTabGoBack()">◀</button>
                 <button onclick="siteTabGoForward()">▶</button>
                 <button onclick="siteTabReload()"><i class="icon-refresh-cw"></i></button>
-                <input id="siteTabAddress" type="text" placeholder="https://example.com" onkeydown="if(event.key==='Enter')siteTabNavigateAddress()" style="flex:1;min-width:220px;background:var(--progress-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.45rem 0.6rem;color:var(--text)">
+                <input id="siteTabAddress" class="site-tab-address" type="text" placeholder="https://example.com" onkeydown="if(event.key==='Enter')siteTabNavigateAddress()">
                 <button onclick="siteTabNavigateAddress()"><i class="icon-arrow-right"></i></button>
                 <button onclick="openEditSiteModal()" title="Modifier ce site"><i class="icon-settings"></i></button>
-                <button onclick="removeSiteTab(currentTab)" title="Supprimer cet onglet" style="color:var(--accent-pink)"><i class="icon-trash-2"></i></button>
+                <button class="site-tab-remove-btn" onclick="removeSiteTab(currentTab)" title="Supprimer cet onglet"><i class="icon-trash-2"></i></button>
             </div>
-            <div id="siteTabViewport" style="flex:1;background:var(--bg);position:relative">
-                <div class="graph-placeholder" style="inset:0">
+            <div id="siteTabViewport" class="site-tab-viewport">
+                <div class="graph-placeholder site-tab-placeholder">
                     <div class="gp-icon"><i class="icon-globe"></i></div>
                     <div class="gp-text">Le site s'affiche ici</div>
                 </div>
@@ -238,7 +238,7 @@
 
     <!-- Modal : Ajouter / Modifier un site -->
     <div class="modal-overlay" id="siteTabModal">
-        <div class="modal" style="max-width:420px">
+        <div class="modal modal-w-420">
             <h2 id="siteTabModalTitle"><i class="icon-globe"></i> Ajouter un site</h2>
             <div class="form-group">
                 <label>Nom de l'onglet</label>
@@ -253,7 +253,7 @@
                 <input type="text" id="siteTabIcon" placeholder="icon-github, icon-globe, icon-mail…">
                 <small>Laisser vide pour utiliser <code>icon-globe</code> par defaut</small>
             </div>
-            <div style="font-size:0.78rem;color:var(--text-muted);padding-top:0.5rem"><i class="icon-lock"></i> Les sessions (cookies, connexion Google, etc.) sont conservees automatiquement entre chaque ouverture de l'application.</div>
+            <div class="site-tab-session-note"><i class="icon-lock"></i> Les sessions (cookies, connexion Google, etc.) sont conservees automatiquement entre chaque ouverture de l'application.</div>
             <div class="modal-actions">
                 <button onclick="closeSiteTabModal()">Annuler</button>
                 <button class="btn-primary" onclick="saveSiteTabFromModal()"><i class="icon-save"></i> Enregistrer</button>
@@ -292,7 +292,7 @@
                 <div class="gp-text">Tapez une recherche pour afficher le graphe</div>
                 <div class="gp-hint">minimum 2 caractères</div>
             </div>
-            <div class="graph-zoom-controls" id="graphZoomControls" style="display:none">
+            <div class="graph-zoom-controls is-hidden" id="graphZoomControls">
                 <button onclick="graphZoom(1.3)" title="Zoom in">+</button>
                 <button onclick="graphZoom(1/1.3)" title="Zoom out">−</button>
                 <button onclick="graphFit()" title="Fit">⊡</button>
@@ -379,7 +379,7 @@
                     <input type="password" id="geminiKeyInput" placeholder="AIza..." class="settings-input">
                     <small>Utilisée pour reformuler et générer des réponses IA.</small>
                 </div>
-                <div class="settings-row" style="margin-top:0.6rem">
+                <div class="settings-row settings-row-mt-06">
                     <button onclick="saveMailToolsSettings()"><i class="icon-save"></i> Sauvegarder la clé</button>
                 </div>
             </div>
@@ -399,19 +399,19 @@
                     </div>
                     <button onclick="openAccountsModal();closeSettings()"><i class="icon-user"></i> Gérer les comptes</button>
                 </div>
-                <div class="settings-row column" style="margin-top:0.9rem">
+                <div class="settings-row column settings-row-mt-09">
                     <label class="settings-label">📇 Importer un annuaire de contacts (CSV)</label>
                     <small>Colonnes: Display Name, First Name, Last Name, Primary Email</small>
-                    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.4rem">
-                        <input type="file" id="contactsCsvInput" accept=".csv" style="font-size:0.8rem;color:var(--text)">
+                    <div class="contacts-import-row">
+                        <input type="file" id="contactsCsvInput" class="contacts-csv-input" accept=".csv">
                         <button onclick="importContactsCsv()">📥 Importer</button>
                     </div>
-                    <small id="contactsCount" style="color:var(--text-muted);margin-top:0.3rem;display:block"></small>
+                    <small id="contactsCount" class="contacts-count"></small>
                 </div>
             </div>
         </div>
 
-        <div class="modal-actions" style="margin-top:1rem">
+        <div class="modal-actions mt-1">
             <button onclick="closeSettings()">Fermer</button>
         </div>
     </div>
@@ -419,7 +419,7 @@
 
 <!-- Reminder Modal -->
 <div class="modal-overlay" id="reminderModal" onclick="if(event.target===this)closeReminderModal()">
-    <div class="modal" style="max-width:600px">
+    <div class="modal modal-w-600">
         <h2 id="reminderModalTitle"><i class="icon-sparkles"></i> Relance générée par IA</h2>
         <div class="mail-field">
             <label>Destinataire</label>
@@ -431,15 +431,15 @@
         </div>
         <div class="mail-field">
             <label>Corps</label>
-            <textarea id="reminderBody" style="min-height:150px"></textarea>
+            <textarea id="reminderBody" class="reminder-body-textarea"></textarea>
         </div>
         <div class="modal-actions">
             <button onclick="closeReminderModal()">Annuler</button>
             <button class="accent-purple" onclick="reformulateReminder()"><i class="icon-sparkles"></i> Reformuler</button>
             <button class="accent-green" onclick="saveReminderEml()"><i class="icon-save"></i> .eml</button>
-            <button style="background:var(--accent-blue)!important;border-color:var(--accent-blue)!important;color:white!important" onclick="sendReminderSMTP()"><i class="icon-send"></i> Envoyer</button>
+            <button class="accent-blue" onclick="sendReminderSMTP()"><i class="icon-send"></i> Envoyer</button>
         </div>
-        <div class="modal-actions" style="margin-top:0.5rem;">
+        <div class="modal-actions mt-05">
             <button class="btn-sent-confirm" onclick="confirmReminderSent()"><i class="icon-check"></i> Rappel envoyé</button>
             <button class="btn-response-received" onclick="confirmReminderResponseReceived()"><i class="icon-mail-check"></i> Réponse reçue</button>
         </div>
@@ -448,10 +448,10 @@
 
 <!-- Accounts Modal -->
 <div class="modal-overlay" id="accountsModal" onclick="if(event.target===this)closeAccountsModal()">
-    <div class="modal" style="max-width:650px">
+    <div class="modal modal-w-650">
         <h2><i class="icon-user"></i> Comptes mail (POP3 / IMAP / SMTP / Gmail OAuth 2.0)</h2>
         <div id="accountsList"></div>
-        <button class="add-task-btn" onclick="addAccountForm()" style="margin-bottom:1rem">+ Ajouter un compte</button>
+        <button class="add-task-btn mb-1" onclick="addAccountForm()">+ Ajouter un compte</button>
         <div class="modal-actions">
             <button onclick="closeAccountsModal()">Annuler</button>
             <button class="btn-primary" onclick="saveAccountsFromModal()"><i class="icon-save"></i> Enregistrer</button>
@@ -461,9 +461,9 @@
 
 <!-- Delete Confirm Modal -->
 <div class="modal-overlay" id="deleteMailModal" onclick="if(event.target===this)closeDeleteMailModal()">
-    <div class="modal" style="max-width:400px">
+    <div class="modal modal-w-400">
         <h2><i class="icon-trash-2"></i> Supprimer ce mail ?</h2>
-        <p style="color:var(--text-muted);margin-bottom:1rem" id="deleteMailSubject"></p>
+        <p class="delete-mail-subject" id="deleteMailSubject"></p>
         <div class="form-group">
             <label>
                 <input type="checkbox" id="deleteOnServer"> Supprimer aussi sur le serveur distant
@@ -478,7 +478,7 @@
 
 <!-- Signature Editor Modal -->
 <div class="modal-overlay" id="signatureModal" onclick="if(event.target===this)closeSignatureModal()">
-    <div class="modal" style="max-width:660px">
+    <div class="modal modal-w-660">
         <h2 id="signatureModalTitle"><i class="icon-pen-line"></i> Nouvelle signature</h2>
         <div class="form-group">
             <label>Nom</label>
@@ -486,11 +486,11 @@
         </div>
         <div class="form-group">
             <label>Contenu HTML</label>
-            <textarea id="signatureHtmlInput" rows="8" placeholder="&lt;p&gt;Cordialement,&lt;br&gt;&lt;strong&gt;Votre Nom&lt;/strong&gt;&lt;/p&gt;" oninput="updateSignatureEditPreview()" style="font-family:monospace;font-size:0.82rem"></textarea>
+            <textarea id="signatureHtmlInput" class="signature-html-input" rows="8" placeholder="&lt;p&gt;Cordialement,&lt;br&gt;&lt;strong&gt;Votre Nom&lt;/strong&gt;&lt;/p&gt;" oninput="updateSignatureEditPreview()"></textarea>
         </div>
         <div class="form-group">
             <label>Aperçu</label>
-            <div id="signatureEditPreview" style="border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.6rem;min-height:3rem;background:var(--card-bg)"></div>
+            <div id="signatureEditPreview" class="signature-edit-preview"></div>
         </div>
         <div class="modal-actions">
             <button onclick="closeSignatureModal()">Annuler</button>
@@ -501,7 +501,7 @@
 
 <!-- Agenda Create Modal -->
 <div class="modal-overlay" id="agendaCreateModal" onclick="if(event.target===this)closeAgendaCreateModal()">
-    <div class="modal" style="max-width:520px">
+    <div class="modal modal-w-520">
         <h2><i class="icon-plus"></i> Nouvel événement</h2>
         <div class="form-group">
             <label>Titre</label>
@@ -513,7 +513,7 @@
         </div>
         <div class="form-group">
             <label>Journée entière</label>
-            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">
+            <label class="checkbox-inline-label">
                 <input type="checkbox" id="agendaCreateAllDay" onchange="toggleAgendaCreateAllDay()">
                 Événement toute la journée
             </label>
@@ -522,12 +522,12 @@
             <label>Date</label>
             <input type="date" id="agendaCreateDate">
         </div>
-        <div class="form-group" id="agendaCreateTimeGroup" style="display:flex;gap:0.6rem">
-            <div style="flex:1">
+        <div class="form-group form-row-time" id="agendaCreateTimeGroup">
+            <div class="flex-1">
                 <label>Début</label>
                 <input type="time" id="agendaCreateStartTime" value="09:00">
             </div>
-            <div style="flex:1">
+            <div class="flex-1">
                 <label>Fin</label>
                 <input type="time" id="agendaCreateEndTime" value="10:00">
             </div>
@@ -549,7 +549,7 @@
 
 <!-- Agenda Event Modal -->
 <div class="modal-overlay" id="agendaEventModal" onclick="if(event.target===this)closeAgendaEventModal()">
-    <div class="modal" style="max-width:560px">
+    <div class="modal modal-w-560">
         <h2><i class="icon-calendar-days"></i> Modifier l'événement</h2>
         <div class="form-group">
             <label>Titre</label>
@@ -561,7 +561,7 @@
         </div>
         <div class="form-group">
             <label>Journée entière</label>
-            <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer">
+            <label class="checkbox-inline-label">
                 <input type="checkbox" id="agendaEventAllDay" onchange="toggleAgendaEventAllDay()">
                 Événement toute la journée
             </label>
@@ -570,12 +570,12 @@
             <label>Date</label>
             <input type="date" id="agendaEventDate">
         </div>
-        <div class="form-group" id="agendaEventTimeGroup" style="display:flex;gap:0.6rem">
-            <div style="flex:1">
+        <div class="form-group form-row-time" id="agendaEventTimeGroup">
+            <div class="flex-1">
                 <label>Début</label>
                 <input type="time" id="agendaEventStartTime">
             </div>
-            <div style="flex:1">
+            <div class="flex-1">
                 <label>Fin</label>
                 <input type="time" id="agendaEventEndTime">
             </div>
