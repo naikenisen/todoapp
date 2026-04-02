@@ -952,15 +952,15 @@ function renderSignaturesList() {
     if (!el) return;
     const sigs = state.settings.signatures || [];
     if (!sigs.length) {
-        el.innerHTML = '<p style="color:var(--text-muted);font-size:0.82rem;margin:0.3rem 0">Aucune signature configurée.</p>';
+        el.innerHTML = '<p class="signatures-empty">Aucune signature configurée.</p>';
         return;
     }
     el.innerHTML = sigs.map(s =>
-        `<div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid var(--card-border)">` +
-        `<span style="font-size:0.88rem">${esc(s.name)}</span>` +
-        `<div style="display:flex;gap:0.4rem">` +
-        `<button onclick="openSignatureModal('${s.id}')" style="padding:0.2rem 0.5rem;font-size:0.75rem"><i class="icon-pencil"></i></button>` +
-        `<button onclick="deleteSignature('${s.id}')" style="padding:0.2rem 0.5rem;font-size:0.75rem;background:var(--accent-red)!important;border-color:var(--accent-red)!important;color:white!important"><i class="icon-trash-2"></i></button>` +
+        `<div class="signature-item">` +
+        `<div class="signature-item-name">${esc(s.name)}</div>` +
+        `<div class="signature-item-actions">` +
+        `<button class="signature-action-edit" onclick="openSignatureModal('${s.id}')"><i class="icon-pencil"></i> Modifier</button>` +
+        `<button class="signature-action-delete" onclick="deleteSignature('${s.id}')" title="Supprimer la signature"><i class="icon-trash-2"></i></button>` +
         `</div></div>`
     ).join('');
 }

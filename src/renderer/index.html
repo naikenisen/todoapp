@@ -179,17 +179,12 @@
             <div class="mail-actions" id="mailSentActions" style="margin-top:0.5rem; display:none"></div>
         </div>
 
-        <div class="mail-composer" style="margin-top:0.8rem">
-            <h2><i class="icon-settings"></i> Outils Rédiger</h2>
-            <div class="mail-field">
-                <small style="color:var(--text-muted)"><i class="icon-info"></i> La clé API Gemini et l'import de contacts sont configurables dans les <a href="#" onclick="openSettings();return false;" style="color:var(--accent-blue)">Paramètres <i class="icon-settings" style="font-size:0.75rem"></i></a>.</small>
-            </div>
+        <div class="mail-composer signatures-panel" style="margin-top:0.8rem">
+            <h2><i class="icon-signature"></i> Signatures</h2>
             <div class="mail-field" style="margin-top:0.8rem">
-                <label>✍️ Signatures HTML</label>
-                <small style="display:block;margin-bottom:0.4rem;color:var(--text-muted)">Les signatures ne sont jamais modifiées par le bouton « Reformuler ».</small>
                 <div id="signaturesList"></div>
                 <div class="mail-actions" style="margin-top:0.5rem">
-                    <button onclick="openSignatureModal()"><i class="icon-plus"></i> Nouvelle signature</button>
+                    <button class="signature-add-btn" onclick="openSignatureModal()"><i class="icon-plus"></i> Nouvelle signature</button>
                 </div>
             </div>
         </div>
