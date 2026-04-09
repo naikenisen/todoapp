@@ -1721,153 +1721,7 @@
             color: var(--text-muted);
         }
 
-        .mailchat-columns {
-            flex: 1;
-            min-height: 0;
-            display: grid;
-            grid-template-columns: minmax(260px, 1fr) minmax(360px, 1.4fr) minmax(260px, 1fr);
-            gap: 0;
-            overflow: hidden;
-            height: 100%;
-        }
-        .mailchat-column {
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
-            min-height: 0;
-            border-right: 1px solid var(--card-border);
-        }
-        .mailchat-column:last-child {
-            border-right: none;
-        }
-        .mailchat-column > header {
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            gap: 0.35rem;
-            font-size: 0.78rem;
-            font-weight: 700;
-            color: var(--text);
-            padding: 0.55rem 0.75rem;
-            border-bottom: 1px solid var(--card-border);
-            background: rgba(255,255,255,0.01);
-        }
-        .mailchat-column-body {
-            flex: 1;
-            min-height: 0;
-            height: 0;
-            overflow-y: auto;
-            overscroll-behavior: contain;
-            padding: 0.65rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.6rem;
-        }
-        .chatbot-answer-box {
-            border: 1px solid var(--card-border);
-            border-radius: var(--radius-sm);
-            background: var(--bg);
-            padding: 0.7rem;
-            font-size: 0.82rem;
-            line-height: 1.55;
-            color: var(--text);
-            white-space: pre-wrap;
-            max-width: 100%;
-            overflow-x: auto;
-            overflow-y: auto;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-        }
-        .chatbot-answer-box * {
-            max-width: 100%;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-        }
-        .chatbot-answer-box p,
-        .chatbot-answer-box ul,
-        .chatbot-answer-box ol,
-        .chatbot-answer-box pre {
-            margin: 0 0 0.55rem;
-        }
-        .chatbot-answer-box :last-child {
-            margin-bottom: 0;
-        }
-        .mailchat-result-item {
-            border: 1px solid var(--card-border);
-            border-radius: var(--radius-sm);
-            background: var(--bg);
-            overflow: hidden;
-        }
-        .mailchat-result-item summary {
-            list-style: none;
-        }
-        .mailchat-result-item summary::-webkit-details-marker {
-            display: none;
-        }
-        .mailchat-result-summary {
-            padding: 0.55rem 0.65rem;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            gap: 0.2rem;
-        }
-        .mailchat-result-summary:hover {
-            background: var(--card-hover);
-        }
-        .mailchat-result-meta {
-            color: var(--text-muted);
-            font-size: 0.72rem;
-        }
-        .mailchat-result-body {
-            padding: 0 0.65rem 0.65rem;
-            color: var(--text);
-            font-size: 0.76rem;
-            line-height: 1.45;
-            white-space: pre-wrap;
-            border-top: 1px solid var(--card-border);
-            max-height: min(52vh, 560px);
-            overflow-y: auto;
-            overflow-wrap: anywhere;
-            word-break: break-word;
-        }
-        .mailchat-result-body iframe {
-            width: 100%;
-            min-height: 240px;
-            border: 1px solid var(--card-border);
-            border-radius: var(--radius-sm);
-            background: #fff;
-        }
-        .mailchat-att-group {
-            border: 1px solid var(--card-border);
-            border-radius: var(--radius-sm);
-            background: var(--bg);
-            padding: 0.5rem;
-        }
-        .mailchat-att-group h4 {
-            font-size: 0.72rem;
-            margin: 0 0 0.35rem;
-            color: var(--text-muted);
-            font-weight: 600;
-        }
-        .mailchat-att-btn {
-            width: 100%;
-            border: 1px solid var(--card-border);
-            background: var(--bg-secondary);
-            border-radius: var(--radius-sm);
-            color: var(--text);
-            cursor: pointer;
-            text-align: left;
-            font-size: 0.74rem;
-            padding: 0.4rem 0.5rem;
-            margin-bottom: 0.35rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .mailchat-att-btn:hover {
-            border-color: var(--accent-blue);
-            background: var(--card-hover);
-        }
+        /* (old pre-V2 mailchat rules removed – all styles now in V2 block below) */
 
         /* ─── Graph Sub-tabs (legacy cleanup) ─────── */
         .graph-sidebar-content { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
@@ -2026,15 +1880,598 @@
                 grid-column: 1 / -1;
                 padding-top: 0.2rem;
             }
-            .mailchat-columns {
+            /* old mailchat-columns responsive rules removed */
+        }
+
+        /* ─── MailChat V2 Redesign ───────────────────── */
+        :root {
+            --mailchat-shell-bg: var(--bg-surface);
+            --mailchat-shell-border: var(--card-border);
+            --mailchat-panel-bg: var(--bg-secondary);
+            --mailchat-panel-border: var(--card-border);
+            --mailchat-toolbar-bg: rgba(59, 130, 246, 0.08);
+            --mailchat-chip-bg: var(--bg-secondary);
+            --mailchat-chip-fg: var(--text-muted);
+            --mailchat-chip-active-bg: rgba(59, 130, 246, 0.2);
+            --mailchat-chip-active-fg: var(--text);
+        }
+        body.light-mode {
+            --mailchat-toolbar-bg: rgba(37, 99, 235, 0.08);
+            --mailchat-chip-active-bg: rgba(37, 99, 235, 0.15);
+        }
+        #tab-mailchat {
+            height: calc(100vh - 110px);
+            overflow: hidden;
+        }
+        #tab-mailchat.active {
+            display: block;
+        }
+        #tab-mailchat .mailchat-v2 {
+            height: 100%;
+            border-radius: 14px;
+            border: 1px solid var(--mailchat-shell-border);
+            box-shadow: 0 14px 40px rgba(2, 6, 23, 0.28);
+            background:
+                radial-gradient(1200px 600px at 100% -20%, rgba(59, 130, 246, 0.08), transparent 55%),
+                radial-gradient(900px 500px at -15% 100%, rgba(59, 130, 246, 0.08), transparent 50%),
+                var(--mailchat-shell-bg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-header {
+            padding: 0.7rem 0.9rem;
+            backdrop-filter: blur(4px);
+            border-bottom: 1px solid var(--mailchat-shell-border);
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-title {
+            letter-spacing: 0.02em;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-toolbar-v2 {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            padding: 0.55rem 0.8rem;
+            border-bottom: 1px solid var(--mailchat-shell-border);
+            background: var(--mailchat-toolbar-bg);
+            flex-shrink: 0;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-period-filters,
+        #tab-mailchat .mailchat-v2 .mailchat-insight-tabs {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-chip {
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 999px;
+            background: var(--mailchat-chip-bg);
+            color: var(--mailchat-chip-fg);
+            font-size: 0.7rem;
+            padding: 0.26rem 0.62rem;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-chip.active,
+        #tab-mailchat .mailchat-v2 .mailchat-chip:hover {
+            color: var(--mailchat-chip-active-fg);
+            border-color: var(--accent-blue);
+            background: var(--mailchat-chip-active-bg);
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-workspace {
+            flex: 1;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.65rem;
+            padding: 0.72rem;
+            overflow: hidden;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-panel {
+            min-width: 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 12px;
+            background: var(--mailchat-panel-bg);
+            overflow: hidden;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-panel-title {
+            flex-shrink: 0;
+            padding: 0.55rem 0.72rem;
+            border-bottom: 1px solid var(--mailchat-panel-border);
+            color: var(--text);
+            font-size: 0.74rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-semantic-wrap {
+            border: none;
+            background: transparent;
+            padding: 0.65rem;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-semantic-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 0.48rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-semantic-grid label,
+        #tab-mailchat .mailchat-v2 .mailchat-comment-field {
+            font-size: 0.68rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-semantic-grid input,
+        #tab-mailchat .mailchat-v2 .mailchat-semantic-grid select,
+        #tab-mailchat .mailchat-v2 .mailchat-comment-field textarea {
+            font-size: 0.75rem;
+            border-color: var(--mailchat-panel-border);
+            background: var(--bg);
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-semantic-checkbox {
+            grid-column: 1 / -1;
+            padding-top: 0.2rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-query-actions .chatbot-send-btn {
+            height: 32px;
+            font-size: 0.73rem;
+            padding: 0 0.75rem;
+            border-radius: 10px;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-query-info {
+            min-height: 24px;
+            font-size: 0.69rem;
+            line-height: 1.3;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-column-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            overscroll-behavior: contain;
+            padding: 0.65rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box {
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 10px;
+            background: var(--bg);
+            padding: 0.7rem;
+            font-size: 0.79rem;
+            line-height: 1.55;
+            color: var(--text);
+            white-space: pre-wrap;
+            max-width: 100%;
+            overflow: auto;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box * {
+            max-width: 100%;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box p,
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box ul,
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box ol,
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box pre {
+            margin: 0 0 0.55rem;
+        }
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box :last-child {
+            margin-bottom: 0;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-item {
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 10px;
+            background: var(--bg);
+            flex-shrink: 0;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-item summary {
+            list-style: none;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-item summary::-webkit-details-marker {
+            display: none;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-summary {
+            padding: 0.6rem 0.7rem;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-summary:hover {
+            background: var(--card-hover);
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-meta {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-body {
+            padding: 0.65rem;
+            color: var(--text);
+            max-height: min(70vh, 600px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            border-top: 1px solid var(--mailchat-panel-border);
+            font-size: 0.77rem;
+            line-height: 1.55;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-body p,
+        #tab-mailchat .mailchat-v2 .mailchat-result-body ul,
+        #tab-mailchat .mailchat-v2 .mailchat-result-body ol,
+        #tab-mailchat .mailchat-v2 .mailchat-result-body blockquote,
+        #tab-mailchat .mailchat-v2 .mailchat-result-body pre {
+            margin: 0 0 0.5rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-body :last-child {
+            margin-bottom: 0;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-body h1,
+        #tab-mailchat .mailchat-v2 .mailchat-result-body h2,
+        #tab-mailchat .mailchat-v2 .mailchat-result-body h3 {
+            font-size: 0.85rem;
+            margin: 0.6rem 0 0.3rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-body hr {
+            border: none;
+            border-top: 1px solid var(--mailchat-panel-border);
+            margin: 0.5rem 0;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-body a {
+            color: var(--accent-blue);
+            text-decoration: underline;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-preview {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            line-height: 1.4;
+            margin-top: 0.15rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-att-group {
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 10px;
+            background: var(--bg);
+            padding: 0.5rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-att-group h4 {
+            font-size: 0.72rem;
+            margin: 0 0 0.35rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-att-btn {
+            width: 100%;
+            border: 1px solid var(--mailchat-panel-border);
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+            text-align: left;
+            font-size: 0.73rem;
+            padding: 0.4rem 0.5rem;
+            margin-bottom: 0.35rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-att-btn:hover {
+            background: var(--card-hover);
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-graph-svg {
+            width: 100%;
+            flex: 3 1 0;
+            min-height: 140px;
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 10px;
+            background: var(--bg);
+        }
+
+        #tab-mailchat .mailchat-v2 .mailchat-insight-stack {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            padding: 0.6rem;
+            overflow: hidden;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-insight-pane {
+            flex: 1 1 50%;
+            min-height: 0;
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 10px;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-insight-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            overscroll-behavior: contain;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-graph-body {
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            overflow: hidden;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-graph-legend {
+            flex: 2 1 0;
+            min-height: 60px;
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 0.45rem 0.55rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-legend-group {
+            margin-bottom: 0.45rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-legend-group h5 {
+            margin: 0 0 0.2rem;
+            font-size: 0.66rem;
+            color: var(--text);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-legend-group ul {
+            margin: 0;
+            padding-left: 1rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-legend-group li {
+            font-size: 0.69rem;
+            color: var(--text-muted);
+            line-height: 1.35;
+            margin-bottom: 0.12rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-legend-empty {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-insight-pane-title {
+            flex-shrink: 0;
+            padding: 0.45rem 0.6rem;
+            border-bottom: 1px solid var(--mailchat-panel-border);
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        #tab-mailchat .mailchat-v2 #chatbotAttachmentsPane {
+            overflow: auto;
+            overscroll-behavior: contain;
+            padding: 0.55rem;
+            gap: 0.45rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @media (max-width: 1280px) {
+            #tab-mailchat .mailchat-v2 .mailchat-workspace {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 980px) {
+            #tab-mailchat .mailchat-v2 .mailchat-workspace {
                 grid-template-columns: 1fr;
                 grid-auto-rows: minmax(180px, 1fr);
             }
-            .mailchat-column {
-                border-right: none;
-                border-bottom: 1px solid var(--card-border);
+            #tab-mailchat .mailchat-v2 .mailchat-semantic-grid {
+                grid-template-columns: 1fr;
             }
-            .mailchat-column:last-child {
-                border-bottom: none;
+            #tab-mailchat .mailchat-v2 .mailchat-header-actions {
+                flex-wrap: wrap;
+                justify-content: flex-end;
             }
+        }
+
+        /* ─── Archive Mail Tab ───────────────────────── */
+        #tab-archive {
+            height: calc(100vh - 110px);
+            overflow: hidden;
+        }
+        #tab-archive.active {
+            display: block;
+        }
+        .archive-container {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            border-radius: 14px;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 14px 40px rgba(2, 6, 23, 0.28);
+            background: var(--bg-surface);
+            overflow: hidden;
+        }
+        .archive-header {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.7rem 0.9rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+        .archive-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .archive-count {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+        .archive-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.55rem 0.8rem;
+            border-bottom: 1px solid var(--card-border);
+            background: rgba(59, 130, 246, 0.06);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+        .archive-period-filters {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+        .archive-chip {
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            padding: 0.26rem 0.62rem;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            font-family: inherit;
+        }
+        .archive-chip.active,
+        .archive-chip:hover {
+            color: var(--text);
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.15);
+        }
+        .archive-search-wrap {
+            flex: 1;
+            min-width: 180px;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 0.6rem;
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            background: var(--bg);
+            color: var(--text-muted);
+            font-size: 0.76rem;
+        }
+        .archive-search-wrap input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            font-size: 0.76rem;
+            font-family: inherit;
+            outline: none;
+        }
+        .archive-search-wrap input::placeholder {
+            color: var(--text-muted);
+        }
+        .archive-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 0.6rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .archive-mail-item {
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            background: var(--bg);
+            flex-shrink: 0;
+        }
+        .archive-mail-summary {
+            padding: 0.6rem 0.7rem;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+            list-style: none;
+        }
+        .archive-mail-summary::-webkit-details-marker {
+            display: none;
+        }
+        .archive-mail-summary:hover {
+            background: var(--card-hover);
+            border-radius: 10px;
+        }
+        .archive-mail-subject {
+            font-weight: 600;
+            font-size: 0.82rem;
+            color: var(--text);
+        }
+        .archive-mail-meta {
+            font-size: 0.71rem;
+            color: var(--text-muted);
+        }
+        .archive-mail-preview {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            line-height: 1.4;
+            margin-top: 0.1rem;
+        }
+        .archive-mail-body {
+            padding: 0.65rem;
+            border-top: 1px solid var(--card-border);
+            color: var(--text);
+            font-size: 0.78rem;
+            line-height: 1.6;
+            max-height: min(70vh, 600px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        .archive-mail-body p,
+        .archive-mail-body ul,
+        .archive-mail-body ol,
+        .archive-mail-body blockquote,
+        .archive-mail-body pre {
+            margin: 0 0 0.5rem;
+        }
+        .archive-mail-body :last-child {
+            margin-bottom: 0;
+        }
+        .archive-mail-body h1,
+        .archive-mail-body h2,
+        .archive-mail-body h3 {
+            font-size: 0.88rem;
+            margin: 0.6rem 0 0.3rem;
+        }
+        .archive-mail-body hr {
+            border: none;
+            border-top: 1px solid var(--card-border);
+            margin: 0.5rem 0;
+        }
+        .archive-mail-body a {
+            color: var(--accent-blue);
+            text-decoration: underline;
+        }
+        .archive-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            font-size: 0.8rem;
         }

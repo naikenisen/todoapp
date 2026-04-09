@@ -142,6 +142,55 @@ def _resolve_eml_from_md_source(source_name: str) -> str:
     return ""
 
 
+def _parse_frontmatter(content: str) -> dict:
+    """Parse YAML frontmatter from a markdown file content."""
+    fm = {}
+    if not content.startswith("---"):
+        return fm
+    end = content.find("---", 3)
+    if end == -1:
+        return fm
+    block = content[3:end]
+    for line in block.splitlines():
+        if ":" in line:
+            key, _, val = line.partition(":")
+            fm[key.strip()] = val.strip()
+    return fm
+
+
+def _list_vault_mails():
+    """List all markdown mails from the vault with frontmatter metadata."""
+    mails = []
+    if not os.path.isdir(GRAPH_MD_DIR):
+        return mails
+    for fname in sorted(os.listdir(GRAPH_MD_DIR)):
+        if not fname.lower().endswith(".md"):
+            continue
+        fpath = os.path.join(GRAPH_MD_DIR, fname)
+        try:
+            with open(fpath, "r", encoding="utf-8", errors="replace") as f:
+                content = f.read()
+            fm = _parse_frontmatter(content)
+            body = content
+            if content.startswith("---"):
+                end = content.find("---", 3)
+                if end != -1:
+                    body = content[end + 3:].strip()
+            mails.append({
+                "filename": fname,
+                "subject": fm.get("subject", fname.replace(".md", "")),
+                "date": fm.get("date", ""),
+                "from": fm.get("from", ""),
+                "to": fm.get("to", ""),
+                "eml_file": fm.get("eml_file", ""),
+                "tags": fm.get("tags", ""),
+                "body": body,
+            })
+        except Exception:
+            continue
+    return mails
+
+
 def _ingest_progress_cb(ingested: int, processed: int, total: int, fname: str, source: str) -> None:
     with _neo4j_ingest_lock:
         _neo4j_ingest_state["processed"] = processed
@@ -489,6 +538,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/api/vault/graph":
             try:
                 return self._json(scan_vault_graph())
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+        if self.path == "/api/vault/mails":
+            try:
+                return self._json(_list_vault_mails())
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
         if self.path.startswith("/api/vault/read?"):

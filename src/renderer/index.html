@@ -46,9 +46,8 @@
             <button class="tab-btn active" data-tab="todo" onclick="switchTab('todo')"><i class="icon-list-checks"></i> Todo</button>
             <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')"><i class="icon-inbox"></i> Inbox</button>
             <button class="tab-btn" data-tab="mail" onclick="switchTab('mail')"><i class="icon-send"></i> Rédiger</button>
-            <button class="tab-btn" data-tab="graph" onclick="switchTab('graph')"><i class="icon-network"></i> Graph</button>
             <button class="tab-btn" data-tab="mailchat" onclick="switchTab('mailchat')"><i class="icon-sparkles"></i> MailChat</button>
-
+            <button class="tab-btn" data-tab="archive" onclick="switchTab('archive')"><i class="icon-archive"></i> Archive</button>
         </div>
         <div class="tab-bar-scroll" id="siteTabButtons"></div>
         <button class="tab-btn tab-btn-add-site tab-btn-add-site-accent" onclick="openAddSiteModal()" title="Ajouter un site"><i class="icon-plus"></i></button>
@@ -276,7 +275,7 @@
     
     <!-- MAILCHAT TAB -->
     <div class="tab-content" id="tab-mailchat">
-        <div class="mailchat-container">
+        <div class="mailchat-container mailchat-v2">
             <div class="mailchat-header">
                 <div class="mailchat-title">
                     <i class="icon-sparkles"></i> MailChat
@@ -288,6 +287,9 @@
                 <div class="mailchat-header-actions">
                     <button class="chatbot-action-btn" onclick="chatbotIngest()" title="Synchroniser les emails vers Neo4j">
                         <i class="icon-refresh-cw"></i> Sync Neo4j
+                    </button>
+                    <button class="chatbot-action-btn" onclick="loadChatbotPeriodMails()" title="Charger simplement les mails de la période choisie">
+                        <i class="icon-calendar-days"></i> Voir période
                     </button>
                     <label class="chatbot-toggle-label">
                         <input type="checkbox" id="chatbotUseLLM" checked>
@@ -305,62 +307,72 @@
                 </div>
                 <div class="mailchat-sync-meta" id="chatbotSyncMeta"></div>
             </div>
-            <div class="mailchat-semantic-wrap">
-                <div class="mailchat-semantic-grid">
-                    <label>
-                        <span>Qui ?</span>
-                        <input type="text" id="chatbotFieldWho" placeholder="Ex: Lucile Tonneau">
-                    </label>
-                    <label>
-                        <span>Type de document</span>
-                        <input type="text" id="chatbotFieldDocType" list="chatbotDocTypeList" placeholder="Ex: lettre de motivation">
-                        <datalist id="chatbotDocTypeList">
-                            <option value="lettre de motivation"></option>
-                            <option value="cv"></option>
-                            <option value="candidature"></option>
-                            <option value="relance"></option>
-                            <option value="facture"></option>
-                            <option value="contrat"></option>
-                        </datalist>
-                    </label>
-                    <label>
-                        <span>Contexte</span>
-                        <input type="text" id="chatbotFieldContext" placeholder="Ex: stage M2 IA">
-                    </label>
-                    <label>
-                        <span>Période</span>
-                        <input type="text" id="chatbotFieldPeriod" placeholder="Ex: mars 2026">
-                    </label>
-                    <label>
-                        <span>Pièce jointe</span>
-                        <select id="chatbotFieldAttachment">
-                            <option value="">Indifférent</option>
-                            <option value="oui">Oui</option>
-                            <option value="non">Non</option>
-                        </select>
-                    </label>
-                    <label class="mailchat-semantic-checkbox">
-                        <input type="checkbox" id="chatbotAutoRewrite" checked>
-                        <span>Corriger / optimiser la requête par IA</span>
-                    </label>
+            <div class="mailchat-toolbar-v2">
+                <div class="mailchat-period-filters" id="chatbotPeriodFilters">
+                    <button class="mailchat-chip active" data-period="all" onclick="setChatbotPeriodFilter('all', this)">Tout</button>
+                    <button class="mailchat-chip" data-period="today" onclick="setChatbotPeriodFilter('today', this)">Aujourd'hui</button>
+                    <button class="mailchat-chip" data-period="week" onclick="setChatbotPeriodFilter('week', this)">Semaine</button>
+                    <button class="mailchat-chip" data-period="month" onclick="setChatbotPeriodFilter('month', this)">Mois</button>
+                    <button class="mailchat-chip" data-period="year" onclick="setChatbotPeriodFilter('year', this)">Année</button>
                 </div>
-                <label class="mailchat-comment-field">
-                    <span>Commentaire libre</span>
-                    <textarea id="chatbotComment" rows="2" placeholder="Ajoutez des précisions libres (destinataire, thème, mot-clé, etc.)"></textarea>
-                </label>
-                <div class="mailchat-query-actions">
-                    <button class="chatbot-send-btn" onclick="sendChatbotQuery()" title="Lancer la recherche">
-                        <i class="icon-search"></i> Rechercher
-                    </button>
-                    <button class="chatbot-action-btn" onclick="clearChatbotSemanticFields()" title="Réinitialiser les champs">
-                        <i class="icon-eraser"></i> Réinitialiser
-                    </button>
-                </div>
-                <div class="mailchat-query-info" id="chatbotQueryInfo"></div>
             </div>
-            <div class="mailchat-columns">
-                <section class="mailchat-column" aria-label="Réponse IA">
-                    <header><i class="icon-message-square"></i> Réponse IA</header>
+            <div class="mailchat-workspace">
+                <section class="mailchat-panel mailchat-panel-query" aria-label="Requête sémantique et réponse IA">
+                    <div class="mailchat-panel-title"><i class="icon-sliders-horizontal"></i> Requête sémantique</div>
+                    <div class="mailchat-semantic-wrap">
+                        <div class="mailchat-semantic-grid">
+                            <label>
+                                <span>Qui ?</span>
+                                <input type="text" id="chatbotFieldWho" placeholder="Ex: Lucile Tonneau">
+                            </label>
+                            <label>
+                                <span>Type de document</span>
+                                <input type="text" id="chatbotFieldDocType" list="chatbotDocTypeList" placeholder="Ex: lettre de motivation">
+                                <datalist id="chatbotDocTypeList">
+                                    <option value="lettre de motivation"></option>
+                                    <option value="cv"></option>
+                                    <option value="candidature"></option>
+                                    <option value="relance"></option>
+                                    <option value="facture"></option>
+                                    <option value="contrat"></option>
+                                </datalist>
+                            </label>
+                            <label>
+                                <span>Contexte</span>
+                                <input type="text" id="chatbotFieldContext" placeholder="Ex: stage M2 IA">
+                            </label>
+                            <label>
+                                <span>Période libre</span>
+                                <input type="text" id="chatbotFieldPeriod" placeholder="Ex: mars 2026">
+                            </label>
+                            <label>
+                                <span>Pièce jointe</span>
+                                <select id="chatbotFieldAttachment">
+                                    <option value="">Indifférent</option>
+                                    <option value="oui">Oui</option>
+                                    <option value="non">Non</option>
+                                </select>
+                            </label>
+                            <label class="mailchat-semantic-checkbox">
+                                <input type="checkbox" id="chatbotAutoRewrite" checked>
+                                <span>Corriger / optimiser la requête par IA</span>
+                            </label>
+                        </div>
+                        <label class="mailchat-comment-field">
+                            <span>Commentaire libre</span>
+                            <textarea id="chatbotComment" rows="2" placeholder="Ajoutez des précisions libres (destinataire, thème, mot-clé, etc.)"></textarea>
+                        </label>
+                        <div class="mailchat-query-actions">
+                            <button class="chatbot-send-btn" onclick="sendChatbotQuery()" title="Lancer la recherche">
+                                <i class="icon-search"></i> Rechercher
+                            </button>
+                            <button class="chatbot-action-btn" onclick="clearChatbotSemanticFields()" title="Réinitialiser les champs">
+                                <i class="icon-eraser"></i> Réinitialiser
+                            </button>
+                        </div>
+                        <div class="mailchat-query-info" id="chatbotQueryInfo"></div>
+                    </div>
+                    <div class="mailchat-panel-title"><i class="icon-message-square"></i> Réponse IA</div>
                     <div class="mailchat-column-body" id="chatbotAnswerPane">
                         <div class="chatbot-welcome">
                             <div class="chatbot-welcome-icon"><i class="icon-sparkles"></i></div>
@@ -368,19 +380,33 @@
                         </div>
                     </div>
                 </section>
-                <section class="mailchat-column" aria-label="Mails proposés">
-                    <header><i class="icon-mails"></i> Mails proposés</header>
+
+                <section class="mailchat-panel mailchat-panel-results" aria-label="Mails proposés">
+                    <div class="mailchat-panel-title"><i class="icon-mails"></i> Mails proposés</div>
                     <div class="mailchat-column-body" id="chatbotResultsPane">
                         <div class="chatbot-welcome">
                             <p>Les emails trouvés seront listés ici.</p>
                         </div>
                     </div>
                 </section>
-                <section class="mailchat-column" aria-label="Pièces jointes proposées">
-                    <header><i class="icon-paperclip"></i> Pièces jointes</header>
-                    <div class="mailchat-column-body" id="chatbotAttachmentsPane">
-                        <div class="chatbot-welcome">
-                            <p>Les pièces jointes ouvrables seront affichées ici.</p>
+
+                <section class="mailchat-panel mailchat-panel-insights" aria-label="Pièces jointes et vue graphe">
+                    <div class="mailchat-panel-title"><i class="icon-layers"></i> Insights Neo4j</div>
+                    <div class="mailchat-insight-stack">
+                        <div class="mailchat-insight-pane" id="chatbotGraphPane">
+                            <div class="mailchat-insight-pane-title"><i class="icon-network"></i> Zone de graphe utilisée</div>
+                            <div class="mailchat-insight-body mailchat-graph-body">
+                                <svg id="chatbotGraphSvg" class="mailchat-graph-svg"></svg>
+                                <div id="chatbotGraphLegend" class="mailchat-graph-legend"></div>
+                            </div>
+                        </div>
+                        <div class="mailchat-insight-pane" id="chatbotAttachmentsPane">
+                            <div class="mailchat-insight-pane-title"><i class="icon-paperclip"></i> Pièces jointes proposées</div>
+                            <div class="mailchat-insight-body" id="chatbotAttachmentsList">
+                                <div class="chatbot-welcome">
+                                    <p>Les pièces jointes ouvrables seront affichées ici.</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -388,59 +414,29 @@
         </div>
     </div>
 
-    <!-- GRAPH TAB -->
-    <div class="tab-content" id="tab-graph">
-        <div class="graph-sidebar">
-            <div class="graph-sidebar-content" id="graphSidebarGraph">
-                <div class="graph-search">
-                    <input type="text" id="graphSearchInput" placeholder="Rechercher notes, mails, fichiers…" oninput="filterGraphNodes(this.value)">
-                </div>
-                <div class="graph-search-results" id="graphSearchResults"></div>
-                <div class="graph-filters">
-                    <label><input type="checkbox" checked data-group="md" onchange="toggleGraphGroup(this)"> <i class="icon-file-text"></i> Notes</label>
-                    <label><input type="checkbox" checked data-group="mail" onchange="toggleGraphGroup(this)"> <i class="icon-mail"></i> Mails</label>
-                    <label><input type="checkbox" checked data-group="attachment" onchange="toggleGraphGroup(this)"> <i class="icon-paperclip"></i> Fichiers</label>
-                    <label><input type="checkbox" checked data-group="orphan" onchange="toggleGraphGroup(this)"> <i class="icon-circle-dashed"></i> Orphelins</label>
-                </div>
-                <div class="graph-time-filters">
-                    <button class="graph-time-btn active" data-period="all" onclick="setGraphTimePeriod('all')">Tout</button>
-                    <button class="graph-time-btn" data-period="today" onclick="setGraphTimePeriod('today')">Aujourd'hui</button>
-                    <button class="graph-time-btn" data-period="week" onclick="setGraphTimePeriod('week')">Semaine</button>
-                    <button class="graph-time-btn" data-period="month" onclick="setGraphTimePeriod('month')">Mois</button>
-                    <button class="graph-time-btn" data-period="year" onclick="setGraphTimePeriod('year')">Année</button>
-                </div>
-                <div class="graph-repulsion-ctrl">
-                    <label>
-                        <span>Répulsion</span>
-                        <span id="graphRepulsionVal">120</span>
-                    </label>
-                    <input type="range" id="graphRepulsionSlider" min="10" max="500" step="10" value="120" oninput="setGraphRepulsion(+this.value)">
-                </div>
-                <div class="graph-stats" id="graphStats"></div>
-                <div class="graph-node-list" id="graphNodeList"></div>
+    <!-- ARCHIVE MAIL TAB -->
+    <div class="tab-content" id="tab-archive">
+        <div class="archive-container">
+            <div class="archive-header">
+                <div class="archive-title"><i class="icon-archive"></i> Archive Mail</div>
+                <span class="archive-count" id="archiveCount"></span>
             </div>
-        </div>
-        <div class="graph-canvas-wrap">
-            <svg id="graphSvg"></svg>
-            <div class="graph-placeholder" id="graphPlaceholder">
-                <div class="gp-icon"><i class="icon-network"></i></div>
-                <div class="gp-text">Tapez une recherche pour afficher le graphe</div>
-                <div class="gp-hint">minimum 2 caractères</div>
+            <div class="archive-toolbar">
+                <div class="archive-period-filters">
+                    <button class="archive-chip active" onclick="setArchivePeriod('all')">Tout</button>
+                    <button class="archive-chip" onclick="setArchivePeriod('today')">Aujourd'hui</button>
+                    <button class="archive-chip" onclick="setArchivePeriod('week')">Semaine</button>
+                    <button class="archive-chip" onclick="setArchivePeriod('month')">Mois</button>
+                    <button class="archive-chip" onclick="setArchivePeriod('year')">Année</button>
+                </div>
+                <div class="archive-search-wrap">
+                    <i class="icon-search"></i>
+                    <input type="text" id="archiveSearchInput" placeholder="Rechercher dans les mails…" oninput="filterArchiveMails()">
+                </div>
             </div>
-            <div class="graph-zoom-controls is-hidden" id="graphZoomControls">
-                <button onclick="graphZoom(1.3)" title="Zoom in">+</button>
-                <button onclick="graphZoom(1/1.3)" title="Zoom out">−</button>
-                <button onclick="graphFit()" title="Fit">⊡</button>
+            <div class="archive-list" id="archiveList">
+                <div class="chatbot-welcome"><p>Chargement des archives…</p></div>
             </div>
-        </div>
-        <div class="graph-reader" id="graphReader">
-            <div class="graph-reader-resize" id="graphReaderResize"></div>
-            <div class="graph-reader-header">
-                <h3 id="graphReaderTitle">—</h3>
-                <button onclick="toggleGraphReaderExpand()" title="Agrandir / Réduire">⇱</button>
-                <button onclick="closeGraphReader()">✕</button>
-            </div>
-            <div class="graph-reader-body" id="graphReaderBody"></div>
         </div>
     </div>
 

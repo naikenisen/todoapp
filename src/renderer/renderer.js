@@ -65,8 +65,8 @@ function switchTab(tab) {
     }
     if (tab === 'mail') renderMailTab();
     if (tab === 'inbox') loadInbox();
-    if (tab === 'graph') initGraphIfNeeded();
     if (tab === 'mailchat') checkChatbotStatus();
+    if (tab === 'archive') loadArchiveMails();
     updateSiteTabViewVisibility();
 }
 
@@ -3512,8 +3512,12 @@ function graphFit() {
 let chatbotNeo4jAvailable = null; // null = not checked
 let chatbotIngestPollTimer = null;
 let chatbotLoading = false;
+let mailchatRawResults = [];
 let mailchatLastResults = [];
+let mailchatLastAnswer = '';
 const mailchatDetailsCache = new Map();
+let mailchatPeriodFilter = 'all';
+let mailchatGraphSimulation = null;
 
 function mailchatLog(msg, data = null) {
     if (data !== null) {
@@ -3529,6 +3533,60 @@ function setChatbotQueryInfo(message, kind = 'info') {
     const color = kind === 'error' ? '#f38ba8' : (kind === 'success' ? '#4ade80' : 'var(--text-muted)');
     info.style.color = color;
     info.textContent = message || '';
+}
+
+function setChatbotPeriodFilter(period, btn) {
+    mailchatPeriodFilter = period || 'all';
+    document.querySelectorAll('#chatbotPeriodFilters .mailchat-chip').forEach((b) => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    applyMailchatResults(mailchatRawResults, mailchatLastAnswer);
+}
+
+function getTimePeriodRange(period) {
+    if (period === 'all') return null;
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+
+    if (period === 'today') {
+        return { start, end: now };
+    }
+    if (period === 'week') {
+        const day = (start.getDay() + 6) % 7;
+        start.setDate(start.getDate() - day);
+        return { start, end: now };
+    }
+    if (period === 'month') {
+        start.setDate(1);
+        return { start, end: now };
+    }
+    if (period === 'year') {
+        start.setMonth(0, 1);
+        return { start, end: now };
+    }
+    return null;
+}
+
+function parseMailDate(value) {
+    if (!value) return null;
+    const fromIso = Date.parse(value);
+    if (!Number.isNaN(fromIso)) return new Date(fromIso);
+    const m = String(value).match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (m) {
+        const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
+        if (!Number.isNaN(d.getTime())) return d;
+    }
+    return null;
+}
+
+function filterResultsByPeriod(results) {
+    const range = getTimePeriodRange(mailchatPeriodFilter);
+    if (!range) return results;
+    return (results || []).filter((r) => {
+        const d = parseMailDate(r.date);
+        if (!d) return false;
+        return d >= range.start && d <= range.end;
+    });
 }
 
 function collectSemanticFields() {
@@ -3569,11 +3627,14 @@ function clearChatbotSemanticFields() {
         if (el.tagName === 'SELECT') el.selectedIndex = 0;
         else el.value = '';
     }
+    mailchatRawResults = [];
     mailchatLastResults = [];
+    mailchatLastAnswer = '';
     mailchatDetailsCache.clear();
     renderMailchatAnswer('', 'Remplissez les champs puis lancez une recherche.');
     renderMailchatResults([]);
     renderMailchatAttachments([]);
+    renderMailchatGraph([]);
     setChatbotQueryInfo('');
 }
 
@@ -3596,20 +3657,21 @@ function renderMailchatResults(results) {
         return;
     }
     pane.innerHTML = results.map((r, i) => {
+        const preview = (r.body_snippet || '').replace(/\s+/g, ' ').trim();
         return `
-            <details class="mailchat-result-item" ontoggle="onMailchatResultToggle(${i}, this)">
-                <summary class="mailchat-result-summary">
+            <div class="mailchat-result-item mailchat-result-clickable" onclick="openMailchatMailReader(${i})" title="Ouvrir dans une fenêtre">
+                <div class="mailchat-result-summary">
                     <strong>${esc(r.subject || 'Sans sujet')}</strong>
                     <span class="mailchat-result-meta">📅 ${esc(r.date || '?')} · 👤 ${esc(r.sender_name || r.sender_email || '?')} · score ${esc(String(r.score ?? '?'))}</span>
-                </summary>
-                <div class="mailchat-result-body" id="mailchat-result-body-${i}">${esc(r.body_snippet || '(aperçu indisponible)')}</div>
-            </details>
+                    ${preview ? `<span class="mailchat-result-preview">${esc(preview)}</span>` : ''}
+                </div>
+            </div>
         `;
     }).join('');
 }
 
 function renderMailchatAttachments(results) {
-    const pane = document.getElementById('chatbotAttachmentsPane');
+    const pane = document.getElementById('chatbotAttachmentsList');
     if (!pane) return;
     if (!results || !results.length) {
         pane.innerHTML = '<div class="chatbot-welcome"><p>Aucune pièce jointe détectée.</p></div>';
@@ -3634,6 +3696,215 @@ function renderMailchatAttachments(results) {
         : '<div class="chatbot-welcome"><p>Aucune pièce jointe détectée.</p></div>';
 }
 
+function renderMailchatGraph(results) {
+    const svgEl = document.getElementById('chatbotGraphSvg');
+    const pane = document.getElementById('chatbotGraphPane');
+    const legend = document.getElementById('chatbotGraphLegend');
+    if (!svgEl || !pane || !legend) return;
+
+    const svg = d3.select(svgEl);
+    svg.selectAll('*').remove();
+    legend.innerHTML = '';
+
+    if (mailchatGraphSimulation) {
+        mailchatGraphSimulation.stop();
+        mailchatGraphSimulation = null;
+    }
+
+    const rect = svgEl.getBoundingClientRect();
+    const width = Math.max(220, rect.width || pane.clientWidth - 16);
+    const height = Math.max(150, rect.height || 220);
+    svg.attr('viewBox', `0 0 ${width} ${height}`)
+       .attr('preserveAspectRatio', 'xMidYMid meet');
+
+    const nodes = [];
+    const links = [];
+    const seen = new Map();
+    const addNode = (id, label, group) => {
+        if (!seen.has(id)) {
+            const n = { id, label, group };
+            seen.set(id, n);
+            nodes.push(n);
+        }
+        return seen.get(id);
+    };
+
+    (results || []).forEach((r, idx) => {
+        const emailId = `email:${r.mail_id || r.eml_file || idx}`;
+        addNode(emailId, r.subject || `Mail ${idx + 1}`, 'email');
+
+        const sender = (r.sender_name || r.sender_email || '').trim();
+        if (sender) {
+            const senderId = `sender:${sender.toLowerCase()}`;
+            addNode(senderId, sender, 'sender');
+            links.push({ source: senderId, target: emailId });
+        }
+
+        (r.topics || []).forEach((t) => {
+            const tid = `topic:${String(t).toLowerCase()}`;
+            addNode(tid, t, 'topic');
+            links.push({ source: emailId, target: tid });
+        });
+
+        (r.attachments || []).forEach((a) => {
+            const aid = `att:${String(a).toLowerCase()}`;
+            addNode(aid, a, 'attachment');
+            links.push({ source: emailId, target: aid });
+        });
+    });
+
+    if (!nodes.length) {
+        svg.append('text')
+            .attr('x', width / 2)
+            .attr('y', height / 2)
+            .attr('text-anchor', 'middle')
+            .attr('fill', 'var(--text-muted)')
+            .attr('font-size', 12)
+            .text('Aucune zone de graphe à afficher');
+        legend.innerHTML = '<div class="mailchat-legend-empty">Aucune entité à lister</div>';
+        return;
+    }
+
+    const color = (g) => {
+        if (g === 'email') return '#7dd3fc';
+        if (g === 'sender') return '#86efac';
+        if (g === 'attachment') return '#fdba74';
+        return '#c4b5fd';
+    };
+
+    const g = svg.append('g');
+
+    // Enable zoom & pan on the graph
+    const zoomBehavior = d3.zoom()
+        .scaleExtent([0.3, 4])
+        .on('zoom', (event) => g.attr('transform', event.transform));
+    svg.call(zoomBehavior);
+    const link = g.append('g')
+        .selectAll('line')
+        .data(links)
+        .enter()
+        .append('line')
+        .attr('stroke', 'rgba(148,163,184,0.35)')
+        .attr('stroke-width', 1);
+
+    const node = g.append('g')
+        .selectAll('circle')
+        .data(nodes)
+        .enter()
+        .append('circle')
+        .attr('r', (d) => d.group === 'email' ? 6 : 4)
+        .attr('fill', (d) => color(d.group));
+
+    const label = g.append('g')
+        .selectAll('text')
+        .data(nodes)
+        .enter()
+        .append('text')
+        .attr('font-size', 9)
+        .attr('fill', 'var(--text-muted)')
+        .attr('pointer-events', 'none')
+        .text((d) => {
+            const s = String(d.label || '');
+            return s.length > 26 ? `${s.slice(0, 25)}…` : s;
+        });
+
+    node.append('title').text((d) => d.label);
+
+    mailchatGraphSimulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id((d) => d.id).distance((l) => l.source.group === 'email' || l.target.group === 'email' ? 52 : 38))
+        .force('charge', d3.forceManyBody().strength(-80))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('collision', d3.forceCollide().radius((d) => d.group === 'email' ? 9 : 6))
+        .on('tick', () => {
+            link
+                .attr('x1', (d) => d.source.x)
+                .attr('y1', (d) => d.source.y)
+                .attr('x2', (d) => d.target.x)
+                .attr('y2', (d) => d.target.y);
+            node
+                .attr('cx', (d) => d.x)
+                .attr('cy', (d) => d.y);
+            label
+                .attr('x', (d) => d.x + 8)
+                .attr('y', (d) => d.y + 3);
+        })
+        .on('end', () => {
+            // Auto-fit graph to bounds after simulation settles
+            const bbox = g.node().getBBox();
+            if (bbox.width > 0 && bbox.height > 0) {
+                const pad = 14;
+                const scale = Math.min(
+                    width / (bbox.width + pad * 2),
+                    height / (bbox.height + pad * 2),
+                    1.5
+                );
+                const tx = width / 2 - (bbox.x + bbox.width / 2) * scale;
+                const ty = height / 2 - (bbox.y + bbox.height / 2) * scale;
+                svg.transition().duration(400)
+                    .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+            }
+        });
+
+    const grouped = {
+        email: nodes.filter((n) => n.group === 'email').map((n) => n.label),
+        sender: nodes.filter((n) => n.group === 'sender').map((n) => n.label),
+        topic: nodes.filter((n) => n.group === 'topic').map((n) => n.label),
+        attachment: nodes.filter((n) => n.group === 'attachment').map((n) => n.label),
+    };
+    legend.innerHTML = [
+        ['Emails', grouped.email],
+        ['Expéditeurs', grouped.sender],
+        ['Topics', grouped.topic],
+        ['Pièces jointes', grouped.attachment],
+    ].map(([title, items]) => {
+        if (!items.length) return '';
+        return `
+            <div class="mailchat-legend-group">
+                <h5>${esc(title)} (${items.length})</h5>
+                <ul>${items.map((it) => `<li>${esc(it)}</li>`).join('')}</ul>
+            </div>
+        `;
+    }).join('');
+}
+
+function applyMailchatResults(results, answer) {
+    mailchatRawResults = Array.isArray(results) ? results : [];
+    mailchatLastAnswer = answer || '';
+    const filtered = filterResultsByPeriod(mailchatRawResults);
+    mailchatLastResults = filtered;
+    mailchatDetailsCache.clear();
+    renderMailchatAnswer(mailchatLastAnswer, filtered.length ? 'Aucune réponse IA générée.' : 'Aucun résultat trouvé pour la période sélectionnée.');
+    renderMailchatResults(filtered);
+    renderMailchatAttachments(filtered);
+    renderMailchatGraph(filtered);
+}
+
+async function loadChatbotPeriodMails() {
+    try {
+        setChatbotQueryInfo('Chargement des mails pour la période…');
+        const r = await fetch('/api/inbox');
+        const inbox = r.ok ? await r.json() : [];
+        const pseudo = (inbox || []).map((m) => ({
+            subject: m.subject || 'Sans sujet',
+            date: m.date || '',
+            sender_name: m.from_name || '',
+            sender_email: m.from_email || '',
+            recipients: [],
+            topics: [],
+            attachments: m.attachments || [],
+            score: '-',
+            body_snippet: (m.body || '').slice(0, 240),
+            eml_file: m.eml_file || '',
+            mail_id: m.id || '',
+        }));
+
+        applyMailchatResults(pseudo, 'Affichage direct des mails de la période sélectionnée (sans recherche sémantique).');
+        setChatbotQueryInfo(`Période ${mailchatPeriodFilter}: ${mailchatLastResults.length} mail(s).`, 'success');
+    } catch (err) {
+        setChatbotQueryInfo(`⚠️ ${err.message || err}`, 'error');
+    }
+}
+
 async function onMailchatResultToggle(index, detailsEl) {
     if (!detailsEl?.open) return;
     const result = mailchatLastResults[index];
@@ -3649,31 +3920,53 @@ async function onMailchatResultToggle(index, detailsEl) {
 
     bodyEl.textContent = 'Chargement du contenu complet…';
     try {
-        let mail = null;
-        if (result.mail_id) {
-            const r = await fetch('/api/mail/' + encodeURIComponent(result.mail_id));
-            if (r.ok) mail = await r.json();
-        } else if (result.eml_file) {
-            const r = await fetch('/api/mail/by-eml?eml_file=' + encodeURIComponent(result.eml_file));
-            if (r.ok) mail = await r.json();
+        let raw = '';
+
+        // 1) Priorité : lire le .md original du vault (source complète)
+        if (result.eml_file) {
+            // eml_file from RAG is the .md filename in the vault mails/ subfolder
+            const mdName = result.eml_file.endsWith('.md') ? result.eml_file : result.eml_file;
+            // Try mails/ prefix first, then bare name
+            for (const tryPath of [`mails/${mdName}`, mdName]) {
+                const vr = await fetch('/api/vault/read?path=' + encodeURIComponent(tryPath));
+                if (vr.ok) {
+                    const vj = await vr.json();
+                    if (vj.ok && vj.content) {
+                        raw = String(vj.content).replace(/^---[\s\S]*?---\s*/, '').trim();
+                        break;
+                    }
+                }
+            }
         }
 
-        let html = '';
-        if (mail?.body && String(mail.body).trim()) {
-            html = esc(mail.body);
-        } else if (mail?.body_html && String(mail.body_html).trim()) {
-            const textFromHtml = String(mail.body_html)
-                .replace(/<\s*br\s*\/?\s*>/gi, '\n')
-                .replace(/<\s*\/\s*(p|div|li|tr|h[1-6])\s*>/gi, '\n')
-                .replace(/<\s*li[^>]*>/gi, '- ')
-                .replace(/<[^>]+>/g, ' ')
-                .replace(/[ \t]+/g, ' ')
-                .replace(/\n{3,}/g, '\n\n')
-                .trim();
-            html = esc(textFromHtml || result.body_snippet || '(contenu indisponible)');
-        } else {
-            html = esc(result.body_snippet || '(contenu indisponible)');
+        // 2) Fallback : charger depuis l'inbox (eml parsé)
+        if (!raw) {
+            let mail = null;
+            if (result.mail_id) {
+                const r = await fetch('/api/mail/' + encodeURIComponent(result.mail_id));
+                if (r.ok) mail = await r.json();
+            } else if (result.eml_file) {
+                const r = await fetch('/api/mail/by-eml?eml_file=' + encodeURIComponent(result.eml_file));
+                if (r.ok) mail = await r.json();
+            }
+            if (mail?.body && String(mail.body).trim()) {
+                raw = mail.body;
+            } else if (mail?.body_html && String(mail.body_html).trim()) {
+                const textFromHtml = String(mail.body_html)
+                    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+                    .replace(/<\s*\/\s*(p|div|li|tr|h[1-6])\s*>/gi, '\n')
+                    .replace(/<\s*li[^>]*>/gi, '- ')
+                    .replace(/<[^>]+>/g, ' ')
+                    .replace(/[ \t]+/g, ' ')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim();
+                raw = textFromHtml || result.body_snippet || '(contenu indisponible)';
+            } else {
+                raw = result.body_snippet || '(contenu indisponible)';
+            }
         }
+
+        const html = marked.parse(raw);
         mailchatDetailsCache.set(key, html);
         bodyEl.innerHTML = html;
     } catch (err) {
@@ -3834,11 +4127,7 @@ async function sendChatbotQuery() {
             const warning = data.llm_warning ? ` · ${data.llm_warning}` : '';
             setChatbotQueryInfo(`${mode}${rewriteNote}${warning}`, data.llm_warning ? 'error' : 'success');
 
-            mailchatLastResults = Array.isArray(data.results) ? data.results : [];
-            mailchatDetailsCache.clear();
-            renderMailchatAnswer(data.answer || '', mailchatLastResults.length ? 'Aucune réponse IA générée.' : 'Aucun résultat trouvé.');
-            renderMailchatResults(mailchatLastResults);
-            renderMailchatAttachments(mailchatLastResults);
+            applyMailchatResults(Array.isArray(data.results) ? data.results : [], data.answer || '');
         }
     } catch (err) {
         mailchatLog('query failed', err?.message || err);
@@ -4380,10 +4669,10 @@ document.addEventListener('keydown', (e) => {
         e.preventDefault();
         switchTab('mail');
     }
-    // Ctrl+4 — switch to Graph tab
+    // Ctrl+4 — switch to MailChat tab
     if ((e.ctrlKey || e.metaKey) && e.key === '4') {
         e.preventDefault();
-        switchTab('graph');
+        switchTab('mailchat');
     }
     // Ctrl+7..9 — switch to site tabs (dynamic)
     if ((e.ctrlKey || e.metaKey) && ['7','8','9'].includes(e.key)) {
@@ -4402,7 +4691,6 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeSectionModal();
         closeSettings();
-        closeGraphReader();
         if (typeof closeReminderModal === 'function') closeReminderModal();
         if (typeof closeAccountsModal === 'function') closeAccountsModal();
         if (typeof closeDeleteMailModal === 'function') closeDeleteMailModal();
@@ -4412,3 +4700,109 @@ document.addEventListener('keydown', (e) => {
         openDeleteMailModal(selectedInboxId);
     }
 });
+
+/* ═══════════════════════════════════════════════════════
+   Archive Mail Tab
+   ═══════════════════════════════════════════════════════ */
+let archiveAllMails = [];
+let archivePeriod = 'all';
+let archiveLoaded = false;
+
+async function loadArchiveMails() {
+    if (archiveLoaded) return;
+    const list = document.getElementById('archiveList');
+    if (!list) return;
+    list.innerHTML = '<div class="chatbot-welcome"><p>Chargement des archives…</p></div>';
+    try {
+        const r = await fetch('/api/vault/mails');
+        if (!r.ok) throw new Error('Erreur serveur');
+        archiveAllMails = await r.json();
+        // Sort by date descending
+        archiveAllMails.sort((a, b) => {
+            const da = parseArchiveDate(a.date);
+            const db = parseArchiveDate(b.date);
+            return db - da;
+        });
+        archiveLoaded = true;
+        filterArchiveMails();
+    } catch (err) {
+        list.innerHTML = `<div class="archive-empty">Erreur: ${esc(err.message)}</div>`;
+    }
+}
+
+function parseArchiveDate(dateStr) {
+    if (!dateStr) return 0;
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+function setArchivePeriod(period) {
+    archivePeriod = period;
+    document.querySelectorAll('.archive-chip').forEach(c => {
+        c.classList.toggle('active', c.textContent.trim().toLowerCase() === {
+            'all': 'tout', 'today': "aujourd'hui", 'week': 'semaine', 'month': 'mois', 'year': 'année'
+        }[period]);
+    });
+    filterArchiveMails();
+}
+
+function filterArchiveMails() {
+    const query = (document.getElementById('archiveSearchInput')?.value || '').toLowerCase().trim();
+    const now = new Date();
+    let rangeStart = null;
+
+    if (archivePeriod === 'today') {
+        rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (archivePeriod === 'week') {
+        rangeStart = new Date(now);
+        rangeStart.setDate(rangeStart.getDate() - 7);
+    } else if (archivePeriod === 'month') {
+        rangeStart = new Date(now);
+        rangeStart.setMonth(rangeStart.getMonth() - 1);
+    } else if (archivePeriod === 'year') {
+        rangeStart = new Date(now);
+        rangeStart.setFullYear(rangeStart.getFullYear() - 1);
+    }
+
+    const filtered = archiveAllMails.filter(m => {
+        // Period filter
+        if (rangeStart) {
+            const d = parseArchiveDate(m.date);
+            if (d < rangeStart.getTime()) return false;
+        }
+        // Text search
+        if (query) {
+            const haystack = [m.subject, m.from, m.to, m.body, m.tags, m.date].join(' ').toLowerCase();
+            if (!haystack.includes(query)) return false;
+        }
+        return true;
+    });
+
+    renderArchiveList(filtered);
+}
+
+function renderArchiveList(mails) {
+    const list = document.getElementById('archiveList');
+    const count = document.getElementById('archiveCount');
+    if (!list) return;
+    if (count) count.textContent = `${mails.length} mail${mails.length !== 1 ? 's' : ''}`;
+
+    if (!mails.length) {
+        list.innerHTML = '<div class="archive-empty">Aucun mail trouvé pour ces critères.</div>';
+        return;
+    }
+
+    list.innerHTML = mails.map((m, i) => {
+        const preview = (m.body || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+        return `
+            <details class="archive-mail-item">
+                <summary class="archive-mail-summary">
+                    <span class="archive-mail-subject">${esc(m.subject || m.filename)}</span>
+                    <span class="archive-mail-meta">📅 ${esc(m.date || '?')} · 👤 ${esc(m.from || '?')} → ${esc(m.to || '?')}</span>
+                    ${preview ? `<span class="archive-mail-preview">${esc(preview)}</span>` : ''}
+                </summary>
+                <div class="archive-mail-body">${marked.parse(m.body || '(contenu vide)')}</div>
+            </details>
+        `;
+    }).join('');
+}
