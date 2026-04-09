@@ -93,6 +93,7 @@ from autoconfig_service import autoconfig_email
 _neo4j_driver = None
 _neo4j_embedder = None
 _neo4j_available = None  # None = not checked yet
+_neo4j_retry_after = 0.0
 _neo4j_ingest_thread = None
 _neo4j_ingest_lock = threading.Lock()
 _neo4j_ingest_state = {
@@ -256,8 +257,9 @@ def _run_neo4j_ingest_job(mode: str) -> None:
 
 def _get_neo4j():
     """Lazy init du driver Neo4j + embedder. Retourne (driver, embedder) ou (None, None)."""
-    global _neo4j_driver, _neo4j_embedder, _neo4j_available
-    if _neo4j_available is False:
+    global _neo4j_driver, _neo4j_embedder, _neo4j_available, _neo4j_retry_after
+    now = time.time()
+    if _neo4j_available is False and now < _neo4j_retry_after:
         return None, None
     if _neo4j_driver is not None:
         return _neo4j_driver, _neo4j_embedder
@@ -266,10 +268,12 @@ def _get_neo4j():
         _neo4j_driver = connect_neo4j()
         _neo4j_embedder = EmbeddingService()
         _neo4j_available = True
+        _neo4j_retry_after = 0.0
         return _neo4j_driver, _neo4j_embedder
     except (Exception, SystemExit) as exc:
         logger.warning("Neo4j non disponible: %s", exc)
         _neo4j_available = False
+        _neo4j_retry_after = now + 10.0
         return None, None
 
 

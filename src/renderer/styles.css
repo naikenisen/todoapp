@@ -2089,6 +2089,14 @@
         #tab-mailchat .mailchat-v2 .mailchat-result-summary:hover {
             background: var(--card-hover);
         }
+        #tab-mailchat .mailchat-v2 .mailchat-result-clickable {
+            cursor: pointer;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-clickable:hover {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 1px var(--accent-blue);
+        }
         #tab-mailchat .mailchat-v2 .mailchat-result-meta {
             color: var(--text-muted);
             font-size: 0.72rem;

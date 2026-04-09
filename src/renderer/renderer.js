@@ -3905,6 +3905,136 @@ async function loadChatbotPeriodMails() {
     }
 }
 
+async function openMailchatMailReader(index) {
+    const result = mailchatLastResults[index];
+    if (!result) return;
+
+    // Fetch the full markdown content
+    let raw = '';
+    if (result.eml_file) {
+        const mdName = result.eml_file.endsWith('.md') ? result.eml_file : result.eml_file;
+        for (const tryPath of [`mails/${mdName}`, mdName]) {
+            try {
+                const vr = await fetch('/api/vault/read?path=' + encodeURIComponent(tryPath));
+                if (vr.ok) {
+                    const vj = await vr.json();
+                    if (vj.ok && vj.content) {
+                        raw = String(vj.content).replace(/^---[\s\S]*?---\s*/, '').trim();
+                        break;
+                    }
+                }
+            } catch (_) {}
+        }
+    }
+    if (!raw) {
+        try {
+            let mail = null;
+            if (result.mail_id) {
+                const r = await fetch('/api/mail/' + encodeURIComponent(result.mail_id));
+                if (r.ok) mail = await r.json();
+            } else if (result.eml_file) {
+                const r = await fetch('/api/mail/by-eml?eml_file=' + encodeURIComponent(result.eml_file));
+                if (r.ok) mail = await r.json();
+            }
+            if (mail?.body) raw = mail.body;
+            else if (mail?.body_html) {
+                raw = String(mail.body_html)
+                    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+                    .replace(/<\s*\/\s*(p|div|li|tr|h[1-6])\s*>/gi, '\n')
+                    .replace(/<[^>]+>/g, ' ')
+                    .replace(/[ \t]+/g, ' ')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim();
+            }
+        } catch (_) {}
+    }
+    if (!raw) raw = result.body_snippet || '(contenu indisponible)';
+
+    const renderedBody = marked.parse(raw);
+    const subject = esc(result.subject || 'Sans sujet');
+    const meta = `📅 ${esc(result.date || '?')} · 👤 ${esc(result.sender_name || result.sender_email || '?')}`;
+    const isDark = !document.body.classList.contains('light-mode');
+
+    const htmlDoc = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${subject}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: ${isDark ? '#0B0F1A' : '#F9FAFB'};
+    color: ${isDark ? '#E5E7EB' : '#111827'};
+    padding: 2rem;
+    line-height: 1.7;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  .reader-header {
+    border-bottom: 1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'};
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .reader-subject {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+  }
+  .reader-meta {
+    font-size: 0.82rem;
+    color: ${isDark ? '#9CA3AF' : '#4B5563'};
+  }
+  .reader-body { font-size: 0.92rem; }
+  .reader-body p, .reader-body ul, .reader-body ol, .reader-body blockquote, .reader-body pre {
+    margin: 0 0 0.75rem;
+  }
+  .reader-body h1, .reader-body h2, .reader-body h3 {
+    margin: 1.2rem 0 0.5rem;
+  }
+  .reader-body hr {
+    border: none;
+    border-top: 1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'};
+    margin: 1rem 0;
+  }
+  .reader-body a { color: #3B82F6; text-decoration: underline; }
+  .reader-body blockquote {
+    border-left: 3px solid ${isDark ? '#374151' : '#D1D5DB'};
+    padding-left: 1rem;
+    color: ${isDark ? '#9CA3AF' : '#6B7280'};
+  }
+  .reader-body pre {
+    background: ${isDark ? '#1F2937' : '#F3F4F6'};
+    padding: 0.8rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+  }
+  .reader-body code {
+    background: ${isDark ? '#1F2937' : '#F3F4F6'};
+    padding: 0.15rem 0.35rem;
+    border-radius: 3px;
+    font-size: 0.88em;
+  }
+  .reader-body img { max-width: 100%; border-radius: 6px; }
+</style>
+</head>
+<body>
+  <div class="reader-header">
+    <div class="reader-subject">${subject}</div>
+    <div class="reader-meta">${meta}</div>
+  </div>
+  <div class="reader-body">${renderedBody}</div>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank', 'width=820,height=700');
+    if (win) {
+        win.document.write(htmlDoc);
+        win.document.close();
+    }
+}
+
 async function onMailchatResultToggle(index, detailsEl) {
     if (!detailsEl?.open) return;
     const result = mailchatLastResults[index];

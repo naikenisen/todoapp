@@ -37,7 +37,7 @@ from neo4j import GraphDatabase
 from neo4j.exceptions import ServiceUnavailable, AuthError
 
 # ── Projet ────────────────────────────────────────────
-from app_config import GRAPH_ATT_DIR, GRAPH_MD_DIR, MAILS_DIR
+from app_config import APP_DATA_DIR, GRAPH_ATT_DIR, GRAPH_MD_DIR, MAILS_DIR
 from mail_utils import clean_string_for_file
 
 try:
@@ -59,7 +59,44 @@ log = logging.getLogger(__name__)
 # ── Env ───────────────────────────────────────────────
 from pathlib import Path as _Path
 _PROJECT_ROOT = str(_Path(__file__).resolve().parents[2])
-load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
+
+
+def _load_runtime_env() -> list[str]:
+    """Charge les variables d'env depuis plusieurs emplacements possibles.
+
+    En version installée, le backend n'est pas forcément lancé depuis la racine
+    du repo, donc le .env local peut être introuvable.
+    """
+    loaded: list[str] = []
+    env_override = (os.getenv("ISENAPP_ENV_FILE") or "").strip()
+    candidates = [
+        env_override,
+        os.path.join(_PROJECT_ROOT, ".env"),
+        os.path.join(os.getcwd(), ".env"),
+        os.path.join(APP_DATA_DIR, ".env"),
+        str(_Path.home() / ".config" / "isenapp" / ".env"),
+    ]
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = os.path.abspath(candidate)
+        if path in seen:
+            continue
+        seen.add(path)
+        if os.path.isfile(path):
+            # override=False pour conserver une valeur déjà fournie par l'OS.
+            if load_dotenv(path, override=False):
+                loaded.append(path)
+    return loaded
+
+
+_ENV_FILES = _load_runtime_env()
+if _ENV_FILES:
+    log.info("Fichiers .env chargés: %s", ", ".join(_ENV_FILES))
+else:
+    log.warning("Aucun fichier .env trouvé (chemins testés: repo/cwd/app-data).")
 
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
@@ -177,7 +214,11 @@ def connect_neo4j() -> GraphDatabase.driver:
     Raises ConnectionError when Neo4j is unreachable (safe for library use).
     """
     if not NEO4J_PASSWORD:
-        raise ConnectionError("NEO4J_PASSWORD non défini. Crée un fichier .env (voir .env.example).")
+        raise ConnectionError(
+            "NEO4J_PASSWORD non défini. Ajoute-le dans l'environnement "
+            "ou dans un fichier .env (racine projet, dossier courant, "
+            f"ou {os.path.join(APP_DATA_DIR, '.env')})."
+        )
     try:
         driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
         driver.verify_connectivity()
