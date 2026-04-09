@@ -940,6 +940,25 @@
         .mail-item.is-sent { opacity: 0.7; }
         .mail-item.awaiting-response-over-3days { background: rgba(239,68,68,0.12); border-left: 2px solid #ef4444; }
         .mail-item.awaiting-response-over-3days:hover { background: rgba(239,68,68,0.18); }
+        .mail-item.relance-1 { background: rgba(245,158,11,0.10); border-left: 2px solid var(--accent-orange); }
+        .mail-item.relance-1:hover { background: rgba(245,158,11,0.18); }
+        .mail-item.relance-2 { background: rgba(239,100,20,0.12); border-left: 2px solid #ef6414; }
+        .mail-item.relance-2:hover { background: rgba(239,100,20,0.20); }
+        .mail-item.relance-3 { background: rgba(239,68,68,0.15); border-left: 2px solid #ef4444; }
+        .mail-item.relance-3:hover { background: rgba(239,68,68,0.22); }
+        .mail-relance-badge {
+            display: inline-flex; align-items: center; gap: 0.15rem;
+            font-size: 0.65rem; font-weight: 700; padding: 0.1rem 0.4rem;
+            border-radius: 99px; margin-left: 0.4rem; vertical-align: middle;
+            background: rgba(245,158,11,0.20); color: var(--accent-orange);
+        }
+        .mail-item.relance-2 .mail-relance-badge { background: rgba(239,100,20,0.20); color: #ef6414; }
+        .mail-item.relance-3 .mail-relance-badge { background: rgba(239,68,68,0.20); color: #ef4444; }
+        .btn-relance {
+            font-size: 0.75rem !important; padding: 0.2rem 0.5rem !important;
+            color: var(--accent-orange) !important; opacity: 0.8 !important;
+        }
+        .btn-relance:hover { opacity: 1 !important; background: rgba(245,158,11,0.10) !important; }
         .mail-item-check {
             width: 20px; height: 20px; min-width: 20px;
             border: 2px solid var(--card-border); border-radius: 50%;
@@ -966,114 +985,6 @@
             padding: 0.2rem 0.4rem; border-radius: 4px; transition: background 0.15s; opacity: 0.5;
         }
         .mail-item-actions button:hover { opacity: 1; background: rgba(255,255,255,0.05); }
-
-        /* ─── Timeline ──────────────────────────────── */
-        .timeline-container {
-            background: var(--bg-surface); border: 1px solid var(--card-border); border-radius: var(--radius-md);
-            margin-bottom: 1rem; overflow: visible;
-        }
-        .timeline-header {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 1rem 1.5rem; border-bottom: 1px solid var(--card-border);
-        }
-        .timeline-header h2 { font-size: 1.1rem; font-weight: 700; color: var(--accent-purple); margin: 0; }
-        .timeline-nav { display: flex; gap: 0.5rem; }
-        .timeline-nav button {
-            background: var(--progress-bg); border: 1px solid var(--card-border); border-radius: 6px;
-            color: var(--text-muted); cursor: pointer; padding: 0.25rem 0.6rem; font-size: 0.8rem;
-            transition: all 0.15s;
-                }
-                .timeline-nav button:hover { border-color: var(--accent-blue); color: var(--text); }
-                .timeline-scroll {
-                    overflow: auto;
-                    padding: 10rem 1rem 1rem;
-                    height: 500px;
-                    max-height: 1000px;
-                    overscroll-behavior: contain;
-                    scrollbar-width: thin;
-                    scrollbar-color: var(--card-border) transparent;
-                }
-                .timeline-scroll::-webkit-scrollbar {
-                    width: 6px;
-                    height: 6px;
-                }
-                .timeline-scroll::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                .timeline-scroll::-webkit-scrollbar-thumb {
-                    background: var(--card-border);
-                    border-radius: 3px;
-                }
-                .timeline-scroll::-webkit-scrollbar-thumb:hover {
-                    background: var(--text-muted);
-                }
-                .timeline-track {
-                    display: flex; 
-                    position: relative; 
-                    min-width: max-content; 
-                    padding-bottom: 0.5rem;
-                }
-        .timeline-day {
-            display: flex; flex-direction: column; align-items: center; min-width: 44px; position: relative;
-        }
-        .timeline-day-label {
-            font-size: 0.6rem; color: var(--text-muted); margin-bottom: 0.5rem;
-            font-weight: 600; text-align: center; line-height: 1.3;
-        }
-        .timeline-line {
-            position: absolute; top: 34px; left: 0; right: 0; height: 2px;
-            background: var(--card-border); z-index: 0;
-        }
-        .timeline-dot {
-            width: 14px; height: 14px; border-radius: 50%; position: relative; z-index: 1;
-            cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border: 2px solid transparent;
-        }
-        .timeline-dot:hover { transform: scale(1.4); }
-        .timeline-dot.empty { width: 6px; height: 6px; background: var(--card-border); cursor: default; border: none; }
-        .timeline-dot.empty:hover { transform: none; }
-        .timeline-dot.sent { background: var(--accent-blue); border-color: var(--accent-blue); }
-        .timeline-dot.reminder-pending { background: var(--accent-slate); border-color: var(--accent-slate); }
-        .timeline-dot.reminder-due {
-            background: #ef4444; border-color: #ef4444;
-            box-shadow: 0 0 8px rgba(239,68,68,0.5);
-            animation: pulse-red 1.5s ease-in-out infinite;
-        }
-        .timeline-dot.reminder-sent { background: var(--accent-orange); border-color: var(--accent-orange); }
-        .timeline-dot.response { background: var(--accent-green); border-color: var(--accent-green); }
-        .timeline-dot.today-marker {
-            width: 10px; height: 10px; background: var(--accent-blue);
-            border: 2px solid white; box-shadow: 0 0 6px var(--accent-blue);
-        }
-        @keyframes pulse-red {
-            0%, 100% { box-shadow: 0 0 4px rgba(239,68,68,0.4); }
-            50% { box-shadow: 0 0 14px rgba(239,68,68,0.8); }
-        }
-        .timeline-event-label {
-            font-size: 0.55rem; color: var(--text-muted); max-width: 80px;
-            text-align: center; margin-top: 0.4rem; line-height: 1.2;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        }
-        .timeline-today-col .timeline-day-label { color: var(--accent-blue); font-weight: 700; }
-        .timeline-popover {
-            position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
-            background: var(--bg-surface); border: 1px solid var(--card-border); border-radius: var(--radius-md);
-            padding: 0.6rem; min-width: 200px; max-width: 280px; max-height: 260px; overflow-y: auto; z-index: 200;
-            box-shadow: var(--shadow-lg); display: none;
-        }
-        .timeline-popover.show { display: block; }
-        .timeline-popover.below {
-            top: calc(100% + 8px);
-            bottom: auto;
-        }
-        .timeline-popover-title { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem; }
-        .timeline-popover-actions { display: flex; flex-direction: column; gap: 0.3rem; }
-        .timeline-popover-actions button {
-            padding: 0.35rem 0.6rem; border: 1px solid var(--card-border); border-radius: 6px;
-            background: var(--progress-bg); color: var(--text); cursor: pointer;
-            font-size: 0.75rem; text-align: left; transition: all 0.15s;
-        }
-        .timeline-popover-actions button:hover { border-color: var(--accent-blue); background: rgba(74,144,244,0.1); }
-        .timeline-popover-actions button.danger:hover { border-color: #ef4444; background: rgba(239,68,68,0.1); color: #ef4444; }
 
         .reminder-body-textarea { min-height: 150px; }
         .delete-mail-subject {
