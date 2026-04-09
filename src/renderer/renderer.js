@@ -9,7 +9,6 @@ let contacts = [];
 let currentTab = 'todo';
 let currentReminder = null;
 let selectedMailTask = null;
-let timelineMonth = new Date();
 let agendaWeekStart = new Date();
 let agendaEventsCache = [];
 let agendaCalendars = [];
@@ -1355,251 +1354,8 @@ function toggleMailSentFromList(sid, tid) {
 }
 
 /* ═══════════════════════════════════════════════════════
-   Timeline
-   ═══════════════════════════════════════════════════════ */
-function renderTimeline() {
-    const container = document.getElementById('timeline-container');
-    if (!container) return;
-
-    const now = new Date();
-    const year = timelineMonth.getFullYear();
-    const month = timelineMonth.getMonth();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const monthName = timelineMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-
-    const events = getTimelineEvents(year, month);
-
-    let html = `
-        <div class="timeline-header">
-            <h2><i class="icon-calendar"></i> ${esc(monthName.charAt(0).toUpperCase() + monthName.slice(1))}</h2>
-            <div class="timeline-nav">
-                <button onclick="navigateTimeline(-1)">◀</button>
-                <button onclick="navigateTimeline(0)">Aujourd'hui</button>
-                <button onclick="navigateTimeline(1)">▶</button>
-            </div>
-        </div>
-        <div class="timeline-scroll">
-            <div class="timeline-track">
-                <div class="timeline-line"></div>`;
-
-    for (let d = 1; d <= daysInMonth; d++) {
-        const date = new Date(year, month, d);
-        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        const isToday = (d === now.getDate() && month === now.getMonth() && year === now.getFullYear());
-        const dayEvents = events.filter(e => e.dateStr === dateStr);
-        const dayName = date.toLocaleDateString('fr-FR', { weekday: 'short' }).slice(0, 2);
-
-        const colClass = isToday ? 'timeline-day timeline-today-col' : 'timeline-day';
-        html += `<div class="${colClass}" data-date="${dateStr}">`;
-        html += `<div class="timeline-day-label">${dayName}<br>${d}</div>`;
-
-        if (dayEvents.length > 0) {
-            const order = { 'reminder-due': 0, 'sent': 1, 'reminder-sent': 2, 'reminder-pending': 3, 'response': 4 };
-            const sorted = [...dayEvents].sort((a, b) => (order[a.dotClass] || 5) - (order[b.dotClass] || 5));
-            const primary = sorted[0];
-            html += `<div class="timeline-dot ${primary.dotClass}"
-                onclick="showTimelinePopover(event, '${dateStr}')"
-                title="${esc(primary.tooltip)}"></div>`;
-            html += `<div class="timeline-event-label">${dayEvents.length > 1 ? dayEvents.length + ' évén.' : esc(primary.shortLabel)}</div>`;
-        } else if (isToday) {
-            html += `<div class="timeline-dot today-marker"></div>`;
-            html += `<div class="timeline-event-label">Auj.</div>`;
-        } else {
-            html += `<div class="timeline-dot empty"></div>`;
-        }
-
-        html += '</div>';
-    }
-
-    html += `</div></div>`;
-    container.innerHTML = html;
-
-    if (month === now.getMonth() && year === now.getFullYear()) {
-        const todayCol = container.querySelector('.timeline-today-col');
-        if (todayCol) {
-            const scroll = container.querySelector('.timeline-scroll');
-            scroll.scrollLeft = todayCol.offsetLeft - scroll.clientWidth / 2;
-        }
-    }
-}
-
-function getTimelineEvents(year, month) {
-    const events = [];
-    const now = Date.now();
-    const monthStart = new Date(year, month, 1).getTime();
-    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59).getTime();
-
-    (state.mailEvents || []).forEach(e => {
-        if (e.date >= monthStart && e.date <= monthEnd) {
-            const d = new Date(e.date);
-            const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-            let dotClass, tooltip, shortLabel;
-            switch (e.type) {
-                case 'sent':
-                    dotClass = 'sent'; tooltip = `Envoyé : ${e.label}`; shortLabel = e.label || 'Mail'; break;
-                case 'reminder_sent':
-                    dotClass = 'reminder-sent'; tooltip = `Relance #${e.cycle || '?'} : ${e.label}`; shortLabel = `Relance #${e.cycle || '?'}`; break;
-                case 'response':
-                    dotClass = 'response'; tooltip = `Réponse : ${e.label}`; shortLabel = 'Réponse'; break;
-                default: return;
-            }
-            events.push({ ...e, dateStr, dotClass, tooltip, shortLabel });
-        }
-    });
-
-    (state.reminders || []).forEach(r => {
-        if (r.status === 'dismissed' || r.status === 'responded' || r.status === 'sent') return;
-        if (r.remindAt >= monthStart && r.remindAt <= monthEnd) {
-            const d = new Date(r.remindAt);
-            const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-            const isDue = r.remindAt <= now;
-            const dotClass = isDue ? 'reminder-due' : 'reminder-pending';
-            const tooltip = isDue ? `⚠ Rappel dû : ${r.label}` : `Rappel prévu : ${r.label}`;
-            const shortLabel = isDue ? '⚠ Rappel' : `J+${r.cycle * 3}`;
-            events.push({ ...r, dateStr, dotClass, tooltip, shortLabel, isReminder: true, reminderId: r.id });
-        }
-    });
-
-    return events;
-}
-
-function navigateTimeline(direction) {
-    if (direction === 0) {
-        timelineMonth = new Date();
-    } else {
-        timelineMonth = new Date(timelineMonth.getFullYear(), timelineMonth.getMonth() + direction, 1);
-    }
-    renderTimeline();
-}
-
-function showTimelinePopover(evt, dateStr) {
-    document.querySelectorAll('.timeline-popover').forEach(p => p.remove());
-
-    const year = timelineMonth.getFullYear();
-    const month = timelineMonth.getMonth();
-    const dayEvents = getTimelineEvents(year, month).filter(e => e.dateStr === dateStr);
-    if (!dayEvents.length) return;
-
-    const dot = evt.target;
-    const popover = document.createElement('div');
-    popover.className = 'timeline-popover show';
-
-    let html = '';
-    dayEvents.forEach(e => {
-        html += `<div style="margin-bottom:0.5rem;">`;
-        html += `<div class="timeline-popover-title">${esc(e.tooltip)}</div>`;
-        html += `<div class="timeline-popover-actions">`;
-
-        if (e.isReminder && e.dotClass === 'reminder-due') {
-            html += `<button onclick="handleDueReminder('${e.reminderId}')"><i class="icon-sparkles"></i> Générer relance IA</button>`;
-            html += `<button onclick="markReminderResponseReceived('${e.reminderId}')"><i class="icon-check"></i> Réponse reçue</button>`;
-            html += `<button onclick="editReminderDate('${e.reminderId}')"><i class="icon-calendar"></i> Modifier la date</button>`;
-            html += `<button class="danger" onclick="dismissReminderFromTimeline('${e.reminderId}')"><i class="icon-trash-2"></i> Supprimer</button>`;
-        } else if (e.isReminder && e.dotClass === 'reminder-pending') {
-            html += `<button onclick="handleDueReminder('${e.reminderId}')"><i class="icon-sparkles"></i> Traiter maintenant</button>`;
-            html += `<button onclick="markReminderResponseReceived('${e.reminderId}')"><i class="icon-check"></i> Réponse reçue</button>`;
-            html += `<button onclick="editReminderDate('${e.reminderId}')"><i class="icon-calendar"></i> Modifier la date</button>`;
-            html += `<button class="danger" onclick="dismissReminderFromTimeline('${e.reminderId}')"><i class="icon-trash-2"></i> Supprimer</button>`;
-        } else if (e.type === 'sent' || e.type === 'reminder_sent') {
-            html += `<button onclick="selectMailForCompose('${e.sectionId}','${e.taskId}')"><i class="icon-mail"></i> Voir le mail</button>`;
-        }
-
-        html += `</div></div>`;
-    });
-
-    popover.innerHTML = html;
-    dot.parentElement.style.position = 'relative';
-    dot.parentElement.appendChild(popover);
-
-    const scroll = dot.closest('.timeline-scroll');
-    if (scroll) {
-        const margin = 10;
-        let popRect = popover.getBoundingClientRect();
-        const scrollRect = scroll.getBoundingClientRect();
-
-        // If the popover is clipped at the top, render it below the dot instead.
-        if (popRect.top < scrollRect.top + margin) {
-            popover.classList.add('below');
-            popRect = popover.getBoundingClientRect();
-        }
-
-        // Keep the popover fully visible vertically within the timeline viewport.
-        if (popRect.bottom > scrollRect.bottom - margin) {
-            scroll.scrollTop += popRect.bottom - (scrollRect.bottom - margin);
-            popRect = popover.getBoundingClientRect();
-        }
-        if (popRect.top < scrollRect.top + margin) {
-            scroll.scrollTop -= (scrollRect.top + margin) - popRect.top;
-            popRect = popover.getBoundingClientRect();
-        }
-
-        // Keep the popover visible horizontally as well.
-        if (popRect.right > scrollRect.right - margin) {
-            scroll.scrollLeft += popRect.right - (scrollRect.right - margin);
-            popRect = popover.getBoundingClientRect();
-        }
-        if (popRect.left < scrollRect.left + margin) {
-            scroll.scrollLeft -= (scrollRect.left + margin) - popRect.left;
-        }
-    }
-
-    setTimeout(() => {
-        const close = (ev) => {
-            if (!popover.contains(ev.target) && ev.target !== dot) {
-                popover.remove();
-                document.removeEventListener('click', close);
-            }
-        };
-        document.addEventListener('click', close);
-    }, 10);
-}
-
-/* ═══════════════════════════════════════════════════════
    Reminder Workflow (cycles)
    ═══════════════════════════════════════════════════════ */
-async function handleDueReminder(rid) {
-    const r = (state.reminders || []).find(x => x.id === rid);
-    if (!r) return;
-
-    document.querySelectorAll('.timeline-popover').forEach(p => p.remove());
-
-    if (!state.settings.geminiKey) {
-        showToast('Configure ta clé API Gemini dans les paramètres', 'error', 3000);
-        openSettings();
-        return;
-    }
-
-    showLoading('L\'IA génère une relance…');
-    try {
-        const res = await fetch('/api/generate-reminder', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                token: state.settings.geminiKey,
-                to: r.mailTo,
-                subject: r.mailSubject || r.label,
-                body: r.mailBody || r.label,
-                cycle: r.cycle
-            })
-        });
-        const result = await res.json();
-        if (result.ok && result.reminder) {
-            currentReminder = { rid, ...result.reminder, to: r.mailTo, from: r.mailFrom };
-            document.getElementById('reminderTo').value = r.mailTo || '';
-            document.getElementById('reminderSubject').value = result.reminder.subject || '';
-            document.getElementById('reminderBody').value = result.reminder.body || '';
-            document.getElementById('reminderModal').classList.add('show');
-            showToast('Relance générée !', 'success');
-        } else {
-            showToast('Erreur IA : ' + (result.error || 'Échec'), 'error', 5000);
-        }
-    } catch (e) {
-        showToast('Erreur : ' + e.message, 'error', 5000);
-    } finally {
-        hideLoading();
-    }
-}
-
 function markReminderSent(rid) {
     const r = (state.reminders || []).find(x => x.id === rid);
     if (!r) return;
@@ -1644,40 +1400,7 @@ function confirmReminderResponseReceived() {
 function markReminderResponseReceived(rid) {
     const r = (state.reminders || []).find(x => x.id === rid);
     if (!r) return;
-    document.querySelectorAll('.timeline-popover').forEach(p => p.remove());
     markResponseReceived(r.sectionId, r.taskId);
-}
-
-function dismissReminderFromTimeline(rid) {
-    const r = (state.reminders || []).find(x => x.id === rid);
-    if (!r) return;
-    document.querySelectorAll('.timeline-popover').forEach(p => p.remove());
-    r.status = 'dismissed';
-    autoSave();
-    renderMailTab();
-    showToast('Rappel supprimé.', 'success');
-}
-
-function editReminderDate(rid) {
-    const r = (state.reminders || []).find(x => x.id === rid);
-    if (!r) return;
-    document.querySelectorAll('.timeline-popover').forEach(p => p.remove());
-
-    const currentDate = new Date(r.remindAt);
-    const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth()+1).padStart(2,'0')}-${String(currentDate.getDate()).padStart(2,'0')}`;
-    const newDateStr = prompt('Nouvelle date du rappel (AAAA-MM-JJ) :', dateStr);
-    if (!newDateStr) return;
-
-    const parsed = new Date(newDateStr + 'T09:00:00');
-    if (isNaN(parsed.getTime())) {
-        showToast('Date invalide.', 'error');
-        return;
-    }
-
-    r.remindAt = parsed.getTime();
-    autoSave();
-    renderTimeline();
-    showToast('Date du rappel modifiée.', 'success');
 }
 
 function closeReminderModal() {
@@ -2802,7 +2525,6 @@ async function autoconfigAccount(idx) {
    ═══════════════════════════════════════════════════════ */
 setInterval(() => {
     updateMailBadge();
-    if (currentTab === 'mail') renderTimeline();
 }, 30000);
 
 /* ═══════════════════════════════════════════════════════
