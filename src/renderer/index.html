@@ -313,15 +313,15 @@
                     </label>
                     <label>
                         <span>Type de document</span>
-                        <select id="chatbotFieldDocType">
-                            <option value="">Non précisé</option>
-                            <option value="lettre de motivation">Lettre de motivation</option>
-                            <option value="cv">CV</option>
-                            <option value="candidature">Candidature</option>
-                            <option value="relance">Relance</option>
-                            <option value="facture">Facture</option>
-                            <option value="contrat">Contrat</option>
-                        </select>
+                        <input type="text" id="chatbotFieldDocType" list="chatbotDocTypeList" placeholder="Ex: lettre de motivation">
+                        <datalist id="chatbotDocTypeList">
+                            <option value="lettre de motivation"></option>
+                            <option value="cv"></option>
+                            <option value="candidature"></option>
+                            <option value="relance"></option>
+                            <option value="facture"></option>
+                            <option value="contrat"></option>
+                        </datalist>
                     </label>
                     <label>
                         <span>Contexte</span>

@@ -26,6 +26,7 @@ import email as email_lib
 import http.server
 import json
 import logging
+import mimetypes
 import os
 import secrets
 import subprocess
@@ -41,6 +42,8 @@ from app_config import (
     CONTACTS_CSV,
     DATA,
     DIR,
+    GRAPH_ATT_DIR,
+    GRAPH_MD_DIR,
     GOOGLE_MAIL_SCOPE,
     LOG_FILE,
     MAILS_DIR,
@@ -107,6 +110,36 @@ _neo4j_ingest_state = {
 
 def _mailchat_log(message: str) -> None:
     print(f"[mailchat] {message}", flush=True)
+
+
+def _resolve_eml_from_md_source(source_name: str) -> str:
+    """Résout un nom source .md vers son .eml via frontmatter `eml_file:`."""
+    src = (source_name or "").strip()
+    if not src.lower().endswith(".md"):
+        return ""
+    safe_name = os.path.basename(src)
+    if safe_name != src:
+        return ""
+
+    md_path = os.path.join(GRAPH_MD_DIR, safe_name)
+    if not os.path.isfile(md_path):
+        return ""
+
+    try:
+        with open(md_path, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read(4096)
+    except Exception:
+        return ""
+
+    # Frontmatter simple: ligne `eml_file: xxx.eml`
+    for line in content.splitlines():
+        line = line.strip()
+        if line.startswith("eml_file:"):
+            candidate = line.split(":", 1)[1].strip()
+            candidate = os.path.basename(candidate)
+            if candidate.lower().endswith(".eml"):
+                return candidate
+    return ""
 
 
 def _ingest_progress_cb(ingested: int, processed: int, total: int, fname: str, source: str) -> None:
@@ -368,14 +401,41 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 mail = None
                 if mail_id:
                     mail = next((m for m in inbox if m.get("id") == mail_id), None)
-                elif eml_file:
+                if not mail and eml_file:
                     mail = next((m for m in inbox if m.get("eml_file") == eml_file), None)
                 if not mail:
-                    self.send_error(404)
-                    return
+                    # Fallback: on tente l'accès direct au .eml si fourni par le résultat RAG.
+                    safe_eml = os.path.basename(eml_file or "")
+                    if safe_eml.lower().endswith(".md"):
+                        resolved = _resolve_eml_from_md_source(safe_eml)
+                        if resolved:
+                            safe_eml = resolved
+                    if safe_eml and safe_eml == (eml_file or ""):
+                        eml_path = os.path.join(MAILS_DIR, safe_eml)
+                    elif safe_eml and safe_eml.lower().endswith(".eml"):
+                        eml_path = os.path.join(MAILS_DIR, safe_eml)
+                    else:
+                        self.send_error(404)
+                        return
+                else:
+                    eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
 
-                eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
                 if not os.path.isfile(eml_path):
+                    # Fallback final: pièces jointes déjà exportées dans le vault graph.
+                    safe_name = os.path.basename(filename or "")
+                    if safe_name and safe_name == (filename or ""):
+                        graph_att_path = os.path.join(GRAPH_ATT_DIR, safe_name)
+                        if os.path.isfile(graph_att_path):
+                            with open(graph_att_path, "rb") as f:
+                                payload = f.read()
+                            content_type = mimetypes.guess_type(safe_name)[0] or "application/octet-stream"
+                            self.send_response(200)
+                            self.send_header("Content-Type", content_type)
+                            self.send_header("Content-Disposition", f'inline; filename="{safe_name}"')
+                            self.send_header("Content-Length", str(len(payload)))
+                            self.end_headers()
+                            self.wfile.write(payload)
+                            return
                     self.send_error(404)
                     return
 

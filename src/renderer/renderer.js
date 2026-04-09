@@ -3624,7 +3624,7 @@ function renderMailchatAttachments(results) {
             <div class="mailchat-att-group">
                 <h4>${esc(r.subject || `Mail ${i + 1}`)}</h4>
                 ${attachments.map((a) =>
-                    `<button class="mailchat-att-btn" onclick="openChatbotAttachment('${esc(r.mail_id || '')}', '${esc(a)}', '${esc(r.eml_file || '')}')">📎 ${esc(a)}</button>`
+                    `<button class="mailchat-att-btn" onclick='openChatbotAttachment(${JSON.stringify(r.mail_id || "")}, ${JSON.stringify(a)}, ${JSON.stringify(r.eml_file || "")})'>📎 ${esc(a)}</button>`
                 ).join('')}
             </div>
         `);
@@ -3662,7 +3662,14 @@ async function onMailchatResultToggle(index, detailsEl) {
         if (mail?.body && String(mail.body).trim()) {
             html = esc(mail.body);
         } else if (mail?.body_html && String(mail.body_html).trim()) {
-            const textFromHtml = String(mail.body_html).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            const textFromHtml = String(mail.body_html)
+                .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+                .replace(/<\s*\/\s*(p|div|li|tr|h[1-6])\s*>/gi, '\n')
+                .replace(/<\s*li[^>]*>/gi, '- ')
+                .replace(/<[^>]+>/g, ' ')
+                .replace(/[ \t]+/g, ' ')
+                .replace(/\n{3,}/g, '\n\n')
+                .trim();
             html = esc(textFromHtml || result.body_snippet || '(contenu indisponible)');
         } else {
             html = esc(result.body_snippet || '(contenu indisponible)');
@@ -3763,10 +3770,11 @@ function openChatbotEmail(mailId) {
 }
 
 function openChatbotAttachment(mailId, attachmentName, emlFile) {
-    const query = mailId
-        ? `id=${encodeURIComponent(mailId)}`
-        : `eml_file=${encodeURIComponent(emlFile || '')}`;
-    const url = `/api/mail/attachment?${query}&name=${encodeURIComponent(attachmentName)}`;
+    const qs = new URLSearchParams();
+    if (mailId) qs.set('id', String(mailId));
+    if (emlFile) qs.set('eml_file', String(emlFile));
+    qs.set('name', String(attachmentName || ''));
+    const url = `/api/mail/attachment?${qs.toString()}`;
     window.open(url, '_blank', 'noopener');
 }
 
