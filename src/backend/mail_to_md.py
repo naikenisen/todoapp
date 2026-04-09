@@ -58,6 +58,16 @@ def parse_addresses(header_value):
             results.append(clean_string(addr))
     return results
 
+def parse_addresses_full(header_value):
+    """Parse addresses returning (name, email) tuples to preserve both pieces of information."""
+    if not header_value:
+        return []
+    addresses = getaddresses([header_value])
+    results = []
+    for name, addr in addresses:
+        results.append((clean_string(name), clean_string(addr)))
+    return results
+
 def process_message(msg):
     # 1. Extraction basique
     subject = msg.get('Subject', 'Sans_Sujet')
@@ -93,7 +103,7 @@ def process_message(msg):
         sender_domain = raw_sender[0][1].split('@')[-1].lower()
 
     to_list = parse_addresses(to_hdr)
-    cc_list = parse_addresses(cc_hdr)
+    cc_list = parse_addresses_full(cc_hdr)
     
     # 3. Traitement Temporel & Noms de fichiers chronologiques
     date_str = msg.get('Date', '')
@@ -200,8 +210,16 @@ def process_message(msg):
             to_links = ", ".join([f"[[{dest}]]" for dest in to_list])
             md_file.write(f"**👥 À :** {to_links}\n")
         if cc_list:
-            cc_links = ", ".join([f"[[{cc}]]" for cc in cc_list])
-            md_file.write(f"**👀 Cc :** {cc_links}\n")
+            cc_parts = []
+            for cc_name, cc_addr in cc_list:
+                if cc_name and cc_addr:
+                    cc_parts.append(f"[[{cc_name}]] <{cc_addr}>")
+                elif cc_name:
+                    cc_parts.append(f"[[{cc_name}]]")
+                elif cc_addr:
+                    cc_parts.append(cc_addr)
+            if cc_parts:
+                md_file.write(f"**👀 Cc :** {', '.join(cc_parts)}\n")
         md_file.write("\n---\n\n")
         md_file.write(body_content)
         md_file.write("\n\n")
