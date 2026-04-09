@@ -1345,11 +1345,16 @@ function markResponseReceived(sid, tid) {
     showToast('Réponse reçue ! Rappels annulés.', 'success');
 }
 
-function quickRelance(sid, tid) {
+async function quickRelance(sid, tid) {
     const s = state.sections.find(x => x.id === sid);
     if (!s) return;
     const t = s.tasks.find(x => x.id === tid);
     if (!t) return;
+
+    const from = t.mailFrom || document.getElementById('mailFrom').value;
+    const to = t.mailTo || '';
+    if (!from) { showToast('Aucun compte expéditeur configuré.', 'error'); return; }
+    if (!to) { showToast('Aucun destinataire pour cette relance.', 'error'); return; }
 
     const relanceCount = getMailRelanceCount(tid);
     const relanceNum = relanceCount + 1;
@@ -1358,6 +1363,25 @@ function quickRelance(sid, tid) {
 
     const relanceSubject = `Relance : ${originalSubject}`;
     const relanceBody = `Bonjour,\n\nJe me permets de vous relancer à propos de mon mail précédent.\n\n${originalBody}\n\nCordialement,`;
+
+    showLoading(`Envoi de la relance #${relanceNum}…`);
+    try {
+        const r = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from, to, subject: relanceSubject, body: relanceBody })
+        });
+        const result = await r.json();
+        if (!result.ok) {
+            showToast('Erreur : ' + (result.error || 'Échec de l\'envoi'), 'error', 5000);
+            return;
+        }
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 5000);
+        return;
+    } finally {
+        hideLoading();
+    }
 
     // Mark the pending reminder as sent and create the next cycle
     const pendingReminder = (state.reminders || []).find(r => r.taskId === tid && r.status === 'pending');
@@ -1383,26 +1407,8 @@ function quickRelance(sid, tid) {
     }
 
     autoSave();
-
-    // Pre-fill the composer with the relance template
-    selectedMailTask = { sid, tid };
-    setReplyComposerContext(null);
-
-    mailRecipients = t.mailTo ? t.mailTo.split(',').map(e => e.trim()).filter(Boolean) : [];
-    renderMailTags();
-    document.getElementById('mailSubject').value = relanceSubject;
-    document.getElementById('mailBody').value = relanceBody;
-    if (t.mailFrom) {
-        const sel = document.getElementById('mailFrom');
-        for (let i = 0; i < sel.options.length; i++) {
-            if (sel.options[i].value === t.mailFrom) { sel.selectedIndex = i; break; }
-        }
-    }
-
-    updateMailComposerState();
     renderMailList();
-    document.getElementById('mailComposer').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    showToast(`Relance #${relanceNum} prête. Vérifiez et envoyez.`, 'success', 3000);
+    showToast(`Relance #${relanceNum} envoyée !`, 'success', 3000);
 }
 
 function toggleMailSentFromList(sid, tid) {
