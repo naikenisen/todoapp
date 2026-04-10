@@ -2207,6 +2207,7 @@ let selectedInboxId = null;
 let inboxFilter = 'all';
 let deleteMailTarget = null;
 let inboxFolder = 'inbox'; // 'inbox' or 'sent'
+let selectedInboxIds = new Set();
 
 /* ═══════════════════════════════════════════════════════
    Inbox — Load & Render
@@ -2283,6 +2284,7 @@ function renderInboxList() {
 
     container.innerHTML = mails.map(m => {
         const isSelected = selectedInboxId === m.id;
+        const isChecked = selectedInboxIds.has(m.id);
         const unread = !m.read ? 'unread' : '';
         const isSent = m.folder === 'sent';
         const fromDisplay = isSent ? ('→ ' + (m.to || '').split(',')[0].trim()) : (m.from_name || m.from_email || 'Inconnu');
@@ -2290,7 +2292,10 @@ function renderInboxList() {
         const hasAttach = m.attachments && m.attachments.length > 0;
 
         return `
-        <div class="inbox-item ${unread} ${isSelected ? 'selected' : ''}" onclick="openInboxMail('${esc(m.id)}')">
+        <div class="inbox-item ${unread} ${isSelected ? 'selected' : ''} ${isChecked ? 'checked' : ''}" onclick="openInboxMail('${esc(m.id)}')">
+            <input type="checkbox" class="inbox-item-check" ${isChecked ? 'checked' : ''}
+                aria-label="Sélectionner ce mail"
+                onclick="event.stopPropagation();toggleMailSelection('${esc(m.id)}')">
             <div class="inbox-item-dot"></div>
             <span class="inbox-item-star ${m.starred ? 'starred' : ''}"
                 onclick="event.stopPropagation();toggleInboxStar('${esc(m.id)}')">★</span>
@@ -2564,12 +2569,53 @@ async function exportAllGraph() {
 /* ═══════════════════════════════════════════════════════
    Inbox — Delete
    ═══════════════════════════════════════════════════════ */
+function toggleMailSelection(mailId) {
+    if (selectedInboxIds.has(mailId)) {
+        selectedInboxIds.delete(mailId);
+    } else {
+        selectedInboxIds.add(mailId);
+    }
+    updateBatchToolbar();
+    renderInboxList();
+}
+
+function clearMailSelection() {
+    selectedInboxIds.clear();
+    updateBatchToolbar();
+    renderInboxList();
+}
+
+function updateBatchToolbar() {
+    const toolbar = document.getElementById('inboxBatchToolbar');
+    const countEl = document.getElementById('inboxBatchCount');
+    if (!toolbar) return;
+    const count = selectedInboxIds.size;
+    if (count > 0) {
+        toolbar.classList.remove('is-hidden');
+        if (countEl) countEl.textContent = count + ' mail(s) sélectionné(s)';
+    } else {
+        toolbar.classList.add('is-hidden');
+    }
+}
+
 function openDeleteMailModal(mailId) {
     deleteMailTarget = mailId;
-    const mail = inboxMails.find(m => m.id === mailId);
-    document.getElementById('deleteMailSubject').textContent = mail ? mail.subject : '';
+    const isBatch = mailId === null;
+    const modal = document.getElementById('deleteMailModal');
+    const subjectEl = document.getElementById('deleteMailSubject');
+    const titleEl = document.getElementById('deleteMailModalTitle');
+    if (isBatch) {
+        const count = selectedInboxIds.size;
+        if (count === 0) return;
+        if (titleEl) titleEl.textContent = `Supprimer ${count} mail(s) ?`;
+        if (subjectEl) subjectEl.textContent = count + ' mail(s) sélectionné(s) seront supprimés.';
+    } else {
+        const mail = inboxMails.find(m => m.id === mailId);
+        if (titleEl) titleEl.textContent = 'Supprimer ce mail ?';
+        if (subjectEl) subjectEl.textContent = mail ? mail.subject : '';
+    }
     document.getElementById('deleteOnServer').checked = false;
-    document.getElementById('deleteMailModal').classList.add('show');
+    modal.classList.add('show');
 }
 
 function closeDeleteMailModal() {
@@ -2578,9 +2624,49 @@ function closeDeleteMailModal() {
 }
 
 async function confirmDeleteMail() {
+    const deleteOnServer = document.getElementById('deleteOnServer').checked;
+    const isBatch = deleteMailTarget === null;
+
+    if (isBatch) {
+        if (selectedInboxIds.size === 0) return;
+        const ids = [...selectedInboxIds];
+        closeDeleteMailModal();
+        showLoading('Suppression des mails…');
+        try {
+            const r = await fetch('/api/mail/delete-batch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids, delete_on_server: deleteOnServer })
+            });
+            const result = await r.json();
+            if (result.ok) {
+                inboxMails = inboxMails.filter(m => !ids.includes(m.id));
+                if (ids.includes(selectedInboxId)) {
+                    selectedInboxId = null;
+                    document.getElementById('inboxReader').innerHTML = `
+                        <div class="inbox-reader-empty">
+                            <i class="icon-mail-open" style="font-size:2.5rem;color:var(--text-muted)"></i>
+                            <p>Sélectionne un mail pour le lire</p>
+                        </div>`;
+                }
+                selectedInboxIds.clear();
+                updateBatchToolbar();
+                renderInboxList();
+                updateInboxBadge();
+                showToast(`${result.deleted} mail(s) supprimé(s)`, 'success');
+            } else {
+                showToast('Erreur : ' + (result.error || 'Erreur'), 'error', 5000);
+            }
+        } catch (e) {
+            showToast('Erreur : ' + e.message, 'error', 5000);
+        } finally {
+            hideLoading();
+        }
+        return;
+    }
+
     if (!deleteMailTarget) return;
     const targetId = deleteMailTarget;
-    const deleteOnServer = document.getElementById('deleteOnServer').checked;
     closeDeleteMailModal();
     showLoading('Suppression du mail…');
     try {

@@ -1683,6 +1683,46 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
+        if self.path == "/api/mail/delete-batch":
+            try:
+                ids = data.get("ids", [])
+                delete_on_server = data.get("delete_on_server", False)
+                if not ids or not isinstance(ids, list):
+                    return self._json({"error": "ids manquants"}, 400)
+                inbox = load_inbox_index()
+                seen = load_seen_uids()
+                seen_changed = False
+                deleted = 0
+                errors = []
+                for mail_id in ids:
+                    mail = next((m for m in inbox if m.get("id") == mail_id), None)
+                    if not mail:
+                        errors.append(mail_id)
+                        continue
+                    if delete_on_server and mail.get("uid") and mail.get("account"):
+                        account = find_account_by_email(mail["account"])
+                        if account:
+                            try:
+                                delete_mail_on_server(account, mail["uid"])
+                            except Exception as del_err:
+                                logger.warning("Batch delete on server failed for %s: %s", mail_id, del_err)
+                    eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
+                    if os.path.isfile(eml_path):
+                        os.remove(eml_path)
+                    if mail.get("uid"):
+                        for key, uids in seen.items():
+                            if mail["uid"] in uids:
+                                uids.remove(mail["uid"])
+                                seen_changed = True
+                    mail["deleted"] = True
+                    deleted += 1
+                if seen_changed:
+                    save_seen_uids(seen)
+                save_inbox_index(inbox)
+                return self._json({"ok": True, "deleted": deleted, "errors": errors})
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
         if self.path == "/api/mail/export-graph":
             try:
                 mail_id = data.get("id", "")

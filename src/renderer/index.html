@@ -75,6 +75,11 @@
                     <button class="inbox-filter-btn" onclick="setInboxFilter('unread', this)">Non lus</button>
                     <button class="inbox-filter-btn" onclick="setInboxFilter('starred', this)"><i class="icon-star"></i></button>
                 </div>
+                <div id="inboxBatchToolbar" class="inbox-batch-toolbar is-hidden">
+                    <span id="inboxBatchCount"></span>
+                    <button class="btn-danger" onclick="openDeleteMailModal(null)"><i class="icon-trash-2"></i> Supprimer la sélection</button>
+                    <button onclick="clearMailSelection()">Annuler</button>
+                </div>
                 <div id="inboxList" class="inbox-list"></div>
             </div>
             <div class="inbox-reader-panel" id="inboxReaderPanel">
@@ -750,7 +755,7 @@
 <!-- Delete Confirm Modal -->
 <div class="modal-overlay" id="deleteMailModal" onclick="if(event.target===this)closeDeleteMailModal()">
     <div class="modal modal-w-400">
-        <h2><i class="icon-trash-2"></i> Supprimer ce mail ?</h2>
+        <h2><i class="icon-trash-2"></i> <span id="deleteMailModalTitle">Supprimer ce mail ?</span></h2>
         <p class="delete-mail-subject" id="deleteMailSubject"></p>
         <div class="form-group">
             <label>
