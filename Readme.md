@@ -15,31 +15,20 @@ Client de bureau Electron et Python pour centraliser la gestion des tâches, des
 
 ## Table des matières
 
-- [ISENAPP](#isenapp)
-  - [Table des matières](#table-des-matières)
+- [NeuRail](#neurail)
   - [Fonctionnalités](#fonctionnalités)
-  - [L'objectif du projet est de réduire les changements d'outils en regroupant dans un seul client les opérations de communication, de suivi et d'organisation.](#lobjectif-du-projet-est-de-réduire-les-changements-doutils-en-regroupant-dans-un-seul-client-les-opérations-de-communication-de-suivi-et-dorganisation)
   - [Installation (Développement)](#installation-développement)
-    - [Prérequis](#prérequis)
+    - [Prérequis par système d'exploitation](#prérequis-par-système-dexploitation)
     - [Mise en place](#mise-en-place)
+  - [Build & Distribution](#build--distribution)
   - [Variables d'environnement](#variables-denvironnement)
-  - [Build \& Distribution](#build--distribution)
-    - [Générer les icônes (optionnel, nécessite `rsvg-convert`)](#générer-les-icônes-optionnel-nécessite-rsvg-convert)
-    - [Packager par OS](#packager-par-os)
-  - [Structure du projet](#structure-du-projet)
-  - [Communication IPC](#communication-ipc)
-    - [1. Preload — Exposition de l'API sécurisée](#1-preload--exposition-de-lapi-sécurisée)
-    - [2. Main — Gestion des événements IPC](#2-main--gestion-des-événements-ipc)
-    - [3. Renderer — Utilisation côté interface](#3-renderer--utilisation-côté-interface)
-  - [Contribution](#contribution)
-    - [Conventions](#conventions)
   - [Licence](#licence)
 
 ---
 
 ## Fonctionnalités
 
-ISENAPP est conçu comme un poste de travail unifié pour les équipes qui gèrent à la fois leurs échanges email, leurs relances, leur organisation quotidienne et leur suivi commercial.
+NeuRail est conçu comme un poste de travail unifié pour les équipes qui gèrent à la fois leurs échanges email, leurs relances, leur organisation quotidienne et leur suivi commercial.
 
 - Gestion des tâches dans une interface intégrée au reste du flux de travail.
 - Messagerie multi-comptes avec consultation de la boîte de réception, rédaction, réponse et envoi depuis l'application.
@@ -51,32 +40,56 @@ ISENAPP est conçu comme un poste de travail unifié pour les équipes qui gère
 - Intégration de Google Agenda pour consulter les calendriers et piloter les événements depuis l'application.
 - Gestion des leads, des projets et de l'organisation d'équipe dans le même environnement de travail.
 
-L'objectif du projet est de réduire les changements d'outils en regroupant dans un seul client les opérations de communication, de suivi et d'organisation.
+L'objectif est de réduire les changements d'outils en regroupant dans un seul client les opérations de communication, de suivi et d'organisation.
+
 ---
 
 ## Installation (Développement)
 
-### Prérequis
+### Prérequis par système d'exploitation
 
-| Outil | Version requise |
-|---|---|
-| **Node.js** | `>= 18 LTS` |
-| **npm** | `>= 9` |
-| **Python** | `>= 3.8` |
+#### Debian / Ubuntu
+
+```bash
+sudo apt update
+sudo apt install nodejs npm python3 python3-venv python3-pip
+```
+
+#### Arch Linux
+
+```bash
+sudo pacman -S nodejs npm python python-pip
+```
+
+#### macOS
+
+```bash
+brew install node python
+```
+
+> Si Homebrew n'est pas installé : [https://brew.sh](https://brew.sh)
+
+#### Windows
+
+1. Télécharger et installer **Node.js** (>= 18 LTS) : [https://nodejs.org](https://nodejs.org)
+2. Télécharger et installer **Python** (>= 3.8) : [https://www.python.org/downloads](https://www.python.org/downloads)
+   - Cocher **"Add Python to PATH"** lors de l'installation.
+
+---
 
 ### Mise en place
 
 ```bash
 # 1. Cloner le dépôt
-git clone https://github.com/naikenisen/ISENAPP.git
-cd ISENAPP
+git clone https://github.com/naikenisen/NeuRail.git
+cd NeuRail
 
 # 2. Installer les dépendances Node.js
 npm install
 
 # 3. Créer un environnement virtuel Python et installer les dépendances
 python3 -m venv venv
-source venv/bin/activate        # Linux/macOS
+source venv/bin/activate        # Linux / macOS
 # .\venv\Scripts\activate       # Windows (PowerShell)
 pip install -r requirements.txt
 
@@ -84,174 +97,56 @@ pip install -r requirements.txt
 npm start
 ```
 
-> **Note :** Le serveur Python backend (`server.py`) est automatiquement démarré par le processus Main d'Electron au lancement. Assurez-vous que le port **8080** est disponible.
-
----
-
-## Variables d'environnement
-
-L'application utilise des variables d'environnement optionnelles pour personnaliser le stockage des données :
-
-```bash
-# .env.example
-
-# Répertoire de stockage des données runtime (comptes, tâches, emails indexés).
-# Par défaut : ~/.local/share/isenapp (ou $XDG_DATA_HOME/isenapp)
-ISENAPP_DATA_DIR=
-
-# Clé API Google Gemini pour les fonctionnalités d'assistance IA
-# (configurée dans l'interface de l'application)
-```
+> **Note :** Le serveur Python backend (`server.py`) est automatiquement démarré par le processus principal d'Electron au lancement. Assurez-vous que le port **8080** est disponible.
 
 ---
 
 ## Build & Distribution
 
-ISENAPP utilise [electron-builder](https://www.electron.build/) pour le packaging.
-
-### Générer les icônes (optionnel, nécessite `rsvg-convert`)
+NeuRail utilise [electron-builder](https://www.electron.build/) pour le packaging. Les artefacts sont générés dans le dossier `dist/`.
 
 ```bash
-npm run icons:generate
-```
-
-### Packager par OS
-
-```bash
-# Linux (AppImage + .deb)
+# Linux (Debian, Ubuntu, Arch, …) — AppImage + .deb
 npm run build
 
-# macOS (DMG + ZIP)
+# macOS — .dmg + .zip
 npm run build:mac
 
-# Windows (NSIS installer + portable)
+# Windows — installeur NSIS + portable
 npm run build:win
 
-# Toutes les plateformes
+# Toutes les plateformes simultanément
 npm run build:all
 ```
 
-Les artefacts sont générés dans le dossier `dist/`.
+| Plateforme | Formats générés |
+|---|---|
+| Linux | AppImage (universel), `.deb` |
+| macOS | `.dmg`, `.zip` |
+| Windows | NSIS installer, Portable |
 
-| Plateforme | Formats | Catégorie |
+> **Note Linux :** L'AppImage fonctionne sur toutes les distributions (Debian, Arch, Fedora, …). Le paquet `.deb` est destiné aux distributions basées sur Debian/Ubuntu.
+
+---
+
+## Variables d'environnement
+
+Copiez `.env.example` en `.env` à la racine du projet et renseignez les valeurs selon votre configuration :
+
+```bash
+cp .env.example .env   # Linux / macOS
+# copy .env.example .env  # Windows (cmd)
+```
+
+| Variable | Description | Requis |
 |---|---|---|
-| Linux | AppImage, `.deb` | Office |
-| macOS | `.dmg`, `.zip` | Productivity |
-| Windows | NSIS installer, Portable | — |
-
----
-
-## Structure du projet
-
-```
-ISENAPP/
-├── assets/                  # Ressources statiques (logo SVG, icônes)
-├── build/                   # Icônes générées (icon.png, icon.icns, icon.ico)
-├── data/                    # Données par défaut embarquées (bootstrap)
-│   ├── data.json            #   État initial de l'application
-│   └── contacts_*.csv       #   Carnet de contacts par défaut
-├── dist/                    # Artefacts de build (généré)
-├── src/
-│   ├── main/
-│   │   ├── main.js          # Processus principal Electron
-│   │   └── preload.js       # Script preload (contextBridge)
-│   ├── renderer/
-│   │   ├── index.html       # Interface utilisateur complète
-│   │   ├── styles.css       # Feuille de styles
-│   │   └── renderer.js      #    Point d'entrée renderer
-│   └── backend/
-│       ├── server.py            # Serveur HTTP Python (API locale)
-│       ├── app_config.py        # Configuration et chemins
-│       ├── json_store.py        # Lecture/écriture atomique JSON
-│       ├── account_store.py     # CRUD comptes email
-│       ├── mail_utils.py        # Parsing email, .eml I/O, index
-│       ├── mail_service.py      # Protocoles POP3/IMAP/SMTP
-│       ├── mail_to_md.py        # Conversion emails → Markdown Graph
-│       ├── google_calendar_service.py  # OAuth2 Google + Calendar API
-│       ├── calendar_routes.py   # Routes HTTP calendrier
-│       ├── ai_service.py        # Appels IA Google Gemini
-│       ├── graph_service.py     # Graphe de connaissances + export email
-│       └── autoconfig_service.py # Auto-détection IMAP/SMTP
-├── package.json             # Configuration npm & electron-builder
-├── requirements.txt         # Dépendances Python
-└── README.md                # Ce fichier
-```
-
----
-
-## Communication IPC
-
-Toute communication entre le Renderer et le Main process transite par le **preload script** via `contextBridge`, garantissant une isolation complète.
-
-### 1. Preload — Exposition de l'API sécurisée
-
-```js
-// src/main/preload.js
-const { contextBridge, ipcRenderer } = require('electron');
-
-contextBridge.exposeInMainWorld('electronAPI', {
-  // Contrôles fenêtre
-  minimize:    () => ipcRenderer.send('window:minimize'),
-  maximize:    () => ipcRenderer.send('window:maximize'),
-  close:       () => ipcRenderer.send('window:close'),
-  isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
-
-  // Fichiers
-  readFile:  (path)          => ipcRenderer.invoke('fs:readFile', path),
-  writeFile: (path, content) => ipcRenderer.invoke('fs:writeFile', path, content),
-
-  // Coffre-fort mots de passe
-  passwordVaultList:   () => ipcRenderer.invoke('passwordVault:list'),
-  passwordVaultUpsert: (payload) => ipcRenderer.invoke('passwordVault:upsert', payload),
-  // ... autres canaux
-});
-```
-
-### 2. Main — Gestion des événements IPC
-
-```js
-// src/main/main.js
-const { ipcMain } = require('electron');
-
-// Événement unidirectionnel (send → on)
-ipcMain.on('window:minimize', () => {
-  if (mainWindow) mainWindow.minimize();
-});
-
-// Événement bidirectionnel (invoke → handle)
-ipcMain.handle('window:isMaximized', () => {
-  return mainWindow ? mainWindow.isMaximized() : false;
-});
-```
-
-### 3. Renderer — Utilisation côté interface
-
-```js
-// Dans le code du renderer (index.html)
-// Appel simple (fire-and-forget)
-window.electronAPI.minimize();
-
-// Appel avec réponse (async)
-const isMax = await window.electronAPI.isMaximized();
-```
-
----
-
-## Contribution
-
-Les contributions sont les bienvenues ! Merci de suivre ces étapes :
-
-1. **Forkez** le dépôt
-2. Créez une branche pour votre fonctionnalité (`git checkout -b feat/ma-fonctionnalite`)
-3. Committez vos changements (`git commit -m "feat: description"`)
-4. Poussez vers la branche (`git push origin feat/ma-fonctionnalite`)
-5. Ouvrez une **Pull Request**
-
-### Conventions
-
-- Commits : suivez la convention [Conventional Commits](https://www.conventionalcommits.org/)
-- Code JavaScript : pas de TypeScript — vanilla JS, `const`/`let`, template literals
-- Sécurité : toute nouvelle API IPC doit passer par le preload avec des canaux explicitement validés
+| `NEO4J_URI` | URI de connexion Neo4j (ex. `bolt://localhost:7687`) | Oui |
+| `NEO4J_USER` | Nom d'utilisateur Neo4j | Oui |
+| `NEO4J_PASSWORD` | Mot de passe Neo4j | Oui |
+| `GEMINI_API_KEY` | Clé API Google Gemini pour les fonctionnalités IA | Oui |
+| `GEMINI_MODEL` | Modèle Gemini principal | Non |
+| `GEMINI_FALLBACK_MODELS` | Modèles de secours Gemini (séparés par des virgules) | Non |
+| `EMBEDDING_MODEL` | Modèle d'embedding | Non |
 
 ---
 
@@ -263,6 +158,6 @@ Ce projet est sous licence **MIT**. Voir le fichier [LICENSE](LICENSE) pour plus
 
 <div align="center">
 
-par [Isen Naiken](https://github.com/naikenisen) 
+par [Isen Naiken](https://github.com/naikenisen)
 
 </div>
