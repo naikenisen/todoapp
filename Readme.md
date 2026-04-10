@@ -2,7 +2,7 @@
 
 # NeuRail
 
-Client de bureau Electron et Python pour centraliser la gestion des tâches, des emails, des rappels, des leads et de l'agenda dans une interface unique.
+Client de bureau Electron et Python pour centraliser la gestion des tâches, des emails, des rappels, de l'archivage et des recherches complexes dans une interface unique.
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue?style=flat-square)](package.json)
 [![Electron](https://img.shields.io/badge/Electron-33-47848f?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
