@@ -105,7 +105,6 @@ GRAPH_MD_DIR = os.path.join(ISENAPP_DATA, "mails")
 GRAPH_ATT_DIR = os.path.join(ISENAPP_DATA, "attachements")
 GRAPH_VAULT = ISENAPP_DATA
 
-GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar"
 GOOGLE_MAIL_SCOPE = "https://mail.google.com/"
 
 os.makedirs(MAILS_DIR, exist_ok=True)

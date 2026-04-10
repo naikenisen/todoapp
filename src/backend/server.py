@@ -515,10 +515,6 @@ def _save_neo4j_docker_config(cfg: dict) -> dict:
     return merged
 
 
-def _docker_is_available() -> bool:
-    return bool(shutil.which("docker")) and _run_cmd(["docker", "info"], timeout=10).get("ok", False)
-
-
 def _docker_permission_denied(output: str) -> bool:
     out = (output or "").lower()
     return "permission denied" in out and "docker.sock" in out
@@ -534,101 +530,6 @@ def _docker_daemon_active_via_service() -> bool:
         out = (res.get("output") or "").lower()
         return "active (running)" in out or "is running" in out
     return False
-
-
-def _find_running_container_by_host_port(port: int) -> dict | None:
-    """Return a running container exposing the given host port, if any."""
-    res = _run_cmd(["docker", "ps", "--format", "{{.Names}}|{{.Image}}|{{.Ports}}"], timeout=10)
-    if not res.get("ok"):
-        return None
-
-    needle = f":{int(port)}->"
-    for line in (res.get("output") or "").splitlines():
-        raw = line.strip()
-        if not raw:
-            continue
-        parts = raw.split("|", 2)
-        if len(parts) != 3:
-            continue
-        name, image, ports = parts[0].strip(), parts[1].strip(), parts[2].strip()
-        if needle in ports:
-            return {"name": name, "image": image, "ports": ports}
-    return None
-
-
-def _find_neo4j_container_candidate(cfg: dict) -> dict | None:
-    """Find the best matching Neo4j container from Docker inventory.
-
-    Matching is based on configured name/image/volume and published bolt/http ports,
-    so the app can align itself with an already-created container.
-    """
-    res = _run_cmd([
-        "docker", "ps", "-a",
-        "--format", "{{.Names}}|{{.Image}}|{{.Ports}}|{{.Mounts}}|{{.Status}}",
-    ], timeout=10)
-    if not res.get("ok"):
-        return None
-
-    expected_name = str(cfg.get("container_name", "") or "").strip()
-    expected_image = str(cfg.get("image", "") or "").strip()
-    expected_volume = str(cfg.get("volume", "") or "").strip()
-    bolt_port = int(cfg.get("bolt_port", 7687))
-    http_port = int(cfg.get("http_port", 7474))
-
-    image_repo = expected_image.split(":", 1)[0].strip().lower() if expected_image else ""
-    bolt_needle = f":{bolt_port}->7687"
-    http_needle = f":{http_port}->7474"
-
-    best = None
-    best_score = -1
-    for line in (res.get("output") or "").splitlines():
-        raw = line.strip()
-        if not raw:
-            continue
-        parts = raw.split("|", 4)
-        if len(parts) != 5:
-            continue
-        name, image, ports, mounts, status = [p.strip() for p in parts]
-
-        score = 0
-        if expected_name and name == expected_name:
-            score += 100
-
-        if expected_image and image == expected_image:
-            score += 40
-        elif image_repo and image.lower().startswith(image_repo + ":"):
-            score += 20
-
-        if expected_volume and expected_volume in mounts:
-            score += 25
-
-        if bolt_needle in ports:
-            score += 30
-        if http_needle in ports:
-            score += 15
-
-        # Prefer running container for equal matches.
-        is_running = status.lower().startswith("up")
-        if is_running:
-            score += 5
-
-        # Keep only meaningful Neo4j candidates.
-        if score <= 0:
-            continue
-
-        if score > best_score:
-            best_score = score
-            best = {
-                "name": name,
-                "image": image,
-                "ports": ports,
-                "mounts": mounts,
-                "status": status,
-                "running": is_running,
-                "score": score,
-            }
-
-    return best
 
 
 def _neo4j_docker_status() -> dict:

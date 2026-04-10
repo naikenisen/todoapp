@@ -25,7 +25,8 @@
     "files": [
       "src/**/*",
       "assets/**/*",
-      "data/**/*",
+      "data/data.json",
+      "data/contacts_complets_v2.csv",
       "requirements.txt",
       "package.json"
     ],
