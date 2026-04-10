@@ -235,7 +235,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 550,
     title: 'NeuRail',
-    icon: resourcePath(app, 'assets', 'logo.svg'),
+    icon: resourcePath(app, 'assets', 'logo.png'),
     frame: false,
     transparent: false,
     backgroundColor: '#1e1e2e',
