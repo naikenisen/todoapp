@@ -1,18 +1,3 @@
-"""Protocoles email — POP3, IMAP et SMTP.
-
-Implémente les opérations réseau de récupération (POP3 / IMAP),
-d'envoi (SMTP) et de suppression d'emails sur serveur.  Utilise
-le pattern d'injection de dépendances (DI) via des arguments nommés
-pour éviter les imports circulaires avec les modules de stockage.
-
-Dépendances internes :
-    (aucune — toutes les dépendances sont injectées via les arguments
-     nommés : load_seen_uids, save_seen_uids, compute_mail_id, etc.)
-
-Dépendances externes :
-    - imaplib, poplib, smtplib (stdlib)
-"""
-
 import base64
 import hashlib
 import imaplib
@@ -28,11 +13,13 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 
+# Construit la chaîne XOAUTH2 encodée pour l'authentification OAuth2 SMTP/IMAP
 def build_xoauth2_string(username, access_token):
     raw = f"user={username}\x01auth=Bearer {access_token}\x01\x01"
     return raw.encode("utf-8")
 
 
+# Effectue l'authentification XOAUTH2 sur une connexion SMTP existante
 def smtp_auth_xoauth2(server, username, access_token):
     token = base64.b64encode(build_xoauth2_string(username, access_token)).decode("ascii")
     code, resp = server.docmd("AUTH", f"XOAUTH2 {token}")
@@ -41,6 +28,7 @@ def smtp_auth_xoauth2(server, username, access_token):
         raise RuntimeError(f"SMTP OAuth refusé ({code}): {detail}")
 
 
+# Récupère les emails d'un compte via POP3 et retourne le nombre de nouveaux messages et les erreurs
 def fetch_pop3(
     account,
     *,
@@ -53,7 +41,6 @@ def fetch_pop3(
     unique_eml_filename_from_subject,
     mails_dir,
 ):
-    """Fetch emails via POP3 for one account. Returns (new_count, errors)."""
     server = account.get("pop3_server", "")
     port = int(account.get("pop3_port", 995))
     use_ssl = account.get("pop3_ssl", True)
@@ -134,6 +121,7 @@ def fetch_pop3(
     return new_count, errors
 
 
+# Récupère les emails d'un compte via IMAP et retourne le nombre de nouveaux messages et les erreurs
 def fetch_imap(
     account,
     *,
@@ -148,7 +136,6 @@ def fetch_imap(
     unique_eml_filename_from_subject,
     mails_dir,
 ):
-    """Fetch emails via IMAP for one account. Returns (new_count, errors)."""
     account = normalize_auth_fields(account)
     server = account.get("imap_server", "")
     port = int(account.get("imap_port", 993))
@@ -252,6 +239,7 @@ def fetch_imap(
     return new_count, errors
 
 
+# Envoie un email via SMTP, sauvegarde le .eml localement et retourne True si succès
 def send_email_smtp(
     account,
     to_addr,
@@ -270,7 +258,6 @@ def send_email_smtp(
     save_inbox_index,
     mails_dir,
 ):
-    """Send email via SMTP using account config. Also saves .eml locally."""
     account = normalize_auth_fields(account)
     smtp_server = account.get("smtp_server", "")
     smtp_port = int(account.get("smtp_port", 587))
@@ -355,8 +342,8 @@ def send_email_smtp(
     return True
 
 
+# Supprime un message sur le serveur distant (POP3 ou IMAP) identifié par son UID
 def delete_mail_on_server(account, uid_to_delete, *, normalize_auth_fields, get_valid_gmail_access_token):
-    """Connect via POP3 or IMAP and delete a message by UID."""
     account = normalize_auth_fields(account)
     protocol = account.get("protocol", "pop3").lower()
 
