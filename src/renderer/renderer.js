@@ -22,6 +22,10 @@ let browserEventsBound = false;
 let composerReplyContext = null;
 let leadsFilter = 'all';
 let respondedMailsExpanded = false;
+let appInstallConfig = null;
+let neo4jDockerConfig = null;
+let neo4jDockerLastActionError = '';
+let neo4jDockerLastStatus = null;
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 const esc = s => String(s)
@@ -598,6 +602,12 @@ function saveSectionModal() {
    ═══════════════════════════════════════════════════════ */
 function openSettings() {
     document.getElementById('settingsModal').classList.add('show');
+    switchSettingsTab('general');
+    loadInstallLocalSettings();
+    loadNeo4jDockerConfig();
+    refreshNeo4jDockerStatus();
+    const contactsCount = document.getElementById('contactsCount');
+    if (contactsCount) contactsCount.textContent = `${contacts.length} contacts chargés`;
 }
 
 function closeSettings() {
@@ -614,8 +624,508 @@ function toggleSettingsSection(id) {
     if (chevron) chevron.classList.toggle('open', !isOpen);
 }
 
+function switchSettingsTab(tabKey, btn = null) {
+    const key = (tabKey || 'general').trim();
+    document.querySelectorAll('.stg-nav-item').forEach((b) => {
+        b.classList.toggle('active', b.dataset.settingsTab === key);
+    });
+    document.querySelectorAll('.stg-panel').forEach((panel) => {
+        panel.classList.toggle('active', panel.id === `settings-tab-${key}`);
+    });
+    if (key === 'infra') {
+        loadNeo4jDockerConfig();
+        refreshNeo4jDockerStatus();
+    }
+    if (btn) btn.blur();
+}
+
 function saveSettings() {
     closeSettings();
+}
+
+function renderInstallStorageList(paths = {}) {
+    const el = document.getElementById('installStorageList');
+    if (!el) return;
+    const entries = [
+        ['Dossier app data', paths.app_data_dir],
+        ['Fichier config locale', paths.runtime_config_file],
+        ['Fichier env local', paths.runtime_env_file],
+        ['Base todo JSON', paths.data_json],
+        ['Comptes mail', paths.accounts_file],
+        ['Index inbox', paths.inbox_index_file],
+        ['UIDs vus', paths.seen_uids_file],
+        ['Contacts CSV', paths.contacts_csv],
+        ['Dossier mails .eml', paths.mails_dir],
+        ['Vault principal', paths.vault_dir],
+        ['Vault mails', paths.vault_mails_dir],
+        ['Vault pièces jointes', paths.vault_attachments_dir],
+        ['Logs backend', paths.log_file],
+    ].filter(([, value]) => value);
+
+    el.innerHTML = entries.map(([label, value]) => `
+        <div class="install-storage-item">
+            <span class="install-storage-label">${esc(label)}</span>
+            <span class="install-storage-path">${esc(String(value))}</span>
+        </div>
+    `).join('');
+}
+
+function applyInstallSettingsToForm(payload = {}) {
+    const paths = payload.paths || {};
+    const env = payload.env || {};
+
+    const assign = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value || '';
+    };
+
+    assign('settingMailsDirInput', paths.mails_dir || '');
+    assign('settingVaultDirInput', paths.vault_dir || '');
+    assign('settingNeo4jUriInput', env.NEO4J_URI || '');
+    assign('settingNeo4jUserInput', env.NEO4J_USER || '');
+    assign('settingNeo4jPasswordInput', env.NEO4J_PASSWORD || '');
+    assign('settingGeminiApiInput', env.GEMINI_API_KEY || '');
+    assign('settingGeminiModelInput', env.GEMINI_MODEL || '');
+    assign('settingGeminiFallbackInput', env.GEMINI_FALLBACK_MODELS || '');
+    assign('settingEmbeddingModelInput', env.EMBEDDING_MODEL || '');
+
+    renderInstallStorageList(paths);
+}
+
+async function loadInstallLocalSettings() {
+    try {
+        const r = await fetch('/api/app-config');
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.error || 'Impossible de charger la configuration locale');
+        appInstallConfig = data;
+        applyInstallSettingsToForm(data);
+    } catch (e) {
+        showToast(`Chargement config locale: ${e.message || e}`, 'error', 3500);
+    }
+}
+
+async function saveInstallLocalSettings(options = {}) {
+    const quiet = !!options.quiet;
+    const payload = {
+        paths: {
+            mails_dir: (document.getElementById('settingMailsDirInput')?.value || '').trim(),
+            vault_dir: (document.getElementById('settingVaultDirInput')?.value || '').trim(),
+        },
+        env: {
+            NEO4J_URI: (document.getElementById('settingNeo4jUriInput')?.value || '').trim(),
+            NEO4J_USER: (document.getElementById('settingNeo4jUserInput')?.value || '').trim(),
+            NEO4J_PASSWORD: (document.getElementById('settingNeo4jPasswordInput')?.value || '').trim(),
+            GEMINI_API_KEY: (document.getElementById('settingGeminiApiInput')?.value || '').trim(),
+            GEMINI_MODEL: (document.getElementById('settingGeminiModelInput')?.value || '').trim(),
+            GEMINI_FALLBACK_MODELS: (document.getElementById('settingGeminiFallbackInput')?.value || '').trim(),
+            EMBEDDING_MODEL: (document.getElementById('settingEmbeddingModelInput')?.value || '').trim(),
+        },
+    };
+
+    try {
+        const r = await fetch('/api/app-config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.error || 'Sauvegarde impossible');
+        if (!quiet) {
+            showToast('Configuration locale sauvegardée. Redémarre l\'application pour appliquer tous les changements.', 'success', 4500);
+        }
+        await loadInstallLocalSettings();
+    } catch (e) {
+        if (!quiet) {
+            showToast(`Sauvegarde config locale: ${e.message || e}`, 'error', 4500);
+        }
+        throw e;
+    }
+}
+
+function renderSystemDiagnostics(data) {
+    const wrap = document.getElementById('systemDiagResults');
+    if (!wrap) return;
+
+    const checks = Array.isArray(data?.checks) ? data.checks : [];
+    const pkg = data?.packages || {};
+
+    const checkHtml = checks.map((c) => {
+        const ok = !!c.ok;
+        return `
+            <div class="system-diag-item ${ok ? 'ok' : 'ko'}">
+                <div class="system-diag-head">
+                    <span class="system-diag-title">${esc(c.label || c.id || 'Check')}</span>
+                    <span class="system-diag-pill ${ok ? 'ok' : 'ko'}">${ok ? 'OK' : 'À corriger'}</span>
+                </div>
+                <div class="system-diag-details">${esc(c.details || '')}</div>
+                ${c.fix ? `<div class="system-diag-fix">Action: ${esc(c.fix)}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    const pkgHtml = Object.entries(pkg).map(([name, info]) => {
+        const installed = info && info.installed === true;
+        const status = info && typeof info.status === 'string' ? info.status : '';
+        return `<li><strong>${esc(name)}</strong>: ${installed ? 'installé' : 'non installé'}${status ? ` (${esc(status)})` : ''}</li>`;
+    }).join('');
+
+    wrap.innerHTML = `
+        <div class="system-diag-note">${esc(data?.dpkg_note || '')}</div>
+        <div class="system-diag-grid">${checkHtml}</div>
+        <div class="system-diag-packages">
+            <div style="font-size:0.82rem;font-weight:600;margin-bottom:0.2rem">Paquets système (dpkg)</div>
+            <ul>${pkgHtml || '<li>Aucune information paquet.</li>'}</ul>
+        </div>
+    `;
+}
+
+async function runSystemDiagnostics() {
+    const wrap = document.getElementById('systemDiagResults');
+    if (wrap) wrap.innerHTML = '<div class="system-diag-note">Diagnostic en cours…</div>';
+    try {
+        const r = await fetch('/api/system/check');
+        const data = await r.json();
+        if (!r.ok || data.error) throw new Error(data.error || 'Diagnostic impossible');
+        renderSystemDiagnostics(data);
+        showToast('Diagnostic système terminé.', 'success');
+    } catch (e) {
+        if (wrap) wrap.innerHTML = `<div class="system-diag-note">Erreur diagnostic: ${esc(e.message || String(e))}</div>`;
+        showToast(`Diagnostic: ${e.message || e}`, 'error', 4500);
+    }
+}
+
+function applyNeo4jDockerConfigToForm(cfg = {}) {
+    // Config is fixed — just populate read-only fields for display.
+    const assign = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value ?? '';
+    };
+    assign('neo4jDockerContainerInput', 'neurail-neo4j');
+    assign('neo4jDockerImageInput', 'neo4j:latest');
+    assign('neo4jDockerVolumeInput', 'neurail-neo4j-data');
+    assign('neo4jDockerBoltPortInput', 7687);
+    assign('neo4jDockerHttpPortInput', 7474);
+}
+
+function renderNeo4jDockerStatus(status = {}) {
+    const el = document.getElementById('neo4jDockerStatus');
+    if (!el) return;
+    neo4jDockerLastStatus = status;
+
+    const exists = !!status.exists;
+    const running = !!status.running;
+    const daemon = !!status.daemon_running;
+    const dockerAccess = status.docker_access !== false;
+    const reachable = !!status.neo4j_reachable;
+    const health = status.health || 'n/a';
+    const hasError = !!status.error;
+    const actionError = (neo4jDockerLastActionError || '').trim();
+    const detectedName = String(status.detected_container_name || '').trim();
+    const detectedImage = String(status.detected_container_image || '').trim();
+    const nameMismatch = !!status.container_name_mismatch;
+
+    const row = (label, value, cls = '') =>
+        `<div class="stg-status-row"><span class="stg-status-label">${label}</span><span class="stg-status-value ${cls}">${value}</span></div>`;
+
+    let html = '';
+    html += row('Docker', status.docker_available ? 'Installé' : 'Absent', status.docker_available ? 'stg-status-ok' : 'stg-status-ko');
+    html += row('Daemon', daemon ? 'Actif' : 'Inactif', daemon ? 'stg-status-ok' : 'stg-status-ko');
+    html += row('Accès Docker', dockerAccess ? 'OK' : 'Refusé', dockerAccess ? 'stg-status-ok' : 'stg-status-warn');
+    html += row('Conteneur', exists ? `Présent (${esc(detectedName || String(status.config?.container_name || ''))})` : 'Absent', exists ? 'stg-status-ok' : 'stg-status-warn');
+    html += row('Exécution', running ? 'En cours' : 'Arrêté', running ? 'stg-status-ok' : 'stg-status-ko');
+    if (exists) html += row('Santé', esc(String(health)));
+    html += row('Port Bolt', reachable ? 'Joignable' : 'Injoignable', reachable ? 'stg-status-ok' : 'stg-status-ko');
+
+    if (hasError && !daemon && status.docker_available) {
+        html += `<div class="stg-status-alert">`;
+        html += `<strong style="color:#f87171">⚠ ${esc(String(status.error))}</strong><br>`;
+        html += reachable
+            ? `Neo4j est joignable (port Bolt ouvert). Si Neo4j tourne en natif, ignorez cette alerte.`
+            : `Démarrez le daemon Docker pour gérer le conteneur.`;
+        html += `<br><button class="stg-btn stg-btn-ghost stg-btn-sm" style="margin-top:.4rem" onclick="neo4jDockerAction('start-daemon')"><i class="icon-play"></i> Démarrer le daemon</button>`;
+        html += `</div>`;
+    } else if (hasError && daemon && !dockerAccess) {
+        html += `<div class="stg-status-alert" style="border-color:rgba(251,191,36,0.4)"><strong style="color:#fbbf24">⚠ ${esc(String(status.error))}</strong><br>Exécute: <code>sudo usermod -aG docker $USER</code> puis déconnecte/reconnecte la session.</div>`;
+    } else if (hasError) {
+        html += `<div class="stg-status-alert" style="border-color:rgba(248,113,113,0.3)"><strong style="color:#f87171">⚠ ${esc(String(status.error))}</strong></div>`;
+    } else if (reachable && !running) {
+        html += `<div class="stg-status-alert">Neo4j semble tourner en dehors de Docker (port Bolt ouvert).</div>`;
+    }
+
+    if (actionError) {
+        html += `<div class="stg-status-alert" style="border-color:rgba(248,113,113,0.3)"><strong style="color:#f87171">Dernière action échouée:</strong><br>${esc(actionError)}</div>`;
+    }
+
+    el.innerHTML = html;
+    renderNeo4jQuickAssistant(status);
+}
+
+function renderNeo4jQuickAssistant(status = {}) {
+    const hero = document.getElementById('neo4jQuickState');
+    const checklist = document.getElementById('neo4jQuickChecklist');
+    const conflictActions = document.getElementById('neo4jConflictActions');
+    if (!hero || !checklist || !conflictActions) return;
+
+    const dockerOk = !!status.docker_available;
+    const daemonOk = !!status.daemon_running;
+    const accessOk = status.docker_access !== false;
+    const running = !!status.running;
+    const reachable = !!status.neo4j_reachable;
+    const ready = running && reachable;
+    const mismatch = !!status.container_name_mismatch;
+
+    let toneCls = 'is-warn';
+    let title = 'Action requise';
+    let subtitle = 'Neo4j n\'est pas encore prêt.';
+
+    if (ready) {
+        toneCls = 'is-ok';
+        title = 'Neo4j prêt';
+        subtitle = 'La base répond et le conteneur est en cours d\'exécution.';
+    } else if (!dockerOk) {
+        toneCls = 'is-ko';
+        title = 'Docker manquant';
+        subtitle = 'Installe Docker Engine pour activer Neo4j depuis l\'application.';
+    } else if (!daemonOk) {
+        toneCls = 'is-warn';
+        title = 'Daemon Docker arrêté';
+        subtitle = 'L\'assistant peut tenter de le démarrer automatiquement.';
+    } else if (!accessOk) {
+        toneCls = 'is-warn';
+        title = 'Accès Docker refusé';
+        subtitle = 'Ajoute l\'utilisateur au groupe docker puis reconnecte la session.';
+    } else if (reachable && !running) {
+        toneCls = 'is-warn';
+        title = 'Neo4j externe détecté';
+        subtitle = 'Le port Bolt est déjà ouvert hors du conteneur configuré.';
+    }
+
+    hero.className = `stg-neo4j-hero ${toneCls}`;
+    hero.innerHTML = `<div class="stg-neo4j-hero-title">${esc(title)}</div><div class="stg-neo4j-hero-sub">${esc(subtitle)}</div>`;
+
+    const lines = [
+        { ok: dockerOk, label: 'Docker installé' },
+        { ok: daemonOk, label: 'Daemon Docker actif' },
+        { ok: accessOk, label: 'Accès socket Docker' },
+        { ok: running, label: 'Conteneur neurail-neo4j en cours d\'exécution' },
+        { ok: reachable, label: 'Port Bolt joignable' },
+    ];
+
+    checklist.innerHTML = lines.map((line) => `
+        <div class="stg-neo4j-check ${line.ok ? 'ok' : 'ko'}">
+            <span class="stg-neo4j-dot"></span>
+            <span>${esc(line.label)}</span>
+        </div>
+    `).join('');
+
+    conflictActions.innerHTML = '';
+}
+
+function getCurrentNeo4jDockerFormConfig() {
+    // Fixed — always returns the canonical config.
+    return {
+        container_name: 'neurail-neo4j',
+        image: 'neo4j:latest',
+        volume: 'neurail-neo4j-data',
+        bolt_port: 7687,
+        http_port: 7474,
+    };
+}
+
+async function getNeo4jDockerStatus() {
+    const r = await fetch('/api/neo4j/docker/status');
+    return r.json();
+}
+
+async function loadNeo4jDockerConfig() {
+    try {
+        const r = await fetch('/api/neo4j/docker/config');
+        const data = await r.json();
+        if (!r.ok || data.error) throw new Error(data.error || 'Chargement config Docker impossible');
+        neo4jDockerConfig = data.config || {};
+        applyNeo4jDockerConfigToForm(neo4jDockerConfig);
+    } catch (e) {
+        showToast(`Neo4j Docker config: ${e.message || e}`, 'error', 3500);
+    }
+}
+
+async function saveNeo4jDockerConfig() {
+    try {
+        await saveNeo4jDockerConfigRaw(getCurrentNeo4jDockerFormConfig());
+        await refreshNeo4jDockerStatus();
+    } catch (e) {
+        showToast(`Neo4j Docker: ${e.message || e}`, 'error', 4500);
+    }
+}
+
+async function refreshNeo4jDockerStatus() {
+    try {
+        const data = await getNeo4jDockerStatus();
+        // Render status even if there's a soft error (e.g. daemon not running)
+        renderNeo4jDockerStatus(data);
+    } catch (e) {
+        const el = document.getElementById('neo4jDockerStatus');
+        if (el) el.textContent = `Erreur statut: ${e.message || e}`;
+    }
+}
+
+async function neo4jDockerAction(action, options = {}) {
+    const quiet = !!options.quiet;
+    const payload = { action };
+    if (action === 'start' || action === 'restart' || action === 'reinstall') {
+        let pwd = (document.getElementById('settingNeo4jPasswordInput')?.value || '').trim();
+        if (!pwd) pwd = 'changeme'; // default password
+        if (pwd) payload.neo4j_password = pwd;
+    }
+
+    try {
+        const r = await fetch('/api/neo4j/docker/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await r.json();
+        if (!r.ok || data.error) throw new Error(data.error || `Action ${action} échouée`);
+        neo4jDockerLastActionError = '';
+        renderNeo4jDockerStatus(data.status || {});
+        if (!quiet) showToast(`Action Neo4j Docker '${action}' réussie.`, 'success');
+        return data.status || {};
+    } catch (e) {
+        neo4jDockerLastActionError = e.message || String(e);
+        if (!quiet) showToast(`Action Neo4j Docker '${action}': ${e.message || e}`, 'error', 5000);
+        throw e;
+    } finally {
+        await refreshNeo4jDockerStatus();
+    }
+}
+
+async function activateNeo4jGuided() {
+    const btn = document.getElementById('neo4jActivateBtn');
+    if (btn) btn.disabled = true;
+    try {
+        let status = await getNeo4jDockerStatus();
+        renderNeo4jDockerStatus(status);
+
+        if (!status.docker_available) {
+            throw new Error('Docker n\'est pas installé sur ce système.');
+        }
+
+        if (!status.daemon_running) {
+            await neo4jDockerAction('start-daemon', { quiet: true });
+            status = await getNeo4jDockerStatus();
+            renderNeo4jDockerStatus(status);
+        }
+
+        if (status.docker_access === false) {
+            throw new Error('Le daemon est actif mais l\'accès Docker est refusé. Exécute: sudo usermod -aG docker $USER puis reconnecte la session.');
+        }
+
+        if (!status.running) {
+            await neo4jDockerAction('start', { quiet: true });
+            status = await getNeo4jDockerStatus();
+            renderNeo4jDockerStatus(status);
+        }
+
+        if (status.running && status.neo4j_reachable) {
+            // Test authentication with the configured password.
+            await testNeo4jAuth();
+            showToast('Neo4j est opérationnel.', 'success', 4000);
+            return;
+        }
+
+        throw new Error('Neo4j ne répond pas encore. Clique Actualiser dans quelques secondes.');
+    } catch (e) {
+        neo4jDockerLastActionError = e.message || String(e);
+        showToast(`Activation Neo4j: ${e.message || e}`, 'error', 5500);
+        await refreshNeo4jDockerStatus();
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function testNeo4jAuth() {
+    // Try the stored/default password first.
+    let pwd = (document.getElementById('settingNeo4jPasswordInput')?.value || '').trim() || 'changeme';
+    let r = await fetch('/api/neo4j/test-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pwd }),
+    });
+    let data = await r.json();
+    if (data.ok) return; // auth fine
+
+    // Password failed — prompt the user.
+    for (let attempt = 0; attempt < 3; attempt++) {
+        const entered = window.prompt(
+            'Le mot de passe Neo4j par défaut ne fonctionne pas.\nEntrez le mot de passe Neo4j actuel :',
+        );
+        if (!entered) break; // user cancelled
+        r = await fetch('/api/neo4j/test-auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: entered.trim() }),
+        });
+        data = await r.json();
+        if (data.ok) {
+            const localPwdInput = document.getElementById('settingNeo4jPasswordInput');
+            if (localPwdInput) localPwdInput.value = entered.trim();
+            showToast('Mot de passe Neo4j validé et sauvegardé.', 'success', 4000);
+            return;
+        }
+        showToast('Mot de passe incorrect, réessayez.', 'error', 3000);
+    }
+    showToast('Authentification Neo4j échouée. Changez le mot de passe dans Infrastructure > Mot de passe Neo4j.', 'error', 6000);
+}
+
+async function neo4jDockerReinstall() {
+    const withVolume = confirm('Supprimer aussi le volume de données Neo4j ? (OK = oui, Annuler = non)');
+    const confirmReinstall = confirm('Confirmer la réinstallation du conteneur Neo4j Docker ?');
+    if (!confirmReinstall) return;
+    try {
+        const r = await fetch('/api/neo4j/docker/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'reinstall', confirm: true, remove_volume: withVolume }),
+        });
+        const data = await r.json();
+        if (!r.ok || data.error) throw new Error(data.error || 'Réinstallation échouée');
+        renderNeo4jDockerStatus(data.status || {});
+        showToast('Réinstallation Neo4j Docker terminée.', 'success', 5000);
+    } catch (e) {
+        showToast(`Réinstallation Neo4j Docker: ${e.message || e}`, 'error', 5500);
+    }
+}
+
+async function changeNeo4jDockerPassword() {
+    const oldPassword = (document.getElementById('neo4jCurrentPasswordInput')?.value || '').trim();
+    const newPassword = (document.getElementById('neo4jNewPasswordInput')?.value || '').trim();
+    if (!oldPassword || !newPassword) {
+        showToast('Renseigne ancien et nouveau mot de passe.', 'error');
+        return;
+    }
+    if (newPassword.length < 8) {
+        showToast('Le nouveau mot de passe doit contenir au moins 8 caractères.', 'error');
+        return;
+    }
+    try {
+        const r = await fetch('/api/neo4j/docker/action', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'change-password', old_password: oldPassword, new_password: newPassword }),
+        });
+        const data = await r.json();
+        if (!r.ok || data.error) throw new Error(data.error || 'Changement de mot de passe échoué');
+
+        const localPwdInput = document.getElementById('settingNeo4jPasswordInput');
+        if (localPwdInput) localPwdInput.value = newPassword;
+        document.getElementById('neo4jCurrentPasswordInput').value = '';
+        document.getElementById('neo4jNewPasswordInput').value = '';
+
+        renderNeo4jDockerStatus(data.status || {});
+        showToast('Mot de passe Neo4j mis à jour.', 'success', 4500);
+    } catch (e) {
+        showToast(`Mot de passe Neo4j: ${e.message || e}`, 'error', 5000);
+    }
 }
 
 function saveMailToolsSettings() {
@@ -3905,6 +4415,81 @@ async function loadChatbotPeriodMails() {
     }
 }
 
+function openMarkdownReaderWindow({ subject, date, sender }, rawMarkdown) {
+        const safeSubject = esc(subject || 'Sans sujet');
+        const meta = `📅 ${esc(date || '?')} · 👤 ${esc(sender || '?')}`;
+        const isDark = !document.body.classList.contains('light-mode');
+        const renderedBody = marked.parse(rawMarkdown || '(contenu indisponible)');
+
+        const htmlDoc = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${safeSubject}</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: ${isDark ? '#0B0F1A' : '#F9FAFB'};
+        color: ${isDark ? '#E5E7EB' : '#111827'};
+        padding: 2rem;
+        line-height: 1.7;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .reader-header {
+        border-bottom: 1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'};
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .reader-subject { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .reader-meta { font-size: 0.82rem; color: ${isDark ? '#9CA3AF' : '#4B5563'}; }
+    .reader-body { font-size: 0.92rem; }
+    .reader-body p, .reader-body ul, .reader-body ol, .reader-body blockquote, .reader-body pre { margin: 0 0 0.75rem; }
+    .reader-body h1, .reader-body h2, .reader-body h3 { margin: 1.2rem 0 0.5rem; }
+    .reader-body hr {
+        border: none;
+        border-top: 1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'};
+        margin: 1rem 0;
+    }
+    .reader-body a { color: #3B82F6; text-decoration: underline; }
+    .reader-body blockquote {
+        border-left: 3px solid ${isDark ? '#374151' : '#D1D5DB'};
+        padding-left: 1rem;
+        color: ${isDark ? '#9CA3AF' : '#6B7280'};
+    }
+    .reader-body pre {
+        background: ${isDark ? '#1F2937' : '#F3F4F6'};
+        padding: 0.8rem;
+        border-radius: 6px;
+        overflow-x: auto;
+        font-size: 0.85rem;
+    }
+    .reader-body code {
+        background: ${isDark ? '#1F2937' : '#F3F4F6'};
+        padding: 0.15rem 0.35rem;
+        border-radius: 3px;
+        font-size: 0.88em;
+    }
+    .reader-body img { max-width: 100%; border-radius: 6px; }
+</style>
+</head>
+<body>
+    <div class="reader-header">
+        <div class="reader-subject">${safeSubject}</div>
+        <div class="reader-meta">${meta}</div>
+    </div>
+    <div class="reader-body">${renderedBody}</div>
+</body>
+</html>`;
+
+        const win = window.open('', '_blank', 'width=820,height=700');
+        if (win) {
+                win.document.write(htmlDoc);
+                win.document.close();
+        }
+}
+
 async function openMailchatMailReader(index) {
     const result = mailchatLastResults[index];
     if (!result) return;
@@ -3950,89 +4535,14 @@ async function openMailchatMailReader(index) {
     }
     if (!raw) raw = result.body_snippet || '(contenu indisponible)';
 
-    const renderedBody = marked.parse(raw);
-    const subject = esc(result.subject || 'Sans sujet');
-    const meta = `📅 ${esc(result.date || '?')} · 👤 ${esc(result.sender_name || result.sender_email || '?')}`;
-    const isDark = !document.body.classList.contains('light-mode');
-
-    const htmlDoc = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>${subject}</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: ${isDark ? '#0B0F1A' : '#F9FAFB'};
-    color: ${isDark ? '#E5E7EB' : '#111827'};
-    padding: 2rem;
-    line-height: 1.7;
-    max-width: 800px;
-    margin: 0 auto;
-  }
-  .reader-header {
-    border-bottom: 1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'};
-    padding-bottom: 1rem;
-    margin-bottom: 1.5rem;
-  }
-  .reader-subject {
-    font-size: 1.3rem;
-    font-weight: 700;
-    margin-bottom: 0.4rem;
-  }
-  .reader-meta {
-    font-size: 0.82rem;
-    color: ${isDark ? '#9CA3AF' : '#4B5563'};
-  }
-  .reader-body { font-size: 0.92rem; }
-  .reader-body p, .reader-body ul, .reader-body ol, .reader-body blockquote, .reader-body pre {
-    margin: 0 0 0.75rem;
-  }
-  .reader-body h1, .reader-body h2, .reader-body h3 {
-    margin: 1.2rem 0 0.5rem;
-  }
-  .reader-body hr {
-    border: none;
-    border-top: 1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'};
-    margin: 1rem 0;
-  }
-  .reader-body a { color: #3B82F6; text-decoration: underline; }
-  .reader-body blockquote {
-    border-left: 3px solid ${isDark ? '#374151' : '#D1D5DB'};
-    padding-left: 1rem;
-    color: ${isDark ? '#9CA3AF' : '#6B7280'};
-  }
-  .reader-body pre {
-    background: ${isDark ? '#1F2937' : '#F3F4F6'};
-    padding: 0.8rem;
-    border-radius: 6px;
-    overflow-x: auto;
-    font-size: 0.85rem;
-  }
-  .reader-body code {
-    background: ${isDark ? '#1F2937' : '#F3F4F6'};
-    padding: 0.15rem 0.35rem;
-    border-radius: 3px;
-    font-size: 0.88em;
-  }
-  .reader-body img { max-width: 100%; border-radius: 6px; }
-</style>
-</head>
-<body>
-  <div class="reader-header">
-    <div class="reader-subject">${subject}</div>
-    <div class="reader-meta">${meta}</div>
-  </div>
-  <div class="reader-body">${renderedBody}</div>
-</body>
-</html>`;
-
-    const win = window.open('', '_blank', 'width=820,height=700');
-    if (win) {
-        win.document.write(htmlDoc);
-        win.document.close();
-    }
+        openMarkdownReaderWindow(
+                {
+                        subject: result.subject || 'Sans sujet',
+                        date: result.date || '?',
+                        sender: result.sender_name || result.sender_email || '?',
+                },
+                raw,
+        );
 }
 
 async function onMailchatResultToggle(index, detailsEl) {
@@ -4835,7 +5345,8 @@ document.addEventListener('keydown', (e) => {
    Archive Mail Tab
    ═══════════════════════════════════════════════════════ */
 let archiveAllMails = [];
-let archivePeriod = 'all';
+let archiveVisibleMails = [];
+let archivePeriod = 'today';
 let archiveLoaded = false;
 
 async function loadArchiveMails() {
@@ -4867,47 +5378,31 @@ function parseArchiveDate(dateStr) {
 }
 
 function setArchivePeriod(period) {
-    archivePeriod = period;
-    document.querySelectorAll('.archive-chip').forEach(c => {
-        c.classList.toggle('active', c.textContent.trim().toLowerCase() === {
-            'all': 'tout', 'today': "aujourd'hui", 'week': 'semaine', 'month': 'mois', 'year': 'année'
-        }[period]);
+    archivePeriod = period || 'today';
+    document.querySelectorAll('.archive-chip').forEach((chip) => {
+        chip.classList.toggle('active', chip.dataset.period === archivePeriod);
     });
     filterArchiveMails();
 }
 
 function filterArchiveMails() {
-    const query = (document.getElementById('archiveSearchInput')?.value || '').toLowerCase().trim();
     const now = new Date();
-    let rangeStart = null;
+    const rangeStart = new Date(now);
+    rangeStart.setHours(0, 0, 0, 0);
 
-    if (archivePeriod === 'today') {
-        rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    } else if (archivePeriod === 'week') {
-        rangeStart = new Date(now);
-        rangeStart.setDate(rangeStart.getDate() - 7);
+    if (archivePeriod === 'week') {
+        const day = (rangeStart.getDay() + 6) % 7;
+        rangeStart.setDate(rangeStart.getDate() - day);
     } else if (archivePeriod === 'month') {
-        rangeStart = new Date(now);
-        rangeStart.setMonth(rangeStart.getMonth() - 1);
-    } else if (archivePeriod === 'year') {
-        rangeStart = new Date(now);
-        rangeStart.setFullYear(rangeStart.getFullYear() - 1);
+        rangeStart.setDate(1);
     }
 
     const filtered = archiveAllMails.filter(m => {
-        // Period filter
-        if (rangeStart) {
-            const d = parseArchiveDate(m.date);
-            if (d < rangeStart.getTime()) return false;
-        }
-        // Text search
-        if (query) {
-            const haystack = [m.subject, m.from, m.to, m.body, m.tags, m.date].join(' ').toLowerCase();
-            if (!haystack.includes(query)) return false;
-        }
-        return true;
+        const d = parseArchiveDate(m.date);
+        return d >= rangeStart.getTime() && d <= now.getTime();
     });
 
+    archiveVisibleMails = filtered;
     renderArchiveList(filtered);
 }
 
@@ -4925,14 +5420,26 @@ function renderArchiveList(mails) {
     list.innerHTML = mails.map((m, i) => {
         const preview = (m.body || '').replace(/\s+/g, ' ').trim().slice(0, 200);
         return `
-            <details class="archive-mail-item">
-                <summary class="archive-mail-summary">
-                    <span class="archive-mail-subject">${esc(m.subject || m.filename)}</span>
+            <div class="archive-mail-item archive-mail-clickable" onclick="openArchiveMailReader(${i})" title="Ouvrir le markdown">
+                <div class="archive-mail-summary">
+                    <span class="archive-mail-subject">${esc(m.subject || m.filename || 'Sans sujet')}</span>
                     <span class="archive-mail-meta">📅 ${esc(m.date || '?')} · 👤 ${esc(m.from || '?')} → ${esc(m.to || '?')}</span>
                     ${preview ? `<span class="archive-mail-preview">${esc(preview)}</span>` : ''}
-                </summary>
-                <div class="archive-mail-body">${marked.parse(m.body || '(contenu vide)')}</div>
-            </details>
+                </div>
+            </div>
         `;
     }).join('');
+}
+
+function openArchiveMailReader(index) {
+    const mail = archiveVisibleMails[index];
+    if (!mail) return;
+    openMarkdownReaderWindow(
+        {
+            subject: mail.subject || mail.filename || 'Sans sujet',
+            date: mail.date || '?',
+            sender: mail.from || '?',
+        },
+        mail.body || '(contenu vide)',
+    );
 }

@@ -35,6 +35,7 @@ from neo4j import GraphDatabase
 from neo4j.exceptions import ServiceUnavailable
 
 from neo4j_ingest import EmbeddingService, connect_neo4j
+from app_config import APP_DATA_DIR
 
 # ── Logging ───────────────────────────────────────────
 logging.basicConfig(
@@ -47,7 +48,29 @@ log = logging.getLogger(__name__)
 # ── Env ───────────────────────────────────────────────
 from pathlib import Path as _Path
 _PROJECT_ROOT = str(_Path(__file__).resolve().parents[2])
-load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
+
+
+def _load_runtime_env() -> None:
+    candidates = [
+        (os.getenv("ISENAPP_ENV_FILE") or "").strip(),
+        os.path.join(_PROJECT_ROOT, ".env"),
+        os.path.join(os.getcwd(), ".env"),
+        os.path.join(APP_DATA_DIR, ".env"),
+        str(_Path.home() / ".config" / "isenapp" / ".env"),
+    ]
+    seen = set()
+    for candidate in candidates:
+        if not candidate:
+            continue
+        path = os.path.abspath(candidate)
+        if path in seen:
+            continue
+        seen.add(path)
+        if os.path.isfile(path):
+            load_dotenv(path, override=False)
+
+
+_load_runtime_env()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = (os.getenv("GEMINI_MODEL", "gemma-3-27b-it") or "").strip() or "gemma-3-27b-it"
 GEMINI_FALLBACK_MODELS = [
