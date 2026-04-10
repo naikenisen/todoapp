@@ -16,41 +16,34 @@
 </head>
 <body>
 
-<!-- ─── Custom Titlebar ────────────────────────── -->
-<div class="titlebar" id="titlebar">
-    <span class="titlebar-icon"><img src="/assets/logo.svg" alt="NeuRail"></span>
-    <span class="titlebar-title">NeuRail</span>
-    <div class="titlebar-controls">
-        <button class="titlebar-btn titlebar-settings" id="btn-settings" onclick="openSettings()" title="Paramètres">
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        </button>
-        <button class="titlebar-btn" id="btn-minimize" title="Réduire">
-            <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </button>
-        <button class="titlebar-btn" id="btn-maximize" title="Agrandir">
-            <svg viewBox="0 0 24 24" id="maximize-icon"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
-        </button>
-        <button class="titlebar-btn close" id="btn-close" title="Fermer">
-            <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
-        </button>
-    </div>
-</div>
-
 <div class="app-content" id="app-content">
 <canvas id="confetti"></canvas>
 
 <div class="container">
     <!-- Tab Bar -->
     <div class="tab-bar" id="mainTabBar">
+        <div class="workspace-brand" aria-label="NeuRail">NeuRail</div>
         <div class="tab-bar-fixed">
             <button class="tab-btn active" data-tab="todo" onclick="switchTab('todo')"><i class="icon-list-checks"></i> Todo</button>
             <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')"><i class="icon-inbox"></i> Inbox</button>
             <button class="tab-btn" data-tab="mail" onclick="switchTab('mail')"><i class="icon-send"></i> Rédiger</button>
-            <button class="tab-btn" data-tab="graph" onclick="switchTab('graph')"><i class="icon-network"></i> Graph</button>
-
+            <button class="tab-btn" data-tab="mailchat" onclick="switchTab('mailchat')"><i class="icon-sparkles"></i> MailChat</button>
+            <button class="tab-btn" data-tab="archive" onclick="switchTab('archive')"><i class="icon-archive"></i> Archive</button>
         </div>
         <div class="tab-bar-scroll" id="siteTabButtons"></div>
         <button class="tab-btn tab-btn-add-site tab-btn-add-site-accent" onclick="openAddSiteModal()" title="Ajouter un site"><i class="icon-plus"></i></button>
+        <button class="tab-window-btn" id="btn-settings" onclick="openSettings()" title="Paramètres">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button class="tab-window-btn" id="btn-minimize" title="Réduire">
+            <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button class="tab-window-btn" id="btn-maximize" title="Agrandir">
+            <svg viewBox="0 0 24 24" id="maximize-icon"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+        </button>
+        <button class="tab-window-btn close" id="btn-close" title="Fermer">
+            <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        </button>
     </div>
 
     <!-- TODO TAB -->
@@ -273,57 +266,164 @@
     </div>
 
     
-    <!-- GRAPH TAB -->
-    <div class="tab-content" id="tab-graph">
-        <div class="graph-sidebar">
-            <div class="graph-search">
-                <input type="text" id="graphSearchInput" placeholder="Rechercher notes, mails, fichiers…" oninput="filterGraphNodes(this.value)">
+    <!-- MAILCHAT TAB -->
+    <div class="tab-content" id="tab-mailchat">
+        <div class="mailchat-container mailchat-v2">
+            <div class="mailchat-header">
+                <div class="mailchat-title">
+                    <i class="icon-sparkles"></i> MailChat
+                </div>
+                <div class="chatbot-status" id="chatbotStatus">
+                    <span class="chatbot-status-dot" id="chatbotStatusDot"></span>
+                    <span id="chatbotStatusText">Vérification…</span>
+                </div>
+                <div class="mailchat-header-actions">
+                    <button class="chatbot-action-btn" onclick="chatbotIngest()" title="Synchroniser les emails vers Neo4j">
+                        <i class="icon-refresh-cw"></i> Sync Neo4j
+                    </button>
+                    <button class="chatbot-action-btn" onclick="loadChatbotPeriodMails()" title="Charger simplement les mails de la période choisie">
+                        <i class="icon-calendar-days"></i> Voir période
+                    </button>
+                    <label class="chatbot-toggle-label">
+                        <input type="checkbox" id="chatbotUseLLM" checked>
+                        <span>Réponse IA</span>
+                    </label>
+                </div>
             </div>
-            <div class="graph-search-results" id="graphSearchResults"></div>
-            <div class="graph-filters">
-                <label><input type="checkbox" checked data-group="md" onchange="toggleGraphGroup(this)"> <i class="icon-file-text"></i> Notes</label>
-                <label><input type="checkbox" checked data-group="mail" onchange="toggleGraphGroup(this)"> <i class="icon-mail"></i> Mails</label>
-                <label><input type="checkbox" checked data-group="attachment" onchange="toggleGraphGroup(this)"> <i class="icon-paperclip"></i> Fichiers</label>
-                <label><input type="checkbox" checked data-group="orphan" onchange="toggleGraphGroup(this)"> <i class="icon-circle-dashed"></i> Orphelins</label>
+            <div class="mailchat-sync-progress is-hidden" id="chatbotSyncProgress">
+                <div class="mailchat-sync-topline">
+                    <span id="chatbotSyncLabel">Sync Neo4j…</span>
+                    <span id="chatbotSyncPercent">0%</span>
+                </div>
+                <div class="mailchat-progress-track">
+                    <div class="mailchat-progress-fill" id="chatbotSyncBar"></div>
+                </div>
+                <div class="mailchat-sync-meta" id="chatbotSyncMeta"></div>
             </div>
-            <div class="graph-time-filters">
-                <button class="graph-time-btn active" data-period="all" onclick="setGraphTimePeriod('all')">Tout</button>
-                <button class="graph-time-btn" data-period="today" onclick="setGraphTimePeriod('today')">Aujourd'hui</button>
-                <button class="graph-time-btn" data-period="week" onclick="setGraphTimePeriod('week')">Semaine</button>
-                <button class="graph-time-btn" data-period="month" onclick="setGraphTimePeriod('month')">Mois</button>
-                <button class="graph-time-btn" data-period="year" onclick="setGraphTimePeriod('year')">Année</button>
+            <div class="mailchat-toolbar-v2">
+                <div class="mailchat-period-filters" id="chatbotPeriodFilters">
+                    <button class="mailchat-chip active" data-period="all" onclick="setChatbotPeriodFilter('all', this)">Tout</button>
+                    <button class="mailchat-chip" data-period="today" onclick="setChatbotPeriodFilter('today', this)">Aujourd'hui</button>
+                    <button class="mailchat-chip" data-period="week" onclick="setChatbotPeriodFilter('week', this)">Semaine</button>
+                    <button class="mailchat-chip" data-period="month" onclick="setChatbotPeriodFilter('month', this)">Mois</button>
+                    <button class="mailchat-chip" data-period="year" onclick="setChatbotPeriodFilter('year', this)">Année</button>
+                </div>
             </div>
-            <div class="graph-repulsion-ctrl">
-                <label>
-                    <span>Répulsion</span>
-                    <span id="graphRepulsionVal">120</span>
-                </label>
-                <input type="range" id="graphRepulsionSlider" min="10" max="500" step="10" value="120" oninput="setGraphRepulsion(+this.value)">
+            <div class="mailchat-workspace">
+                <section class="mailchat-panel mailchat-panel-query" aria-label="Requête sémantique et réponse IA">
+                    <div class="mailchat-panel-title"><i class="icon-sliders-horizontal"></i> Requête sémantique</div>
+                    <div class="mailchat-semantic-wrap">
+                        <div class="mailchat-semantic-grid">
+                            <label>
+                                <span>Qui ?</span>
+                                <input type="text" id="chatbotFieldWho" placeholder="Ex: Lucile Tonneau">
+                            </label>
+                            <label>
+                                <span>Type de document</span>
+                                <input type="text" id="chatbotFieldDocType" list="chatbotDocTypeList" placeholder="Ex: lettre de motivation">
+                                <datalist id="chatbotDocTypeList">
+                                    <option value="lettre de motivation"></option>
+                                    <option value="cv"></option>
+                                    <option value="candidature"></option>
+                                    <option value="relance"></option>
+                                    <option value="facture"></option>
+                                    <option value="contrat"></option>
+                                </datalist>
+                            </label>
+                            <label>
+                                <span>Contexte</span>
+                                <input type="text" id="chatbotFieldContext" placeholder="Ex: stage M2 IA">
+                            </label>
+                            <label>
+                                <span>Période libre</span>
+                                <input type="text" id="chatbotFieldPeriod" placeholder="Ex: mars 2026">
+                            </label>
+                            <label>
+                                <span>Pièce jointe</span>
+                                <select id="chatbotFieldAttachment">
+                                    <option value="">Indifférent</option>
+                                    <option value="oui">Oui</option>
+                                    <option value="non">Non</option>
+                                </select>
+                            </label>
+                            <label class="mailchat-semantic-checkbox">
+                                <input type="checkbox" id="chatbotAutoRewrite" checked>
+                                <span>Corriger / optimiser la requête par IA</span>
+                            </label>
+                        </div>
+                        <label class="mailchat-comment-field">
+                            <span>Commentaire libre</span>
+                            <textarea id="chatbotComment" rows="2" placeholder="Ajoutez des précisions libres (destinataire, thème, mot-clé, etc.)"></textarea>
+                        </label>
+                        <div class="mailchat-query-actions">
+                            <button class="chatbot-send-btn" onclick="sendChatbotQuery()" title="Lancer la recherche">
+                                <i class="icon-search"></i> Rechercher
+                            </button>
+                            <button class="chatbot-action-btn" onclick="clearChatbotSemanticFields()" title="Réinitialiser les champs">
+                                <i class="icon-eraser"></i> Réinitialiser
+                            </button>
+                        </div>
+                        <div class="mailchat-query-info" id="chatbotQueryInfo"></div>
+                    </div>
+                    <div class="mailchat-panel-title"><i class="icon-message-square"></i> Réponse IA</div>
+                    <div class="mailchat-column-body" id="chatbotAnswerPane">
+                        <div class="chatbot-welcome">
+                            <div class="chatbot-welcome-icon"><i class="icon-sparkles"></i></div>
+                            <p>La synthèse apparaîtra ici.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="mailchat-panel mailchat-panel-results" aria-label="Mails proposés">
+                    <div class="mailchat-panel-title"><i class="icon-mails"></i> Mails proposés</div>
+                    <div class="mailchat-column-body" id="chatbotResultsPane">
+                        <div class="chatbot-welcome">
+                            <p>Les emails trouvés seront listés ici.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="mailchat-panel mailchat-panel-insights" aria-label="Pièces jointes et vue graphe">
+                    <div class="mailchat-panel-title"><i class="icon-layers"></i> Insights Neo4j</div>
+                    <div class="mailchat-insight-stack">
+                        <div class="mailchat-insight-pane" id="chatbotGraphPane">
+                            <div class="mailchat-insight-pane-title"><i class="icon-network"></i> Zone de graphe utilisée</div>
+                            <div class="mailchat-insight-body mailchat-graph-body">
+                                <svg id="chatbotGraphSvg" class="mailchat-graph-svg"></svg>
+                                <div id="chatbotGraphLegend" class="mailchat-graph-legend"></div>
+                            </div>
+                        </div>
+                        <div class="mailchat-insight-pane" id="chatbotAttachmentsPane">
+                            <div class="mailchat-insight-pane-title"><i class="icon-paperclip"></i> Pièces jointes proposées</div>
+                            <div class="mailchat-insight-body" id="chatbotAttachmentsList">
+                                <div class="chatbot-welcome">
+                                    <p>Les pièces jointes ouvrables seront affichées ici.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
-            <div class="graph-stats" id="graphStats"></div>
-            <div class="graph-node-list" id="graphNodeList"></div>
         </div>
-        <div class="graph-canvas-wrap">
-            <svg id="graphSvg"></svg>
-            <div class="graph-placeholder" id="graphPlaceholder">
-                <div class="gp-icon"><i class="icon-network"></i></div>
-                <div class="gp-text">Tapez une recherche pour afficher le graphe</div>
-                <div class="gp-hint">minimum 2 caractères</div>
+    </div>
+
+    <!-- ARCHIVE MAIL TAB -->
+    <div class="tab-content" id="tab-archive">
+        <div class="archive-container">
+            <div class="archive-header">
+                <div class="archive-title"><i class="icon-archive"></i> Archive Mail</div>
+                <span class="archive-count" id="archiveCount"></span>
             </div>
-            <div class="graph-zoom-controls is-hidden" id="graphZoomControls">
-                <button onclick="graphZoom(1.3)" title="Zoom in">+</button>
-                <button onclick="graphZoom(1/1.3)" title="Zoom out">−</button>
-                <button onclick="graphFit()" title="Fit">⊡</button>
+            <div class="archive-toolbar">
+                <div class="archive-period-filters">
+                    <button class="archive-chip active" data-period="today" onclick="setArchivePeriod('today')">Aujourd'hui</button>
+                    <button class="archive-chip" data-period="week" onclick="setArchivePeriod('week')">Semaine</button>
+                    <button class="archive-chip" data-period="month" onclick="setArchivePeriod('month')">Mois</button>
+                </div>
             </div>
-        </div>
-        <div class="graph-reader" id="graphReader">
-            <div class="graph-reader-resize" id="graphReaderResize"></div>
-            <div class="graph-reader-header">
-                <h3 id="graphReaderTitle">—</h3>
-                <button onclick="toggleGraphReaderExpand()" title="Agrandir / Réduire">⇱</button>
-                <button onclick="closeGraphReader()">✕</button>
+            <div class="archive-list" id="archiveList">
+                <div class="chatbot-welcome"><p>Chargement des archives…</p></div>
             </div>
-            <div class="graph-reader-body" id="graphReaderBody"></div>
         </div>
     </div>
 
@@ -357,93 +457,250 @@
     </div>
 </div>
 
-<!-- Settings Modal -->
-<div class="modal-overlay" id="settingsModal" onclick="if(event.target===this)closeSettings()">
-    <div class="modal settings-modal">
-        <h2><i class="icon-settings"></i> Paramètres</h2>
-
-        <!-- Section: Apparence -->
-        <div class="settings-section">
-            <div class="settings-section-header" onclick="toggleSettingsSection('settings-appearance')">
-                <span><i class="icon-palette"></i> Apparence</span>
-                <i class="icon-chevron-down settings-chevron" id="chevron-appearance"></i>
+<!-- Settings Panel (fullscreen) ──────────────── -->
+<div class="settings-fs-overlay" id="settingsModal">
+    <div class="settings-fs">
+        <header class="settings-fs-header">
+            <div class="settings-fs-brand">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <h1>Paramètres</h1>
             </div>
-            <div class="settings-section-body" id="settings-appearance">
-                <div class="settings-row">
-                    <div class="settings-row-label">
-                        <strong>Thème de l'interface</strong>
-                        <small>Basculer entre le mode sombre et le mode clair</small>
+            <button class="settings-fs-close" onclick="closeSettings()" title="Fermer les paramètres">
+                <i class="icon-x"></i>
+            </button>
+        </header>
+
+        <div class="settings-fs-body">
+            <nav class="settings-fs-nav">
+                <button class="settings-fs-nav-item active" data-settings-tab="general" onclick="switchSettingsTab('general', this)">
+                    <i class="icon-sliders-horizontal"></i><span>Général</span>
+                </button>
+                <button class="settings-fs-nav-item" data-settings-tab="ai" onclick="switchSettingsTab('ai', this)">
+                    <i class="icon-sparkles"></i><span>Intelligence Artificielle</span>
+                </button>
+                <button class="settings-fs-nav-item" data-settings-tab="data" onclick="switchSettingsTab('data', this)">
+                    <i class="icon-database"></i><span>Données &amp; Stockage</span>
+                </button>
+            </nav>
+
+            <main class="settings-fs-main">
+
+                <!-- ── Général ────────────────────── -->
+                <section class="settings-fs-tab active" id="settings-tab-general">
+                    <h2 class="settings-fs-title">Général</h2>
+
+                    <div class="stg-section">
+                        <div class="stg-section-header">
+                            <div class="stg-section-icon"><i class="icon-palette"></i></div>
+                            <div class="stg-section-text">
+                                <h3>Apparence</h3>
+                                <p>Choisissez le thème de l'application</p>
+                            </div>
+                        </div>
+                        <div class="stg-section-body">
+                            <div class="stg-toggle-row">
+                                <div>
+                                    <strong>Thème de l'interface</strong>
+                                    <span>Basculer entre le mode sombre et le mode clair</span>
+                                </div>
+                                <button onclick="toggleThemeMode()" id="themeToggleBtn" class="stg-btn stg-btn-ghost"><i class="icon-sun"></i> Mode clair</button>
+                            </div>
+                        </div>
                     </div>
-                    <button onclick="toggleThemeMode()" id="themeToggleBtn" class="settings-theme-btn">
-                        <i class="icon-sun"></i> Mode clair
-                    </button>
-                </div>
-            </div>
-        </div>
 
-        <!-- Section: Intelligence Artificielle -->
-        <div class="settings-section">
-            <div class="settings-section-header" onclick="toggleSettingsSection('settings-ai')">
-                <span><i class="icon-sparkles"></i> Intelligence Artificielle</span>
-                <i class="icon-chevron-down settings-chevron" id="chevron-ai"></i>
-            </div>
-            <div class="settings-section-body" id="settings-ai">
-                <div class="settings-row column">
-                    <label class="settings-label">Clé API Gemini</label>
-                    <input type="password" id="geminiKeyInput" placeholder="AIza..." class="settings-input">
-                    <small>Utilisée pour reformuler et générer des réponses IA.</small>
-                </div>
-                <div class="settings-row settings-row-mt-06">
-                    <button onclick="saveMailToolsSettings()"><i class="icon-save"></i> Sauvegarder la clé</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Section: Messagerie -->
-        <div class="settings-section">
-            <div class="settings-section-header" onclick="toggleSettingsSection('settings-mail')">
-                <span><i class="icon-mail"></i> Messagerie</span>
-                <i class="icon-chevron-down settings-chevron" id="chevron-mail"></i>
-            </div>
-            <div class="settings-section-body" id="settings-mail">
-                <div class="settings-row">
-                    <div class="settings-row-label">
-                        <strong>Comptes mail</strong>
-                        <small>POP3, IMAP, SMTP, Gmail OAuth 2.0</small>
+                    <div class="stg-section">
+                        <div class="stg-section-header">
+                            <div class="stg-section-icon"><i class="icon-mail"></i></div>
+                            <div class="stg-section-text">
+                                <h3>Comptes mail</h3>
+                                <p>Configurez vos comptes de messagerie (POP3, IMAP, Gmail)</p>
+                            </div>
+                            <button onclick="openAccountsModal();closeSettings()" class="stg-btn stg-btn-ghost"><i class="icon-settings"></i> Configurer</button>
+                        </div>
                     </div>
-                    <button onclick="openAccountsModal();closeSettings()"><i class="icon-user"></i> Gérer les comptes</button>
-                </div>
-                <div class="settings-row column settings-row-mt-09">
-                    <label class="settings-label">Importer un annuaire de contacts (CSV)</label>
-                    <small>Colonnes: Display Name, First Name, Last Name, Primary Email</small>
-                    <div class="contacts-import-row">
-                        <input type="file" id="contactsCsvInput" class="contacts-csv-input" accept=".csv">
-                        <button onclick="importContactsCsv()">Importer</button>
-                    </div>
-                    <small id="contactsCount" class="contacts-count"></small>
-                </div>
-            </div>
-        </div>
 
-        <!-- Section: Identifiants -->
-        <div class="settings-section">
-            <div class="settings-section-header" onclick="toggleSettingsSection('settings-credentials')">
-                <span><i class="icon-key-round"></i> Identifiants sauvegardés</span>
-                <i class="icon-chevron-down settings-chevron" id="chevron-credentials"></i>
-            </div>
-            <div class="settings-section-body" id="settings-credentials">
-                <div class="settings-row">
-                    <div class="settings-row-label">
-                        <strong>Mots de passe des onglets</strong>
-                        <small>Identifiants chiffrés pour GitHub, Google, ENT et autres sites</small>
+                    <div class="stg-section">
+                        <div class="stg-section-header">
+                            <div class="stg-section-icon"><i class="icon-key-round"></i></div>
+                            <div class="stg-section-text">
+                                <h3>Identifiants web</h3>
+                                <p>Mots de passe sauvegardés pour les sites intégrés</p>
+                            </div>
+                            <button onclick="openManageCredentialsModal();closeSettings()" class="stg-btn stg-btn-ghost"><i class="icon-settings"></i> Gérer</button>
+                        </div>
                     </div>
-                    <button onclick="openManageCredentialsModal();closeSettings()"><i class="icon-key-round"></i> Gérer les identifiants</button>
-                </div>
-            </div>
-        </div>
 
-        <div class="modal-actions mt-1">
-            <button onclick="closeSettings()">Fermer</button>
+                    <div class="stg-section">
+                        <div class="stg-section-header">
+                            <div class="stg-section-icon"><i class="icon-users"></i></div>
+                            <div class="stg-section-text">
+                                <h3>Contacts</h3>
+                                <p>Importez vos contacts depuis un fichier CSV</p>
+                            </div>
+                        </div>
+                        <div class="stg-section-body">
+                            <div class="stg-file-row">
+                                <input type="file" id="contactsCsvInput" class="stg-file-input" accept=".csv">
+                                <button onclick="importContactsCsv()" class="stg-btn stg-btn-primary"><i class="icon-upload"></i> Importer</button>
+                            </div>
+                            <span id="contactsCount" class="stg-hint"></span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ── Intelligence Artificielle ──── -->
+                <section class="settings-fs-tab" id="settings-tab-ai">
+                    <h2 class="settings-fs-title">Intelligence Artificielle</h2>
+
+                    <div class="stg-section">
+                        <div class="stg-section-header">
+                            <div class="stg-section-icon"><i class="icon-sparkles"></i></div>
+                            <div class="stg-section-text">
+                                <h3>Clé API</h3>
+                                <p>Nécessaire pour la reformulation de mails et les réponses IA</p>
+                            </div>
+                        </div>
+                        <div class="stg-section-body">
+                            <div class="stg-field">
+                                <label>Clé API Gemini</label>
+                                <input type="password" id="settingGeminiApiInput" class="stg-input" placeholder="AIza...">
+                                <span class="stg-hint">Obtenez votre clé sur <strong>aistudio.google.com</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stg-section">
+                        <div class="stg-section-header">
+                            <div class="stg-section-icon"><i class="icon-cpu"></i></div>
+                            <div class="stg-section-text">
+                                <h3>Modèles IA</h3>
+                                <p>Choix des modèles pour la génération de texte et l'indexation</p>
+                            </div>
+                        </div>
+                        <div class="stg-section-body">
+                            <div class="stg-field-group">
+                                <div class="stg-field">
+                                    <label>Modèle principal</label>
+                                    <input type="text" id="settingGeminiModelInput" class="stg-input" placeholder="gemma-3-27b-it">
+                                </div>
+                                <div class="stg-field">
+                                    <label>Modèle de secours</label>
+                                    <input type="text" id="settingGeminiFallbackInput" class="stg-input" placeholder="gemini-2.5-flash">
+                                </div>
+                            </div>
+                            <div class="stg-field">
+                                <label>Modèle d'indexation</label>
+                                <input type="text" id="settingEmbeddingModelInput" class="stg-input" placeholder="intfloat/multilingual-e5-base">
+                                <span class="stg-hint">Utilisé pour la recherche sémantique dans vos mails</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stg-save-bar">
+                        <button onclick="saveAISettings()" class="stg-btn stg-btn-primary stg-btn-lg"><i class="icon-save"></i> Sauvegarder</button>
+                    </div>
+                </section>
+
+                <!-- ── Données & Stockage ─────────── -->
+                <section class="settings-fs-tab" id="settings-tab-data">
+                    <h2 class="settings-fs-title">Données &amp; Stockage</h2>
+
+                    <div class="stg-section">
+                        <div class="stg-section-header">
+                            <div class="stg-section-icon"><i class="icon-folder"></i></div>
+                            <div class="stg-section-text">
+                                <h3>Dossiers</h3>
+                                <p>Emplacements de stockage de vos mails et documents</p>
+                            </div>
+                        </div>
+                        <div class="stg-section-body">
+                            <div class="stg-field">
+                                <label>Dossier des mails</label>
+                                <input type="text" id="settingMailsDirInput" class="stg-input" placeholder="/home/user/mails">
+                            </div>
+                            <div class="stg-field">
+                                <label>Dossier des documents</label>
+                                <input type="text" id="settingVaultDirInput" class="stg-input" placeholder="/home/user/Documents/isenapp_mails">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stg-section">
+                        <div class="stg-section-header">
+                            <div class="stg-section-icon"><i class="icon-database"></i></div>
+                            <div class="stg-section-text">
+                                <h3>Base de données Neo4j</h3>
+                                <p>Connexion et état de la base de données</p>
+                            </div>
+                            <button onclick="refreshNeo4jDockerStatus()" class="stg-btn stg-btn-ghost stg-btn-sm"><i class="icon-refresh-cw"></i> Actualiser</button>
+                        </div>
+                        <div class="stg-section-body">
+                            <div id="neo4jQuickState" class="stg-neo4j-hero">Chargement…</div>
+                            <div class="stg-actions-bar" style="margin-top:.75rem">
+                                <button id="neo4jActivateBtn" onclick="activateNeo4jGuided()" class="stg-btn stg-btn-primary"><i class="icon-play"></i> Démarrer</button>
+                                <button onclick="neo4jDockerAction('restart')" class="stg-btn stg-btn-ghost"><i class="icon-rotate-cw"></i> Redémarrer</button>
+                                <button onclick="neo4jDockerAction('stop')" class="stg-btn stg-btn-ghost"><i class="icon-square"></i> Arrêter</button>
+                            </div>
+                            <div class="stg-field" style="margin-top:1.25rem">
+                                <label>Adresse du serveur</label>
+                                <input type="text" id="settingNeo4jUriInput" class="stg-input" placeholder="bolt://localhost:7687">
+                            </div>
+                            <div class="stg-field-group">
+                                <div class="stg-field">
+                                    <label>Utilisateur</label>
+                                    <input type="text" id="settingNeo4jUserInput" class="stg-input" placeholder="neo4j">
+                                </div>
+                                <div class="stg-field">
+                                    <label>Mot de passe</label>
+                                    <input type="password" id="settingNeo4jPasswordInput" class="stg-input" placeholder="••••••">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stg-section">
+                        <div class="stg-section-header">
+                            <div class="stg-section-icon"><i class="icon-key-round"></i></div>
+                            <div class="stg-section-text">
+                                <h3>Changer le mot de passe</h3>
+                                <p>Modifier le mot de passe de la base de données Neo4j</p>
+                            </div>
+                        </div>
+                        <div class="stg-section-body">
+                            <div class="stg-field-group">
+                                <div class="stg-field">
+                                    <label>Mot de passe actuel</label>
+                                    <input type="password" id="neo4jCurrentPasswordInput" class="stg-input" placeholder="••••••">
+                                </div>
+                                <div class="stg-field">
+                                    <label>Nouveau mot de passe</label>
+                                    <input type="password" id="neo4jNewPasswordInput" class="stg-input" placeholder="Minimum 8 caractères">
+                                </div>
+                            </div>
+                            <div class="stg-actions-bar">
+                                <button onclick="changeNeo4jDockerPassword()" class="stg-btn stg-btn-primary"><i class="icon-key-round"></i> Modifier</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="stg-save-bar">
+                        <button onclick="saveInstallLocalSettings()" class="stg-btn stg-btn-primary stg-btn-lg"><i class="icon-save"></i> Sauvegarder</button>
+                        <span class="stg-hint" style="align-self:center;margin-left:.75rem">Un redémarrage peut être nécessaire</span>
+                    </div>
+
+                    <div class="stg-section stg-section-danger">
+                        <div class="stg-section-header">
+                            <div class="stg-section-icon"><i class="icon-alert-triangle"></i></div>
+                            <div class="stg-section-text">
+                                <h3>Réinstaller la base de données</h3>
+                                <p>Supprime le conteneur Neo4j et recrée une base vide</p>
+                            </div>
+                            <button onclick="neo4jDockerReinstall()" class="stg-btn stg-btn-danger"><i class="icon-trash-2"></i> Réinstaller</button>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
         </div>
     </div>
 </div>

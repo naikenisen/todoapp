@@ -12,10 +12,26 @@ Dépendances externes :
 
 import json
 import logging
+import os
 import urllib.error
 import urllib.request
 
 logger = logging.getLogger("todoapp")
+
+GEMINI_MODEL = (os.getenv("GEMINI_MODEL", "gemma-3-27b-it") or "").strip() or "gemma-3-27b-it"
+GEMINI_FALLBACK_MODELS = [
+    m.strip()
+    for m in (os.getenv("GEMINI_FALLBACK_MODELS", "gemini-2.5-flash") or "").split(",")
+    if m.strip()
+]
+
+
+def _gemini_model_candidates():
+    models = []
+    for model in [GEMINI_MODEL, *GEMINI_FALLBACK_MODELS]:
+        if model and model not in models:
+            models.append(model)
+    return models or ["gemma-3-27b-it", "gemini-2.5-flash"]
 
 
 def ai_call(token, prompt):
@@ -25,28 +41,40 @@ def ai_call(token, prompt):
         "generationConfig": {"temperature": 0.3},
     }).encode()
 
-    url = ("https://generativelanguage.googleapis.com/v1beta/"
-           f"models/gemma-3-27b-it:generateContent?key={token}")
+    last_exc = None
+    for model in _gemini_model_candidates():
+        url = (
+            "https://generativelanguage.googleapis.com/v1beta/"
+            f"models/{model}:generateContent?key={token}"
+        )
 
-    req = urllib.request.Request(
-        url, data=body,
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=60) as r:
-            result = json.loads(r.read())
-        return result["candidates"][0]["content"]["parts"][0]["text"]
-    except urllib.error.HTTPError as e:
-        error_body = e.read().decode()
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={"Content-Type": "application/json"},
+        )
         try:
-            msg = json.loads(error_body).get("error", {}).get("message", error_body)
-        except Exception:
-            msg = error_body
-        logger.error("Gemini API %d: %s", e.code, msg)
-        raise RuntimeError(f"Gemini {e.code}: {msg}")
-    except Exception as e:
-        logger.error("Gemini API error: %s", e)
-        raise
+            with urllib.request.urlopen(req, timeout=60) as r:
+                result = json.loads(r.read())
+            if model != GEMINI_MODEL:
+                logger.warning("Gemini fallback model used: %s", model)
+            return result["candidates"][0]["content"]["parts"][0]["text"]
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode()
+            try:
+                msg = json.loads(error_body).get("error", {}).get("message", error_body)
+            except Exception:
+                msg = error_body
+            last_exc = RuntimeError(f"Gemini {e.code} ({model}): {msg}")
+            logger.warning("Gemini API %d (%s): %s", e.code, model, msg)
+            continue
+        except Exception as e:
+            last_exc = e
+            logger.warning("Gemini API error (%s): %s", model, e)
+            continue
+
+    logger.error("Tous les modèles Gemini ont échoué")
+    raise last_exc if last_exc else RuntimeError("All Gemini models failed")
 
 
 def ai_reformulate(payload):

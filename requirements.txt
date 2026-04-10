@@ -1,3 +1,13 @@
 # Python dependencies used by the src/backend/ modules
 # (standard library modules are intentionally not listed)
 html2text>=2020.1.16
+
+# --- Neo4j Graph RAG ---
+neo4j>=5.19.0
+sentence-transformers>=3.0.0
+langchain>=0.2.0
+langchain-neo4j>=0.1.0
+langchain-community>=0.2.0
+langchain-huggingface>=0.0.3
+langchain-google-genai>=1.0.0
+python-dotenv>=1.0.0

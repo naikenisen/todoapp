@@ -194,6 +194,12 @@ def process_message(msg):
     with open(md_filepath, 'w', encoding='utf-8') as md_file:
         md_file.write("---\n")
         md_file.write("type: email\n")
+        if daily_note_link:
+            md_file.write(f"date: {daily_note_link}\n")
+        md_file.write(f"subject: {subject_final}\n")
+        md_file.write(f"from: {sender_name}\n")
+        if to_list:
+            md_file.write(f"to: {', '.join(to_list)}\n")
         md_file.write("tags:\n")
         for tag in tags:
             md_file.write(f"  - {tag}\n")

@@ -216,10 +216,10 @@
             fill: none;
         }
 
-        /* ─── App Content Area (below titlebar) ────────── */
+        /* ─── App Content Area ─────────────────────────── */
         .app-content {
-            margin-top: 38px;
-            height: calc(100vh - 38px);
+            margin-top: 0;
+            height: 100vh;
             overflow-y: auto;
             overflow-x: hidden;
             padding: 1rem 0.75rem;
@@ -238,12 +238,33 @@
             border: none;
             overflow: visible;
             min-width: 0;
+            position: sticky;
+            top: 0;
+            z-index: 120;
+            padding-top: 0.2rem;
+            -webkit-app-region: drag;
+            app-region: drag;
+        }
+        .workspace-brand {
+            font-family: 'SF Pro Display', 'Segoe UI Variable Display', 'Poppins', 'Inter', sans-serif;
+            font-size: 1.08rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: 0.01em;
+            display: flex;
+            align-items: center;
+            padding: 0 0.55rem 0 0.15rem;
+            flex: 0 0 auto;
+            -webkit-app-region: drag;
+            app-region: drag;
         }
         .tab-bar-fixed {
             display: flex;
             flex: 0 0 auto;
             min-width: 0;
             gap: 0.3rem;
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
         }
         .tab-bar-scroll {
             display: flex;
@@ -255,6 +276,8 @@
             scrollbar-color: var(--card-border) transparent;
             gap: 0.3rem;
             padding-right: 0.25rem;
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
         }
         .tab-bar-scroll::-webkit-scrollbar {
             height: 5px;
@@ -289,6 +312,8 @@
         .tab-btn-add-site {
             flex: 0 0 auto;
             border-left: 1px solid var(--card-border);
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
         }
         .tab-btn-add-site-accent {
             color: var(--accent-blue);
@@ -308,6 +333,70 @@
             box-shadow: 0 0 0 1px rgba(59,130,246,0.24);
         }
         .tab-btn i { font-size: 14px; }
+
+        .tab-window-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid var(--card-border);
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            -webkit-app-region: no-drag;
+            app-region: no-drag;
+            transition: all 0.15s ease;
+        }
+        .tab-window-btn:hover {
+            color: var(--text);
+            background: rgba(59,130,246,0.08);
+            border-color: rgba(59,130,246,0.22);
+        }
+        .tab-window-btn.close:hover {
+            background: #ef4444;
+            color: #fff;
+            border-color: #ef4444;
+        }
+        .tab-window-btn svg {
+            width: 15px;
+            height: 15px;
+            stroke: currentColor;
+            stroke-width: 1.7;
+            fill: none;
+        }
+
+        @media (max-width: 980px) {
+            .workspace-brand {
+                font-size: 0.98rem;
+                padding-right: 0.25rem;
+            }
+            .tab-btn {
+                padding: 0.48rem 0.72rem;
+                font-size: 0.78rem;
+            }
+            .tab-window-btn {
+                width: 32px;
+                height: 32px;
+                border-radius: 9px;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .workspace-brand {
+                display: none;
+            }
+            .tab-btn i {
+                margin-right: 0;
+            }
+            .tab-btn {
+                gap: 0.2rem;
+                padding: 0.42rem 0.6rem;
+            }
+        }
+
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
@@ -548,73 +637,390 @@
         .btn-primary:hover { filter: brightness(1.1); }
         .btn-danger { background: #ef4444 !important; border-color: #ef4444 !important; color: white !important; }
 
-        /* ─── Settings Modal ─────────────────────────── */
-        .settings-modal { max-width: 540px; }
-        .settings-modal h2 { margin-bottom: 1rem; }
-        .settings-section {
-            border: 1px solid var(--card-border); border-radius: var(--radius-md);
-            margin-bottom: 0.5rem; overflow: hidden;
-        }
-        .settings-section-header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 0.7rem 0.9rem; cursor: pointer; background: var(--bg-surface);
-            font-size: 0.88rem; font-weight: 600; transition: background 0.15s;
-            user-select: none; -webkit-user-select: none;
-        }
-        .settings-section-header:hover { background: var(--card-hover); }
-        .settings-section-header > span {
-            display: flex; align-items: center; gap: 0.45rem;
-        }
-        .settings-chevron { font-size: 0.85rem; transition: transform 0.2s; }
-        .settings-chevron.open { transform: rotate(180deg); }
-        .settings-section-body {
-            display: none; padding: 0.85rem 0.9rem;
-            border-top: 1px solid var(--card-border);
+        /* ─── Settings Panel (fullscreen) ────────────── */
+        .settings-fs-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
             background: var(--bg);
         }
-        .settings-section-body.open { display: block; }
-        .settings-row {
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 0.6rem; flex-wrap: wrap;
-        }
-        .settings-row.column { flex-direction: column; align-items: flex-start; }
-        .settings-row-mt-06 { margin-top: 0.6rem; }
-        .settings-row-mt-09 { margin-top: 0.9rem; }
-        .settings-row-label { display: flex; flex-direction: column; gap: 0.15rem; }
-        .settings-row-label small { color: var(--text-muted); font-size: 0.76rem; }
-        .settings-label { font-size: 0.85rem; font-weight: 600; }
-        .settings-input {
-            width: 100%; padding: 0.45rem 0.7rem; border: 1px solid var(--card-border);
-            border-radius: var(--radius-sm); background: var(--progress-bg); color: var(--text);
-            font-size: 0.85rem; font-family: inherit; margin-top: 0.35rem;
-        }
-        .settings-input:focus { outline: none; border-color: var(--accent-blue); }
-        .settings-section-body small { display: block; font-size: 0.76rem; color: var(--text-muted); margin-top: 0.3rem; }
-        .settings-theme-btn {
-            padding: 0.4rem 0.9rem; border: 1px solid var(--card-border);
-            border-radius: var(--radius-sm); background: var(--progress-bg); color: var(--text);
-            cursor: pointer; font-size: 0.82rem; font-weight: 500;
-            display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.15s; white-space: nowrap;
-        }
-        .settings-theme-btn:hover { border-color: var(--accent-blue); color: var(--text); }
-        .settings-section-body .modal-actions { margin-top: 0; }
-        /* Titlebar settings button */
-        .titlebar-settings { color: var(--text-muted); }
-        .contacts-import-row {
+        .settings-fs-overlay.show {
             display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-top: 0.4rem;
         }
-        .contacts-csv-input {
-            font-size: 0.8rem;
+        .settings-fs {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Header ── */
+        .settings-fs-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.65rem 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+            background: var(--bg-surface);
+            flex-shrink: 0;
+            -webkit-app-region: drag;
+        }
+        .settings-fs-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
             color: var(--text);
         }
-        .contacts-count {
+        .settings-fs-brand svg {
+            opacity: 0.7;
+        }
+        .settings-fs-brand h1 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        .settings-fs-close {
+            -webkit-app-region: no-drag;
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            background: none;
             color: var(--text-muted);
-            margin-top: 0.3rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+            transition: all 0.15s ease;
+        }
+        .settings-fs-close:hover {
+            background: rgba(248, 113, 113, 0.12);
+            border-color: rgba(248, 113, 113, 0.4);
+            color: #f87171;
+        }
+
+        /* ── Body ── */
+        .settings-fs-body {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        /* ── Sidebar Nav ── */
+        .settings-fs-nav {
+            width: 230px;
+            min-width: 230px;
+            background: var(--bg-surface);
+            border-right: 1px solid var(--card-border);
+            padding: 1.5rem 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            overflow-y: auto;
+        }
+        .settings-fs-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+            padding: 0.7rem 0.9rem;
+            border: none;
+            border-radius: 10px;
+            background: none;
+            color: var(--text-muted);
+            font-size: 0.86rem;
+            font-weight: 550;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            text-align: left;
+            width: 100%;
+        }
+        .settings-fs-nav-item i {
+            font-size: 1.05rem;
+            opacity: 0.6;
+            width: 1.2rem;
+            text-align: center;
+        }
+        .settings-fs-nav-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text);
+        }
+        .settings-fs-nav-item.active {
+            background: var(--accent-blue);
+            color: #fff;
+        }
+        .settings-fs-nav-item.active i { opacity: 1; }
+
+        /* ── Main Content ── */
+        .settings-fs-main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 2rem 3rem 3rem;
+            min-height: 0;
+        }
+        .settings-fs-tab {
+            display: none;
+            max-width: 700px;
+        }
+        .settings-fs-tab.active { display: block; }
+        .settings-fs-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin: 0 0 1.5rem;
+            color: var(--text);
+        }
+
+        /* ── Sections ── */
+        .stg-section {
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            background: var(--bg-surface);
+            margin-bottom: 1rem;
+            overflow: hidden;
+            transition: border-color 0.15s ease;
+        }
+        .stg-section:hover { border-color: rgba(255, 255, 255, 0.08); }
+        .stg-section-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.25rem;
+        }
+        .stg-section-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: rgba(59, 130, 246, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent-blue);
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .stg-section-text {
+            flex: 1;
+            min-width: 0;
+        }
+        .stg-section-text h3 {
+            font-size: 0.92rem;
+            font-weight: 650;
+            color: var(--text);
+            margin: 0;
+        }
+        .stg-section-text p {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin: 0.15rem 0 0;
+            line-height: 1.35;
+        }
+        .stg-section-header > .stg-btn {
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        .stg-section-body {
+            padding: 0 1.25rem 1.25rem;
+        }
+        .stg-section-danger {
+            border-color: rgba(239, 68, 68, 0.25);
+        }
+        .stg-section-danger:hover {
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+        .stg-section-danger .stg-section-icon {
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+        }
+
+        /* ── Toggle row ── */
+        .stg-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .stg-toggle-row strong {
             display: block;
+            font-size: 0.84rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .stg-toggle-row > div > span {
+            display: block;
+            font-size: 0.74rem;
+            color: var(--text-muted);
+            margin-top: 0.1rem;
+        }
+
+        /* ── File upload row ── */
+        .stg-file-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .stg-file-input {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        /* ── Save bar ── */
+        .stg-save-bar {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 0;
+            margin-top: 0.25rem;
+        }
+        .stg-btn-lg {
+            padding: 0.6rem 1.6rem;
+            font-size: 0.88rem;
+        }
+
+        /* ── Fields ── */
+        .stg-field { margin-bottom: 0.65rem; }
+        .stg-field label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.3rem;
+        }
+        .stg-input {
+            width: 100%;
+            padding: 0.52rem 0.75rem;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 0.85rem;
+            font-family: inherit;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .stg-input:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .stg-input::placeholder { color: var(--text-muted); opacity: 0.45; }
+        .stg-field-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.65rem;
+        }
+        .stg-hint {
+            display: block;
+            font-size: 0.73rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* ── Buttons ── */
+        .stg-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.15s ease;
+            white-space: nowrap;
+        }
+        .stg-btn i { font-size: 0.9em; }
+        .stg-btn-sm { padding: 0.38rem 0.75rem; font-size: 0.78rem; }
+        .stg-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .stg-btn-ghost {
+            background: none;
+            border-color: var(--card-border);
+            color: var(--text-muted);
+        }
+        .stg-btn-ghost:hover {
+            border-color: var(--accent-blue);
+            color: var(--text);
+            background: rgba(59, 130, 246, 0.08);
+        }
+        .stg-btn-primary {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: #fff;
+        }
+        .stg-btn-primary:hover { filter: brightness(1.12); }
+        .stg-btn-danger {
+            background: none;
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #f87171;
+        }
+        .stg-btn-danger:hover {
+            background: rgba(239, 68, 68, 0.12);
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        /* ── Actions bar ── */
+        .stg-actions-bar {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 0.75rem;
+        }
+
+        /* ── Neo4j hero ── */
+        .stg-neo4j-hero {
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 0.85rem 1rem;
+            background: var(--bg);
+        }
+        .stg-neo4j-hero.is-ok {
+            border-color: rgba(74, 222, 128, 0.4);
+            background: rgba(74, 222, 128, 0.07);
+        }
+        .stg-neo4j-hero.is-warn {
+            border-color: rgba(245, 158, 11, 0.35);
+            background: rgba(245, 158, 11, 0.07);
+        }
+        .stg-neo4j-hero.is-ko {
+            border-color: rgba(248, 113, 113, 0.35);
+            background: rgba(248, 113, 113, 0.07);
+        }
+        .stg-neo4j-hero-title {
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: var(--text);
+        }
+        .stg-neo4j-hero-sub {
+            margin-top: 0.2rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 700px) {
+            .settings-fs-body { flex-direction: column; }
+            .settings-fs-nav {
+                width: 100%;
+                min-width: 0;
+                flex-direction: row;
+                flex-wrap: wrap;
+                padding: 0.6rem;
+                gap: 0.3rem;
+                border-right: none;
+                border-bottom: 1px solid var(--card-border);
+            }
+            .settings-fs-nav-item {
+                width: auto;
+                padding: 0.45rem 0.7rem;
+            }
+            .settings-fs-nav-item span { display: none; }
+            .settings-fs-main { padding: 1.25rem; }
+            .stg-field-group { grid-template-columns: 1fr; }
         }
 
         /* ─── Emoji Picker ───────────────────────────── */
@@ -1571,6 +1977,296 @@
             width: 100%; cursor: pointer; accent-color: var(--accent-blue);
         }
 
+        /* ─── MailChat Tab ────────────────────────── */
+        .mailchat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-width: 100%;
+            margin: 0;
+            width: 100%;
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            background: var(--bg-surface);
+            overflow: hidden;
+            min-height: 0;
+        }
+        #tab-mailchat {
+            height: calc(100vh - 120px);
+            overflow: hidden;
+        }
+        #tab-mailchat.active {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+        }
+        .mailchat-header {
+            display: flex; align-items: center; gap: 1rem;
+            padding: 0.6rem 1rem; border-bottom: 1px solid var(--card-border);
+            flex-shrink: 0;
+        }
+        .mailchat-title {
+            font-size: 1rem; font-weight: 700; color: var(--text);
+            display: flex; align-items: center; gap: 0.4rem;
+        }
+        .mailchat-header .chatbot-status {
+            border-bottom: none; padding: 0;
+        }
+        .mailchat-header-actions {
+            display: flex; align-items: center; gap: 0.5rem; margin-left: auto;
+        }
+        .mailchat-sync-progress {
+            padding: 0.45rem 1rem 0.55rem;
+            border-bottom: 1px solid var(--card-border);
+            background: rgba(137,180,250,0.04);
+        }
+        .mailchat-sync-topline {
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 0.72rem; color: var(--text-muted);
+        }
+        .mailchat-progress-track {
+            margin-top: 0.35rem;
+            width: 100%;
+            height: 8px;
+            border-radius: 999px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--card-border);
+            overflow: hidden;
+        }
+        .mailchat-progress-fill {
+            width: 0%;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-soft));
+            transition: width 0.25s ease;
+        }
+        .mailchat-sync-meta {
+            margin-top: 0.3rem;
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .mailchat-semantic-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--card-border);
+            background: linear-gradient(180deg, rgba(137,180,250,0.08), rgba(137,180,250,0.02));
+        }
+        .mailchat-semantic-grid {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(120px, 1fr));
+            gap: 0.55rem;
+        }
+        .mailchat-semantic-grid label,
+        .mailchat-comment-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+        .mailchat-semantic-grid input,
+        .mailchat-semantic-grid select,
+        .mailchat-comment-field textarea {
+            background: var(--bg);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.78rem;
+            padding: 0.42rem 0.55rem;
+        }
+        .mailchat-semantic-grid input:focus,
+        .mailchat-semantic-grid select:focus,
+        .mailchat-comment-field textarea:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+        }
+        .mailchat-semantic-checkbox {
+            justify-content: flex-end;
+            align-items: flex-start;
+            padding-top: 1.2rem;
+            gap: 0.4rem !important;
+            flex-direction: row !important;
+            display: flex !important;
+        }
+        .mailchat-semantic-checkbox input {
+            width: 14px;
+            height: 14px;
+            accent-color: var(--accent-blue);
+            margin-top: 1px;
+        }
+        .mailchat-comment-field textarea {
+            min-height: 56px;
+            max-height: 110px;
+            resize: vertical;
+        }
+        .mailchat-query-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        .mailchat-query-actions .chatbot-send-btn {
+            width: auto;
+            height: 34px;
+            border-radius: 999px;
+            padding: 0 0.9rem;
+            gap: 0.35rem;
+            font-size: 0.76rem;
+            font-weight: 600;
+            display: inline-flex;
+        }
+        .mailchat-query-info {
+            min-height: 18px;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        /* (old pre-V2 mailchat rules removed – all styles now in V2 block below) */
+
+        /* ─── Graph Sub-tabs (legacy cleanup) ─────── */
+        .graph-sidebar-content { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+        .chatbot-status {
+            display: flex; align-items: center; gap: 0.4rem;
+            padding: 0.4rem 0.6rem; font-size: 0.7rem; color: var(--text-muted);
+            border-bottom: 1px solid var(--card-border);
+        }
+        .chatbot-status-dot {
+            width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+            background: #6c7086;
+        }
+        .chatbot-status-dot.online { background: #4ade80; }
+        .chatbot-status-dot.offline { background: #f38ba8; }
+        .chatbot-status-dot.loading { background: #fab387; animation: pulse-dot 1s infinite; }
+        @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        .chatbot-messages {
+            flex: 1; overflow-y: auto; padding: 0.6rem;
+            display: flex; flex-direction: column; gap: 0.6rem;
+        }
+        .chatbot-welcome {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; height: 100%; gap: 0.3rem;
+            color: var(--text-muted); text-align: center;
+        }
+        .chatbot-welcome-icon { font-size: 1.8rem; opacity: 0.3; }
+        .chatbot-welcome p { font-size: 0.8rem; margin: 0; }
+        .chatbot-hint { font-size: 0.7rem !important; opacity: 0.5; }
+
+        .chatbot-msg {
+            max-width: 95%; padding: 0.5rem 0.65rem;
+            border-radius: var(--radius-sm); font-size: 0.78rem; line-height: 1.55;
+            word-wrap: break-word;
+        }
+        .chatbot-msg.user {
+            align-self: flex-end; background: rgba(137,180,250,0.15);
+            color: var(--accent-blue); border-bottom-right-radius: 2px;
+        }
+        .chatbot-msg.bot {
+            align-self: flex-start; background: var(--card-hover);
+            color: var(--text); border-bottom-left-radius: 2px;
+        }
+        .chatbot-msg.bot .chatbot-results { margin-top: 0.4rem; }
+        .chatbot-result-card {
+            padding: 0.4rem 0.5rem; margin-top: 0.35rem;
+            border: 1px solid var(--card-border); border-radius: var(--radius-sm);
+            background: var(--bg-surface); font-size: 0.72rem;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .chatbot-result-card.clickable {
+            cursor: pointer;
+        }
+        .chatbot-result-card.clickable:hover {
+            border-color: var(--accent-blue);
+            background: var(--card-hover);
+        }
+        .chatbot-result-card .cr-subject { font-weight: 600; color: var(--text); }
+        .chatbot-result-card .cr-meta { color: var(--text-muted); margin-top: 0.15rem; }
+        .chatbot-result-card .cr-snippet {
+            margin-top: 0.3rem; color: var(--text-muted);
+            line-height: 1.45; white-space: pre-wrap;
+        }
+        .chatbot-result-card .cr-tags { display: flex; gap: 0.25rem; margin-top: 0.2rem; flex-wrap: wrap; }
+        .chatbot-result-card .cr-tag {
+            padding: 0.1rem 0.35rem; border-radius: 999px; font-size: 0.62rem;
+            background: rgba(137,180,250,0.12); color: var(--accent-blue);
+        }
+        .chatbot-result-card .cr-tag.att {
+            background: rgba(250,179,135,0.15); color: #fab387;
+        }
+        .chatbot-result-card .cr-tag.att.clickable {
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .chatbot-result-card .cr-tag.att.clickable:hover {
+            background: rgba(250,179,135,0.35);
+        }
+        .chatbot-msg.bot .chatbot-answer {
+            margin-top: 0.5rem; padding-top: 0.4rem;
+            border-top: 1px solid var(--card-border);
+            white-space: pre-wrap;
+        }
+        .chatbot-msg.typing {
+            background: var(--card-hover); color: var(--text-muted);
+        }
+        .chatbot-msg.typing::after {
+            content: '…'; animation: typing-dots 1s steps(3) infinite;
+        }
+        @keyframes typing-dots {
+            0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; }
+        }
+        .chatbot-msg.error { background: rgba(243,139,168,0.1); color: #f38ba8; }
+        .chatbot-mode-note {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            border: 1px dashed var(--card-border);
+            border-radius: var(--radius-sm);
+            padding: 0.35rem 0.5rem;
+        }
+
+        .chatbot-input-wrap {
+            display: flex; gap: 0.3rem; padding: 0.4rem 0.5rem;
+            border-top: 1px solid var(--card-border);
+        }
+        .chatbot-input-wrap textarea {
+            flex: 1; resize: none; padding: 0.4rem 0.5rem; border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm); background: var(--bg); color: var(--text);
+            font-size: 0.78rem; font-family: inherit; line-height: 1.4;
+            max-height: 80px; overflow-y: auto;
+        }
+        .chatbot-input-wrap textarea:focus { outline: none; border-color: var(--accent-blue); }
+        .chatbot-send-btn {
+            width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+            border: none; border-radius: var(--radius-sm); background: var(--accent-blue);
+            color: #fff; cursor: pointer; font-size: 0.85rem; flex-shrink: 0;
+            align-self: flex-end; transition: opacity 0.15s;
+        }
+        .chatbot-send-btn:hover { opacity: 0.85; }
+
+        .chatbot-actions {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.3rem 0.5rem; border-top: 1px solid var(--card-border);
+        }
+        .chatbot-action-btn {
+            padding: 0.25rem 0.5rem; border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm); background: transparent;
+            color: var(--text-muted); cursor: pointer; font-size: 0.68rem;
+            font-family: inherit; display: flex; align-items: center; gap: 0.25rem;
+            transition: all 0.15s;
+        }
+        .chatbot-action-btn:hover { background: var(--card-hover); color: var(--text); }
+        .chatbot-toggle-label {
+            display: flex; align-items: center; gap: 0.3rem; margin-left: auto;
+            font-size: 0.68rem; color: var(--text-muted); cursor: pointer;
+        }
+        .chatbot-toggle-label input { width: 13px; height: 13px; accent-color: var(--accent-blue); }
+
         /* ─── Responsive ─────────────────────────────── */
         @media (max-width: 600px) {
             body { padding: 1rem 0.5rem; }
@@ -1580,4 +2276,582 @@
             header h1 { font-size: 1.4rem; }
             .emoji-grid { grid-template-columns: repeat(8, 1fr); }
             .tab-btn { font-size: 0.85rem; padding: 0.7rem 0.5rem; }
+            .mailchat-container {
+                height: calc(100vh - 112px);
+            }
+            .mailchat-semantic-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .mailchat-semantic-checkbox {
+                grid-column: 1 / -1;
+                padding-top: 0.2rem;
+            }
+            /* old mailchat-columns responsive rules removed */
+        }
+
+        /* ─── MailChat V2 Redesign ───────────────────── */
+        :root {
+            --mailchat-shell-bg: var(--bg-surface);
+            --mailchat-shell-border: var(--card-border);
+            --mailchat-panel-bg: var(--bg-secondary);
+            --mailchat-panel-border: var(--card-border);
+            --mailchat-toolbar-bg: rgba(59, 130, 246, 0.08);
+            --mailchat-chip-bg: var(--bg-secondary);
+            --mailchat-chip-fg: var(--text-muted);
+            --mailchat-chip-active-bg: rgba(59, 130, 246, 0.2);
+            --mailchat-chip-active-fg: var(--text);
+        }
+        body.light-mode {
+            --mailchat-toolbar-bg: rgba(37, 99, 235, 0.08);
+            --mailchat-chip-active-bg: rgba(37, 99, 235, 0.15);
+        }
+        #tab-mailchat {
+            height: calc(100vh - 110px);
+            overflow: hidden;
+        }
+        #tab-mailchat.active {
+            display: block;
+        }
+        #tab-mailchat .mailchat-v2 {
+            height: 100%;
+            border-radius: 14px;
+            border: 1px solid var(--mailchat-shell-border);
+            box-shadow: 0 14px 40px rgba(2, 6, 23, 0.28);
+            background:
+                radial-gradient(1200px 600px at 100% -20%, rgba(59, 130, 246, 0.08), transparent 55%),
+                radial-gradient(900px 500px at -15% 100%, rgba(59, 130, 246, 0.08), transparent 50%),
+                var(--mailchat-shell-bg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-header {
+            padding: 0.7rem 0.9rem;
+            backdrop-filter: blur(4px);
+            border-bottom: 1px solid var(--mailchat-shell-border);
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-title {
+            letter-spacing: 0.02em;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-toolbar-v2 {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            padding: 0.55rem 0.8rem;
+            border-bottom: 1px solid var(--mailchat-shell-border);
+            background: var(--mailchat-toolbar-bg);
+            flex-shrink: 0;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-period-filters,
+        #tab-mailchat .mailchat-v2 .mailchat-insight-tabs {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-chip {
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 999px;
+            background: var(--mailchat-chip-bg);
+            color: var(--mailchat-chip-fg);
+            font-size: 0.7rem;
+            padding: 0.26rem 0.62rem;
+            cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-chip.active,
+        #tab-mailchat .mailchat-v2 .mailchat-chip:hover {
+            color: var(--mailchat-chip-active-fg);
+            border-color: var(--accent-blue);
+            background: var(--mailchat-chip-active-bg);
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-workspace {
+            flex: 1;
+            min-height: 0;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.65rem;
+            padding: 0.72rem;
+            overflow: hidden;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-panel {
+            min-width: 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 12px;
+            background: var(--mailchat-panel-bg);
+            overflow: hidden;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-panel-title {
+            flex-shrink: 0;
+            padding: 0.55rem 0.72rem;
+            border-bottom: 1px solid var(--mailchat-panel-border);
+            color: var(--text);
+            font-size: 0.74rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-semantic-wrap {
+            border: none;
+            background: transparent;
+            padding: 0.65rem;
+            gap: 0.5rem;
+            flex-shrink: 0;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-semantic-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 0.48rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-semantic-grid label,
+        #tab-mailchat .mailchat-v2 .mailchat-comment-field {
+            font-size: 0.68rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-semantic-grid input,
+        #tab-mailchat .mailchat-v2 .mailchat-semantic-grid select,
+        #tab-mailchat .mailchat-v2 .mailchat-comment-field textarea {
+            font-size: 0.75rem;
+            border-color: var(--mailchat-panel-border);
+            background: var(--bg);
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-semantic-checkbox {
+            grid-column: 1 / -1;
+            padding-top: 0.2rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-query-actions .chatbot-send-btn {
+            height: 32px;
+            font-size: 0.73rem;
+            padding: 0 0.75rem;
+            border-radius: 10px;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-query-info {
+            min-height: 24px;
+            font-size: 0.69rem;
+            line-height: 1.3;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-column-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            overscroll-behavior: contain;
+            padding: 0.65rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+        }
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box {
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 10px;
+            background: var(--bg);
+            padding: 0.7rem;
+            font-size: 0.79rem;
+            line-height: 1.55;
+            color: var(--text);
+            white-space: pre-wrap;
+            max-width: 100%;
+            overflow: auto;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box * {
+            max-width: 100%;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box p,
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box ul,
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box ol,
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box pre {
+            margin: 0 0 0.55rem;
+        }
+        #tab-mailchat .mailchat-v2 .chatbot-answer-box :last-child {
+            margin-bottom: 0;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-item {
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 10px;
+            background: var(--bg);
+            flex-shrink: 0;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-item summary {
+            list-style: none;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-item summary::-webkit-details-marker {
+            display: none;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-summary {
+            padding: 0.6rem 0.7rem;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-summary:hover {
+            background: var(--card-hover);
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-clickable {
+            cursor: pointer;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-clickable:hover {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 1px var(--accent-blue);
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-meta {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-body {
+            padding: 0.65rem;
+            color: var(--text);
+            max-height: min(70vh, 600px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            border-top: 1px solid var(--mailchat-panel-border);
+            font-size: 0.77rem;
+            line-height: 1.55;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-body p,
+        #tab-mailchat .mailchat-v2 .mailchat-result-body ul,
+        #tab-mailchat .mailchat-v2 .mailchat-result-body ol,
+        #tab-mailchat .mailchat-v2 .mailchat-result-body blockquote,
+        #tab-mailchat .mailchat-v2 .mailchat-result-body pre {
+            margin: 0 0 0.5rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-body :last-child {
+            margin-bottom: 0;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-body h1,
+        #tab-mailchat .mailchat-v2 .mailchat-result-body h2,
+        #tab-mailchat .mailchat-v2 .mailchat-result-body h3 {
+            font-size: 0.85rem;
+            margin: 0.6rem 0 0.3rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-body hr {
+            border: none;
+            border-top: 1px solid var(--mailchat-panel-border);
+            margin: 0.5rem 0;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-body a {
+            color: var(--accent-blue);
+            text-decoration: underline;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-result-preview {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            line-height: 1.4;
+            margin-top: 0.15rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-att-group {
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 10px;
+            background: var(--bg);
+            padding: 0.5rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-att-group h4 {
+            font-size: 0.72rem;
+            margin: 0 0 0.35rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-att-btn {
+            width: 100%;
+            border: 1px solid var(--mailchat-panel-border);
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            color: var(--text);
+            cursor: pointer;
+            text-align: left;
+            font-size: 0.73rem;
+            padding: 0.4rem 0.5rem;
+            margin-bottom: 0.35rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-att-btn:hover {
+            background: var(--card-hover);
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-graph-svg {
+            width: 100%;
+            flex: 3 1 0;
+            min-height: 140px;
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 10px;
+            background: var(--bg);
+        }
+
+        #tab-mailchat .mailchat-v2 .mailchat-insight-stack {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            padding: 0.6rem;
+            overflow: hidden;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-insight-pane {
+            flex: 1 1 50%;
+            min-height: 0;
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 10px;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-insight-body {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            overscroll-behavior: contain;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-graph-body {
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            overflow: hidden;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-graph-legend {
+            flex: 2 1 0;
+            min-height: 60px;
+            border: 1px solid var(--mailchat-panel-border);
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 0.45rem 0.55rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-legend-group {
+            margin-bottom: 0.45rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-legend-group h5 {
+            margin: 0 0 0.2rem;
+            font-size: 0.66rem;
+            color: var(--text);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-legend-group ul {
+            margin: 0;
+            padding-left: 1rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-legend-group li {
+            font-size: 0.69rem;
+            color: var(--text-muted);
+            line-height: 1.35;
+            margin-bottom: 0.12rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-legend-empty {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+        }
+        #tab-mailchat .mailchat-v2 .mailchat-insight-pane-title {
+            flex-shrink: 0;
+            padding: 0.45rem 0.6rem;
+            border-bottom: 1px solid var(--mailchat-panel-border);
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        #tab-mailchat .mailchat-v2 #chatbotAttachmentsPane {
+            overflow: auto;
+            overscroll-behavior: contain;
+            padding: 0.55rem;
+            gap: 0.45rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @media (max-width: 1280px) {
+            #tab-mailchat .mailchat-v2 .mailchat-workspace {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 980px) {
+            #tab-mailchat .mailchat-v2 .mailchat-workspace {
+                grid-template-columns: 1fr;
+                grid-auto-rows: minmax(180px, 1fr);
+            }
+            #tab-mailchat .mailchat-v2 .mailchat-semantic-grid {
+                grid-template-columns: 1fr;
+            }
+            #tab-mailchat .mailchat-v2 .mailchat-header-actions {
+                flex-wrap: wrap;
+                justify-content: flex-end;
+            }
+        }
+
+        /* ─── Archive Mail Tab ───────────────────────── */
+        #tab-archive {
+            height: calc(100vh - 110px);
+            overflow: hidden;
+        }
+        #tab-archive.active {
+            display: block;
+        }
+        .archive-container {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            border-radius: 14px;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 14px 40px rgba(2, 6, 23, 0.28);
+            background: var(--bg-surface);
+            overflow: hidden;
+        }
+        .archive-header {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.7rem 0.9rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+        .archive-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .archive-count {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+        .archive-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.55rem 0.8rem;
+            border-bottom: 1px solid var(--card-border);
+            background: rgba(59, 130, 246, 0.06);
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+        .archive-period-filters {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+        .archive-chip {
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            padding: 0.26rem 0.62rem;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            font-family: inherit;
+        }
+        .archive-chip.active,
+        .archive-chip:hover {
+            color: var(--text);
+            border-color: var(--accent-blue);
+            background: rgba(59, 130, 246, 0.15);
+        }
+        .archive-search-wrap {
+            flex: 1;
+            min-width: 180px;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 0.6rem;
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            background: var(--bg);
+            color: var(--text-muted);
+            font-size: 0.76rem;
+        }
+        .archive-search-wrap input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            font-size: 0.76rem;
+            font-family: inherit;
+            outline: none;
+        }
+        .archive-search-wrap input::placeholder {
+            color: var(--text-muted);
+        }
+        .archive-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 0.6rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .archive-mail-item {
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            background: var(--bg);
+            flex-shrink: 0;
+        }
+        .archive-mail-summary {
+            padding: 0.6rem 0.7rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.15rem;
+        }
+        .archive-mail-clickable {
+            cursor: pointer;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .archive-mail-clickable:hover {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 1px var(--accent-blue);
+        }
+        .archive-mail-summary:hover {
+            background: var(--card-hover);
+            border-radius: 10px;
+        }
+        .archive-mail-subject {
+            font-weight: 600;
+            font-size: 0.82rem;
+            color: var(--text);
+        }
+        .archive-mail-meta {
+            font-size: 0.71rem;
+            color: var(--text-muted);
+        }
+        .archive-mail-preview {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            line-height: 1.4;
+            margin-top: 0.1rem;
+        }
+        .archive-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            font-size: 0.8rem;
         }

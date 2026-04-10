@@ -286,6 +286,9 @@ def export_email_to_graph(mail_meta):
     with open(md_filepath, 'w', encoding='utf-8') as md_file:
         md_file.write("---\n")
         md_file.write("type: email\n")
+        eml_file = mail_meta.get("eml_file", "")
+        if eml_file:
+            md_file.write(f"eml_file: {eml_file}\n")
         md_file.write("tags:\n")
         for tag in tags:
             md_file.write(f"  - {tag}\n")

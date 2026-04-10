@@ -12,6 +12,7 @@ __pycache__/
 *.pyc
 venv/
 .venv/
+.env
 
 # Build/deps
 node_modules/

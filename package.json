@@ -26,6 +26,7 @@
       "src/**/*",
       "assets/**/*",
       "data/**/*",
+      "requirements.txt",
       "package.json"
     ],
     "extraResources": [
@@ -40,6 +41,10 @@
       {
         "from": "src/backend",
         "to": "src/backend"
+      },
+      {
+        "from": "requirements.txt",
+        "to": "requirements.txt"
       },
       {
         "from": "data/data.json",
