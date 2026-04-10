@@ -34,17 +34,12 @@ Client de bureau Electron et Python pour centraliser la gestion des tâches, des
 ## Fonctionnalités
 
 NeuRail est conçu comme un poste de travail unifié :
-  L'objectif 1 est de connecter une todo list à un maileur pour gérer les relances de mail. 
-  L'objectif 2 est d'implémenter des outils d'IA génératif directement dans le maileur.
-  L'objectif 3 est de créer un outil de type GraphRAG pour la recherche des archives du maileur
 
-- Fonctionnalité de gestion des tâches dans une interface intégrée au reste du flux de travail.
-- Toutes les fonctionnalitées d'un maileur
-- Rappels pour relancer un destinataire lorsqu'une réponse est attendue.
-- Assistance IA pour reformuler un message, corriger la rédaction et générer des réponses à partir d'un contexte ou d'un prompt.
-- Archivage des mails en Markdown pour l'analyse et l'exploitation par des outils IA.
-- Outil de recherche des mails utilisant GraphRAG par une base Neo4j construite à partir des Markdown archivés.
-- Possibilité d'ajouter des onglets web comme un agenda google, github etc
+- L'objectif 1 est de connecter une todo list à un maileur pour gérer les relances de mail.
+  
+- L'objectif 2 est d'implémenter des outils d'IA génératif directement dans le maileur.
+
+- L'objectif 3 est de créer un outil de type GraphRAG pour la recherche des archives du maileur
 
 ---
 
