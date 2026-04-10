@@ -28,6 +28,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 import secrets
 import shutil
 import socket
@@ -190,15 +191,22 @@ def _list_vault_mails():
             # Fallback: extract metadata from body text for older files
             if not date_val or not from_val:
                 for line in body.splitlines()[:10]:
-                    if not date_val and line.startswith("**\U0001f5d3\ufe0f Date :**"):
-                        part = line.split(":", 1)[1].strip() if ":" in line else ""
-                        date_val = part.split(" ")[0].strip() if part else ""
-                    if not from_val and line.startswith("**\U0001f464 De :**"):
-                        part = line.split(":", 1)[1].strip() if ":" in line else ""
-                        from_val = part.replace("[[", "").replace("]]", "").strip()
-                    if not to_val and line.startswith("**\U0001f465 \u00c0 :**"):
-                        part = line.split(":", 1)[1].strip() if ":" in line else ""
-                        to_val = part.replace("[[", "").replace("]]", "").strip()
+                    if not date_val and "Date" in line:
+                        match = re.search(r"(\d{4}-\d{2}-\d{2})", line)
+                        if match:
+                            date_val = match.group(1)
+                    if not from_val and "De" in line:
+                        # Example: **👤 De :** [[Alice Bob]]
+                        clean = line.replace("[[", "").replace("]]", "")
+                        clean = re.sub(r"^\*\*.*?De\s*:\*\*\s*", "", clean).strip()
+                        if clean:
+                            from_val = clean
+                    if not to_val and "À" in line:
+                        # Example: **👥 À :** [[foo]], [[bar]]
+                        clean = line.replace("[[", "").replace("]]", "")
+                        clean = re.sub(r"^\*\*.*?À\s*:\*\*\s*", "", clean).strip()
+                        if clean:
+                            to_val = clean
             if not subject_val:
                 for line in body.splitlines()[:5]:
                     if line.startswith("# "):
