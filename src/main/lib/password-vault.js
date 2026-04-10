@@ -1,8 +1,9 @@
+// Importation du module de gestion du système de fichiers
 const fs = require('fs');
+// Importation du module de gestion des chemins de fichiers
 const path = require('path');
 
-/* ── Module-level utilities (exported for use in main.js) ─── */
-
+// Normalise l'origine d'un identifiant en extrayant le nom d'hôte
 function normalizeCredentialOrigin(rawOrigin) {
   const raw = String(rawOrigin || '').trim();
   if (!raw) return '';
@@ -14,10 +15,12 @@ function normalizeCredentialOrigin(rawOrigin) {
   }
 }
 
+// Retourne le chemin du fichier de coffre-fort de mots de passe
 function getVaultFilePath(app) {
   return path.join(app.getPath('userData'), 'password_vault.json');
 }
 
+// Lit et retourne le contenu brut du coffre-fort de mots de passe
 function readVaultRaw(app) {
   const fp = getVaultFilePath(app);
   try {
@@ -30,6 +33,7 @@ function readVaultRaw(app) {
   return { version: 1, entries: [] };
 }
 
+// Génère le script JavaScript d'auto-remplissage du formulaire de connexion
 function autofillLoginFormScript(username, password) {
   return `(() => {
     const username = ${JSON.stringify(String(username || ''))};
@@ -79,11 +83,14 @@ function autofillLoginFormScript(username, password) {
   })();`;
 }
 
+// Enregistre les gestionnaires IPC pour le coffre-fort de mots de passe
 function registerPasswordVaultIpcHandlers({ ipcMain, browserViews, app, safeStorage }) {
+  // Retourne le chemin du fichier de coffre-fort de mots de passe
   function getPasswordVaultFilePath() {
     return getVaultFilePath(app);
   }
 
+  // Vérifie si le chiffrement des mots de passe est disponible
   function passwordEncryptionAvailable() {
     try {
       return !!(safeStorage && safeStorage.isEncryptionAvailable());
@@ -92,16 +99,19 @@ function registerPasswordVaultIpcHandlers({ ipcMain, browserViews, app, safeStor
     }
   }
 
+  // Lit et retourne le contenu du coffre-fort de mots de passe
   function readPasswordVault() {
     return readVaultRaw(app);
   }
 
+  // Écrit le coffre-fort de mots de passe sur le disque
   function writePasswordVault(vault) {
     const fp = getPasswordVaultFilePath();
     fs.mkdirSync(path.dirname(fp), { recursive: true });
     fs.writeFileSync(fp, JSON.stringify(vault, null, 2), { encoding: 'utf-8', mode: 0o600 });
   }
 
+  // Chiffre une valeur secrète du coffre-fort
   function encryptVaultSecret(value) {
     if (!passwordEncryptionAvailable()) {
       throw new Error('Chiffrement indisponible: keyring systeme non detecte.');
@@ -109,6 +119,7 @@ function registerPasswordVaultIpcHandlers({ ipcMain, browserViews, app, safeStor
     return safeStorage.encryptString(String(value || '')).toString('base64');
   }
 
+  // Déchiffre une valeur secrète encodée en base64
   function decryptVaultSecret(cipherB64) {
     try {
       const plain = safeStorage.decryptString(Buffer.from(String(cipherB64 || ''), 'base64'));
@@ -118,6 +129,7 @@ function registerPasswordVaultIpcHandlers({ ipcMain, browserViews, app, safeStor
     }
   }
 
+  // Retourne la liste des entrées du coffre-fort déchiffrées
   function listVaultEntriesDecrypted() {
     const vault = readPasswordVault();
     return vault.entries.map((entry) => ({
@@ -129,6 +141,7 @@ function registerPasswordVaultIpcHandlers({ ipcMain, browserViews, app, safeStor
     }));
   }
 
+  // Recherche et retourne une entrée du coffre-fort par son identifiant
   function getVaultEntryById(credentialId) {
     const id = String(credentialId || '').trim();
     if (!id) return null;

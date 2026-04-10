@@ -1,25 +1,4 @@
 #!/usr/bin/env python3
-"""Serveur HTTP principal de l'application ISENAPP (Todo & Mail).
-
-Point d'entrée du backend : démarre un serveur HTTP stdlib et route
-les requêtes GET/POST vers les services métier appropriés.  Toute la
-logique métier est déléguée aux modules spécialisés.
-
-Dépendances internes :
-    - app_config          : chemins et constantes de configuration
-    - account_store       : CRUD des comptes email
-    - json_store          : lecture/écriture atomique JSON
-    - mail_utils          : parsing email, .eml I/O, seen UIDs, inbox index
-    - mail_service        : protocoles POP3/IMAP/SMTP
-    - google_calendar_service : OAuth2 Google (PKCE, tokens)
-    - calendar_routes     : handler HTTP pour le callback OAuth Google
-    - ai_service          : appels IA Google Gemini
-    - graph_service       : graphe de connaissances et export email → Markdown
-    - autoconfig_service  : auto-détection IMAP/SMTP (Mozilla Autoconfig)
-
-Dépendances externes :
-    - http.server (stdlib)
-"""
 
 import csv
 import email as email_lib
@@ -96,13 +75,19 @@ from ai_service import ai_generate_reminder, ai_generate_reply, ai_reformulate
 from graph_service import export_email_to_graph, read_vault_file, scan_vault_graph
 from autoconfig_service import autoconfig_email
 
-# ── Neo4j / RAG (lazy, non-bloquant si Neo4j absent) ─
+# Pilote Neo4j (initialisé paresseusement)
 _neo4j_driver = None
+# Service d'embeddings Neo4j (initialisé paresseusement)
 _neo4j_embedder = None
-_neo4j_available = None  # None = not checked yet
+# Indicateur de disponibilité Neo4j (None = non vérifié)
+_neo4j_available = None
+# Horodatage de la prochaine tentative de connexion Neo4j
 _neo4j_retry_after = 0.0
+# Thread d'ingestion Neo4j en cours
 _neo4j_ingest_thread = None
+# Verrou pour l'état d'ingestion Neo4j
 _neo4j_ingest_lock = threading.Lock()
+# État partagé du processus d'ingestion Neo4j
 _neo4j_ingest_state = {
     "running": False,
     "phase": "idle",
@@ -116,12 +101,13 @@ _neo4j_ingest_state = {
 }
 
 
+# Journalise un message dans le canal mailchat
 def _mailchat_log(message: str) -> None:
     print(f"[mailchat] {message}", flush=True)
 
 
+# Résout un nom de fichier source .md vers le .eml correspondant via le frontmatter
 def _resolve_eml_from_md_source(source_name: str) -> str:
-    """Résout un nom source .md vers son .eml via frontmatter `eml_file:`."""
     src = (source_name or "").strip()
     if not src.lower().endswith(".md"):
         return ""
@@ -139,7 +125,6 @@ def _resolve_eml_from_md_source(source_name: str) -> str:
     except Exception:
         return ""
 
-    # Frontmatter simple: ligne `eml_file: xxx.eml`
     for line in content.splitlines():
         line = line.strip()
         if line.startswith("eml_file:"):
@@ -150,8 +135,8 @@ def _resolve_eml_from_md_source(source_name: str) -> str:
     return ""
 
 
+# Analyse le frontmatter YAML d'un fichier markdown
 def _parse_frontmatter(content: str) -> dict:
-    """Parse YAML frontmatter from a markdown file content."""
     fm = {}
     if not content.startswith("---"):
         return fm
@@ -166,8 +151,8 @@ def _parse_frontmatter(content: str) -> dict:
     return fm
 
 
+# Liste tous les mails markdown du vault avec leurs métadonnées de frontmatter
 def _list_vault_mails():
-    """List all markdown mails from the vault with frontmatter metadata."""
     mails = []
     if not os.path.isdir(GRAPH_MD_DIR):
         return mails
@@ -188,7 +173,6 @@ def _list_vault_mails():
             from_val = fm.get("from", "")
             to_val = fm.get("to", "")
             subject_val = fm.get("subject", "")
-            # Fallback: extract metadata from body text for older files
             if not date_val or not from_val:
                 for line in body.splitlines()[:10]:
                     if not date_val and "Date" in line:
@@ -196,13 +180,11 @@ def _list_vault_mails():
                         if match:
                             date_val = match.group(1)
                     if not from_val and "De" in line:
-                        # Example: **👤 De :** [[Alice Bob]]
                         clean = line.replace("[[", "").replace("]]", "")
                         clean = re.sub(r"^\*\*.*?De\s*:\*\*\s*", "", clean).strip()
                         if clean:
                             from_val = clean
                     if not to_val and "À" in line:
-                        # Example: **👥 À :** [[foo]], [[bar]]
                         clean = line.replace("[[", "").replace("]]", "")
                         clean = re.sub(r"^\*\*.*?À\s*:\*\*\s*", "", clean).strip()
                         if clean:
@@ -227,6 +209,7 @@ def _list_vault_mails():
     return mails
 
 
+# Callback de progression pour l'ingestion Neo4j
 def _ingest_progress_cb(ingested: int, processed: int, total: int, fname: str, source: str) -> None:
     with _neo4j_ingest_lock:
         _neo4j_ingest_state["processed"] = processed
@@ -236,6 +219,7 @@ def _ingest_progress_cb(ingested: int, processed: int, total: int, fname: str, s
         _neo4j_ingest_state["source"] = source
 
 
+# Exécute le travail d'ingestion Neo4j dans un thread séparé
 def _run_neo4j_ingest_job(mode: str) -> None:
     global _neo4j_ingest_thread
     try:
@@ -290,8 +274,8 @@ def _run_neo4j_ingest_job(mode: str) -> None:
         _neo4j_ingest_thread = None
 
 
+# Initialise paresseusement le driver Neo4j et le service d'embeddings
 def _get_neo4j():
-    """Lazy init du driver Neo4j + embedder. Retourne (driver, embedder) ou (None, None)."""
     global _neo4j_driver, _neo4j_embedder, _neo4j_available, _neo4j_retry_after
     now = time.time()
     if _neo4j_available is False and now < _neo4j_retry_after:
@@ -312,7 +296,7 @@ def _get_neo4j():
         return None, None
 
 
-# In-memory OAuth state store (state -> metadata) for current server process.
+# Stockage en mémoire des états OAuth Google en attente
 GOOGLE_OAUTH_PENDING = {}
 
 logging.basicConfig(
@@ -320,17 +304,21 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     level=logging.ERROR,
 )
+# Instance du logger de l'application
 logger = logging.getLogger("todoapp")
 
 
+# Charge l'état applicatif depuis le fichier JSON
 def loadAppState():
     return read_json_with_backup(DATA, {"sections": [], "settings": {}})
 
 
+# Sauvegarde l'état applicatif dans le fichier JSON
 def saveAppState(data):
     atomic_write_json(DATA, data)
 
 
+# Charge la liste des contacts depuis le fichier CSV
 def loadContactsData():
     contacts = []
     try:
@@ -350,6 +338,7 @@ def loadContactsData():
     return contacts
 
 
+# Liste des clés d'environnement gérées localement
 _LOCAL_ENV_KEYS = [
     "NEO4J_URI",
     "NEO4J_USER",
@@ -361,8 +350,8 @@ _LOCAL_ENV_KEYS = [
 ]
 
 
+# Lit les paires clé/valeur du fichier .env d'exécution local
 def _read_runtime_env_file() -> dict:
-    """Read key/value pairs from local runtime .env file."""
     out = {}
     if not os.path.isfile(APP_ENV_FILE):
         return out
@@ -382,8 +371,8 @@ def _read_runtime_env_file() -> dict:
     return out
 
 
+# Persiste les valeurs d'environnement d'exécution sélectionnées dans le fichier .env local
 def _write_runtime_env_file(values: dict) -> None:
-    """Persist selected runtime env values to local .env file."""
     current = _read_runtime_env_file()
     current.update({k: str(v) for k, v in (values or {}).items() if k in _LOCAL_ENV_KEYS})
 
@@ -399,8 +388,8 @@ def _write_runtime_env_file(values: dict) -> None:
         f.write("\n".join(lines))
 
 
+# Construit le payload de configuration pour l'interface des paramètres d'installation
 def _get_app_install_config() -> dict:
-    """Build config payload for local installation settings UI."""
     env_vals = _read_runtime_env_file()
     return {
         "paths": {
@@ -430,12 +419,13 @@ def _get_app_install_config() -> dict:
     }
 
 
+# Persiste la configuration d'exécution et les surcharges d'environnement dans les fichiers locaux
 def _save_app_install_config(payload: dict) -> None:
-    """Persist runtime config and env overrides to writable local files."""
     payload = payload or {}
     paths_in = payload.get("paths", {}) if isinstance(payload.get("paths", {}), dict) else {}
     env_in = payload.get("env", {}) if isinstance(payload.get("env", {}), dict) else {}
 
+    # Normalise et résout un chemin de fichier
     def _clean_path(value: str, fallback: str) -> str:
         p = str(value or "").strip()
         if not p:
@@ -467,11 +457,8 @@ def _save_app_install_config(payload: dict) -> None:
             os.environ[key] = str(val)
 
 
+# Lit la configuration JSON d'exécution depuis les données de l'application
 def _read_runtime_config_file() -> dict:
-    """Read runtime JSON config from app data.
-
-    Returns an empty dict when missing/unreadable.
-    """
     if not os.path.isfile(APP_RUNTIME_CONFIG_FILE):
         return {}
     try:
@@ -482,7 +469,7 @@ def _read_runtime_config_file() -> dict:
         return {}
 
 
-# ── Hard-coded Neo4j Docker characteristics (not user-editable) ──
+# Caractéristiques fixes du conteneur Neo4j Docker (non modifiables par l'utilisateur)
 _NEO4J_DOCKER_FIXED = {
     "container_name": "neurail-neo4j",
     "image": "neo4j:latest",
@@ -492,18 +479,18 @@ _NEO4J_DOCKER_FIXED = {
 }
 
 
+# Retourne la configuration Docker Neo4j par défaut
 def _neo4j_docker_default_config() -> dict:
     return {"enabled": True, **_NEO4J_DOCKER_FIXED}
 
 
+# Retourne la configuration Docker Neo4j fixe
 def _get_neo4j_docker_config() -> dict:
-    """Return the fixed Neo4j Docker config.  Container characteristics are
-    hard-coded so every installation uses the exact same container."""
     return _neo4j_docker_default_config()
 
 
+# Persiste uniquement le drapeau enabled de la configuration Docker Neo4j
 def _save_neo4j_docker_config(cfg: dict) -> dict:
-    """Persist only the enabled flag; container characteristics are fixed."""
     merged = _get_neo4j_docker_config()
     if isinstance(cfg, dict):
         merged["enabled"] = bool(cfg.get("enabled", merged["enabled"]))
@@ -515,13 +502,14 @@ def _save_neo4j_docker_config(cfg: dict) -> dict:
     return merged
 
 
+# Vérifie si la sortie indique un refus de permission sur le socket Docker
 def _docker_permission_denied(output: str) -> bool:
     out = (output or "").lower()
     return "permission denied" in out and "docker.sock" in out
 
 
+# Vérifie si le daemon Docker est actif via systemctl ou service
 def _docker_daemon_active_via_service() -> bool:
-    # Some environments block docker client access but still expose service state.
     if shutil.which("systemctl"):
         res = _run_cmd(["systemctl", "is-active", "docker"], timeout=8)
         return (res.get("output") or "").strip().lower() == "active"
@@ -532,6 +520,7 @@ def _docker_daemon_active_via_service() -> bool:
     return False
 
 
+# Retourne le statut complet du conteneur Docker Neo4j
 def _neo4j_docker_status() -> dict:
     cfg = _get_neo4j_docker_config()
     docker_bin = bool(shutil.which("docker"))
@@ -611,6 +600,7 @@ def _neo4j_docker_status() -> dict:
     }
 
 
+# S'assure que le conteneur Neo4j Docker existe, le crée si nécessaire
 def _neo4j_docker_ensure_container(cfg: dict, payload: dict | None = None) -> dict:
     status = _neo4j_docker_status()
     if not status.get("docker_available"):
@@ -628,7 +618,6 @@ def _neo4j_docker_ensure_container(cfg: dict, payload: dict | None = None) -> di
     if not password:
         password = env_vals.get("NEO4J_PASSWORD", os.getenv("NEO4J_PASSWORD", ""))
 
-    # If password is supplied from UI action, persist it for next runs.
     if str(payload.get("neo4j_password", "") or "").strip():
         _write_runtime_env_file({"NEO4J_PASSWORD": password})
         os.environ["NEO4J_PASSWORD"] = password
@@ -653,8 +642,8 @@ def _neo4j_docker_ensure_container(cfg: dict, payload: dict | None = None) -> di
     return _neo4j_docker_status()
 
 
+# Tente de démarrer le daemon Docker en essayant plusieurs stratégies
 def _start_docker_daemon() -> dict:
-    """Try multiple strategies to start Docker daemon from a desktop app context."""
     if _run_cmd(["docker", "info"], timeout=8).get("ok"):
         return {"ok": True, "method": "already-running", "details": "daemon déjà actif"}
     if _docker_daemon_active_via_service():
@@ -682,7 +671,6 @@ def _start_docker_daemon() -> dict:
             errors.append(f"{' '.join(cmd)} -> {details}")
             continue
 
-        # Give daemon a brief startup window and verify with docker info or service state.
         for _ in range(8):
             if _run_cmd(["docker", "info"], timeout=8).get("ok") or _docker_daemon_active_via_service():
                 return {
@@ -701,6 +689,7 @@ def _start_docker_daemon() -> dict:
     }
 
 
+# Exécute une action Docker sur le conteneur Neo4j (start, stop, restart, reinstall, etc.)
 def _neo4j_docker_action(action: str, payload: dict | None = None) -> dict:
     payload = payload or {}
     cfg = _get_neo4j_docker_config()
@@ -786,8 +775,8 @@ def _neo4j_docker_action(action: str, payload: dict | None = None) -> dict:
     raise RuntimeError(f"Action Docker Neo4j inconnue: {action}")
 
 
+# Exécute une commande système et capture la sortie pour le diagnostic
 def _run_cmd(args: list[str], timeout: int = 8) -> dict:
-    """Run a command safely and capture output for diagnostics."""
     try:
         p = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
         out = ((p.stdout or "") + "\n" + (p.stderr or "")).strip()
@@ -798,6 +787,7 @@ def _run_cmd(args: list[str], timeout: int = 8) -> dict:
         return {"ok": False, "code": None, "output": str(exc)}
 
 
+# Extrait l'hôte et le port depuis une URI Neo4j
 def _parse_neo4j_host_port(uri: str) -> tuple[str, int]:
     raw = (uri or "bolt://localhost:7687").strip()
     parsed = urlparse(raw)
@@ -806,6 +796,7 @@ def _parse_neo4j_host_port(uri: str) -> tuple[str, int]:
     return host, port
 
 
+# Vérifie si une connexion TCP est possible sur l'hôte et le port donnés
 def _can_open_tcp(host: str, port: int, timeout: float = 1.5) -> bool:
     try:
         with socket.create_connection((host, port), timeout=timeout):
@@ -814,6 +805,7 @@ def _can_open_tcp(host: str, port: int, timeout: float = 1.5) -> bool:
         return False
 
 
+# Retourne le statut d'installation d'un paquet dpkg
 def _dpkg_package_status(pkg_name: str) -> dict:
     if not shutil.which("dpkg-query"):
         return {"installed": None, "status": "dpkg-query indisponible"}
@@ -826,6 +818,7 @@ def _dpkg_package_status(pkg_name: str) -> dict:
     }
 
 
+# Construit le rapport de diagnostic système complet
 def _build_system_diagnostics() -> dict:
     env_vals = _read_runtime_env_file()
     neo4j_uri = env_vals.get("NEO4J_URI", os.getenv("NEO4J_URI", "bolt://localhost:7687"))
@@ -922,11 +915,7 @@ def _build_system_diagnostics() -> dict:
     }
 
 
-
-
-# ═══════════════════════════════════════════════════════
-#  DI wrappers — bind mail_utils callbacks into mail_service
-# ═══════════════════════════════════════════════════════
+# Dictionnaire d'injection de dépendances commun pour les services mail
 _MAIL_DI_COMMON = dict(
     load_seen_uids=load_seen_uids,
     save_seen_uids=save_seen_uids,
@@ -939,10 +928,12 @@ _MAIL_DI_COMMON = dict(
 )
 
 
+# Récupère les emails via POP3 pour un compte donné
 def fetch_pop3(account):
     return _fetch_pop3_impl(account, **_MAIL_DI_COMMON)
 
 
+# Récupère les emails via IMAP pour un compte donné
 def fetch_imap(account):
     return _fetch_imap_impl(
         account,
@@ -952,8 +943,8 @@ def fetch_imap(account):
     )
 
 
+# Récupère les emails de tous les comptes configurés (POP3 ou IMAP)
 def fetch_all_accounts():
-    """Fetch from all configured accounts (POP3 or IMAP)."""
     accounts = load_accounts()
     total_new = 0
     all_errors = []
@@ -972,6 +963,7 @@ def fetch_all_accounts():
     return total_new, all_errors
 
 
+# Envoie un email via SMTP pour un compte donné
 def send_email_smtp(account, to_addr, subject, body_text, cc="", attachments=None, html_body=None):
     return _send_email_smtp_impl(
         account, to_addr, subject, body_text,
@@ -987,6 +979,7 @@ def send_email_smtp(account, to_addr, subject, body_text, cc="", attachments=Non
     )
 
 
+# Supprime un email sur le serveur distant pour un compte donné
 def delete_mail_on_server(account, uid_to_delete):
     return _delete_mail_on_server_impl(
         account, uid_to_delete,
@@ -995,14 +988,18 @@ def delete_mail_on_server(account, uid_to_delete):
     )
 
 
+# Gestionnaire HTTP principal de l'application
 class Handler(http.server.SimpleHTTPRequestHandler):
+    # Initialise le gestionnaire avec le répertoire racine du projet
     def __init__(self, *a, **kw):
         super().__init__(*a, directory=PROJECT_ROOT, **kw)
 
+    # Ajoute les en-têtes de contrôle de cache à chaque réponse
     def end_headers(self):
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         super().end_headers()
 
+    # Traite les requêtes HTTP GET
     def do_GET(self):
         if self.path == "/" or self.path.startswith("/index.html"):
             try:
@@ -1059,7 +1056,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self._json(load_accounts())
         if self.path == "/api/inbox":
             inbox = load_inbox_index()
-            # Filter out deleted and sent, sort by date desc
             visible = [m for m in inbox if not m.get("deleted") and m.get("folder") != "sent"]
             visible.sort(key=lambda m: m.get("date_ts", 0), reverse=True)
             return self._json(visible)
@@ -1084,7 +1080,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if not mail and eml_file:
                     mail = next((m for m in inbox if m.get("eml_file") == eml_file), None)
                 if not mail:
-                    # Fallback: on tente l'accès direct au .eml si fourni par le résultat RAG.
                     safe_eml = os.path.basename(eml_file or "")
                     if safe_eml.lower().endswith(".md"):
                         resolved = _resolve_eml_from_md_source(safe_eml)
@@ -1101,7 +1096,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
 
                 if not os.path.isfile(eml_path):
-                    # Fallback final: pièces jointes déjà exportées dans le vault graph.
                     safe_name = os.path.basename(filename or "")
                     if safe_name and safe_name == (filename or ""):
                         graph_att_path = os.path.join(GRAPH_ATT_DIR, safe_name)
@@ -1185,7 +1179,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-        # ── Neo4j status ──
         if self.path == "/api/neo4j/status":
             driver, _ = _get_neo4j()
             return self._json({"available": driver is not None})
@@ -1196,6 +1189,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         super().do_GET()
 
+    # Traite les requêtes HTTP POST
     def do_POST(self):
         try:
             raw = self.rfile.read(int(self.headers.get("Content-Length", 0)))
@@ -1241,10 +1235,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 drv = GraphDatabase.driver(uri, auth=(user, password))
                 try:
                     drv.verify_connectivity()
-                    # Auth succeeded — persist password for future runs.
                     _write_runtime_env_file({"NEO4J_PASSWORD": password})
                     os.environ["NEO4J_PASSWORD"] = password
-                    # Reset lazy driver so it reconnects with the new password.
                     global _neo4j_driver, _neo4j_available, _neo4j_retry_after
                     if _neo4j_driver is not None:
                         try:
@@ -1298,8 +1290,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-
-
         if self.path == "/api/generate-reminder":
             try:
                 result = ai_generate_reminder(data)
@@ -1314,7 +1304,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-        # ── Chatbot Graph RAG ──
         if self.path == "/api/chatbot/query":
             try:
                 question = (data.get("question", "") or "").strip()
@@ -1331,11 +1320,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if search_meta.get("question_rewritten"):
                     _mailchat_log(f"query rewritten: {search_meta.get('retrieval_question', '')[:160]}")
 
-                # Build eml_file → mail_id lookup from inbox index
                 inbox = load_inbox_index()
                 eml_to_id = {m.get("eml_file", ""): m.get("id", "") for m in inbox if m.get("eml_file")}
 
-                # Structure les résultats pour le frontend
                 hits = []
                 for r in results:
                     mail_id = eml_to_id.get(r.eml_file, "") if r.eml_file else ""
@@ -1353,7 +1340,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         "mail_id": mail_id,
                     })
 
-                # Génère la réponse LLM uniquement si demandé et disponible
                 answer = ""
                 llm_requested = bool(data.get("generate", True))
                 llm_available = is_llm_configured()
@@ -1393,7 +1379,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self._json({"error": str(e)}, 500)
 
         if self.path == "/api/chatbot/search":
-            # Recherche vectorielle seule (sans LLM) — économise les tokens
             try:
                 question = (data.get("question", "") or "").strip()
                 if not question:
@@ -1406,7 +1391,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 top_k = min(int(data.get("top_k", 5)), 10)
                 results, search_meta = search_and_enrich_with_meta(driver, embedder, question, top_k=top_k)
 
-                # Build eml_file → mail_id lookup from inbox index
                 inbox = load_inbox_index()
                 eml_to_id = {m.get("eml_file", ""): m.get("id", "") for m in inbox if m.get("eml_file")}
 
@@ -1439,7 +1423,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self._json({"error": str(e)}, 500)
 
         if self.path == "/api/chatbot/normalize":
-            # Normalise et réécrit la requête sémantique sans lancer la recherche.
             try:
                 question = (data.get("question", "") or "").strip()
                 fields = data.get("fields", {}) or {}
@@ -1483,7 +1466,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self._json({"error": str(e)}, 500)
 
         if self.path == "/api/neo4j/ingest":
-            # Lance l'ingestion Neo4j en tâche de fond et retourne l'état.
             try:
                 driver, _embedder = _get_neo4j()
                 if not driver:
@@ -1524,7 +1506,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 _mailchat_log(f"sync launch error: {e}")
                 return self._json({"error": str(e)}, 500)
 
-        # ── Account management ──
         if self.path == "/api/accounts/save":
             try:
                 accounts = data.get("accounts", [])
@@ -1550,7 +1531,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-        # ── Start Google OAuth flow for Gmail account ──
         if self.path == "/api/oauth/google/start":
             try:
                 account_email = (data.get("email", "") or "").strip()
@@ -1594,7 +1574,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 }
                 auth_url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(query)
 
-                # Persist normalized values before opening auth URL.
                 account["provider"] = "gmail_oauth"
                 account["auth_type"] = "oauth2"
                 account["protocol"] = "imap"
@@ -1611,7 +1590,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-        # ── Email autoconfig (Mozilla Thunderbird DB) ──
         if self.path == "/api/autoconfig":
             try:
                 email_addr = data.get("email", "").strip()
@@ -1626,7 +1604,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-        # ── Fetch emails (POP3/IMAP) ──
         if self.path == "/api/fetch-emails":
             try:
                 new_count, errors = fetch_all_accounts()
@@ -1638,7 +1615,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-        # ── Send email (SMTP) ──
         if self.path == "/api/send-email":
             try:
                 from_addr = data.get("from", "")
@@ -1656,7 +1632,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-        # ── Mark email read/unread/starred ──
         if self.path == "/api/mail/mark-read":
             try:
                 mail_id = data.get("id", "")
@@ -1673,7 +1648,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-        # ── Delete email ──
         if self.path == "/api/mail/delete":
             try:
                 mail_id = data.get("id", "")
@@ -1683,21 +1657,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if not mail:
                     return self._json({"error": "Mail introuvable"}, 404)
 
-                # Delete on POP3 server if requested
                 if delete_on_server and mail.get("uid") and mail.get("account"):
                     account = find_account_by_email(mail["account"])
                     if account:
                         try:
                             delete_mail_on_server(account, mail["uid"])
                         except Exception as del_err:
-                            pass  # Continue even if server delete fails
+                            pass
 
-                # Remove local .eml file
                 eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
                 if os.path.isfile(eml_path):
                     os.remove(eml_path)
 
-                # Remove from seen UIDs so we don't have stale entries
                 if mail.get("uid") and mail.get("account"):
                     seen = load_seen_uids()
                     for key, uids in seen.items():
@@ -1705,7 +1676,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                             uids.remove(mail["uid"])
                     save_seen_uids(seen)
 
-                # Mark as deleted in index
                 mail["deleted"] = True
                 save_inbox_index(inbox)
 
@@ -1713,7 +1683,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-        # ── Export email to graph markdown + Neo4j ──
         if self.path == "/api/mail/export-graph":
             try:
                 mail_id = data.get("id", "")
@@ -1723,7 +1692,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self._json({"error": "Mail introuvable"}, 404)
                 md_path = export_email_to_graph(mail)
 
-                # Also ingest into Neo4j if available
                 neo4j_ok = False
                 driver, embedder = _get_neo4j()
                 if driver:
@@ -1742,7 +1710,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-        # ── Bulk export to graph ──
         if self.path == "/api/mail/export-graph-all":
             try:
                 inbox = load_inbox_index()
@@ -1750,7 +1717,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 exported = 0
                 errors = []
 
-                # Prepare Neo4j for bulk ingest
                 driver, embedder = _get_neo4j()
                 if driver:
                     try:
@@ -1763,7 +1729,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     try:
                         export_email_to_graph(mail)
                         exported += 1
-                        # Also ingest into Neo4j
                         if driver:
                             try:
                                 eml_file = mail.get("eml_file", "")
@@ -1780,7 +1745,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-        # ── Import contacts CSV ──
         if self.path == "/api/contacts/import":
             try:
                 csv_content = data.get("csv", "")
@@ -1795,6 +1759,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         self.send_error(404)
 
+    # Sérialise un objet en JSON et l'envoie comme réponse HTTP
     def _json(self, obj, code=200):
         body = json.dumps(obj, ensure_ascii=False).encode()
         self.send_response(code)
@@ -1803,8 +1768,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    # Supprime la journalisation des requêtes HTTP
     def log_message(self, fmt, *args):
-        pass  # silencieux
+        pass
 
 
 if __name__ == "__main__":
@@ -1812,10 +1778,10 @@ if __name__ == "__main__":
     import socketserver
     import traceback
 
-    # Force unbuffered stdout/stderr so Electron sees all output
     sys.stdout.reconfigure(line_buffering=True)
-    sys.stderr = sys.stdout  # Redirect stderr to stdout for Electron capture
+    sys.stderr = sys.stdout
 
+    # Gestionnaire de signal pour arrêt propre du serveur
     def _sig_handler(signum, frame):
         print(f"⚠️ Received signal {signum}, shutting down", flush=True)
         sys.exit(0)

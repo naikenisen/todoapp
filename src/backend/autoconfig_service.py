@@ -1,28 +1,14 @@
-"""Auto-détection de configuration email (IMAP / SMTP).
-
-Interroge la base Mozilla Thunderbird Autoconfig et, en cas d'échec,
-sonde les hostnames IMAP/SMTP courants pour trouver les paramètres
-de connexion d'un domaine email.
-
-Dépendances internes :
-    (aucune)
-
-Dépendances externes :
-    - Base Mozilla Autoconfig (autoconfig.thunderbird.net)
-"""
-
 import imaplib
 import smtplib
 import urllib.request
 import xml.etree.ElementTree as ET
 
 
+# Détecte automatiquement les paramètres IMAP/SMTP depuis la base Mozilla Autoconfig
 def autoconfig_email(email_addr):
-    """Auto-detect IMAP/SMTP settings from Mozilla's autoconfig database."""
     domain = email_addr.strip().split("@")[-1].lower()
 
     config = None
-    # Try Mozilla autoconfig
     url = f"https://autoconfig.thunderbird.net/v1.1/{domain}"
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "ISENAPP/1.0"})
@@ -35,22 +21,19 @@ def autoconfig_email(email_addr):
     if config:
         return config
 
-    # Fallback: probe common hostnames
     return _autoconfig_fallback(domain, email_addr)
 
 
+# Analyse le XML Mozilla Autoconfig et retourne un dictionnaire de configuration structuré
 def _parse_autoconfig_xml(xml_data, email_addr):
-    """Parse Mozilla autoconfig XML and return structured config dict."""
     root = ET.fromstring(xml_data)
     ns = ''
-    # Handle potential namespace
     if root.tag.startswith('{'):
         ns = root.tag.split('}')[0] + '}'
 
     result = {"imap": None, "smtp": None, "source": "mozilla"}
 
     for provider in root.iter(f"{ns}emailProvider"):
-        # Find IMAP
         for inc in provider.iter(f"{ns}incomingServer"):
             if inc.get("type") == "imap":
                 hostname = (inc.findtext(f"{ns}hostname") or "").strip()
@@ -65,7 +48,6 @@ def _parse_autoconfig_xml(xml_data, email_addr):
                 }
                 break
 
-        # Find SMTP
         for out in provider.iter(f"{ns}outgoingServer"):
             if out.get("type") == "smtp":
                 hostname = (out.findtext(f"{ns}hostname") or "").strip()
@@ -86,11 +68,10 @@ def _parse_autoconfig_xml(xml_data, email_addr):
     return None
 
 
+# Teste les noms d'hôtes IMAP/SMTP courants en cas d'échec de la détection automatique
 def _autoconfig_fallback(domain, email_addr):
-    """Fallback: test common IMAP/SMTP hostnames and ports."""
     result = {"imap": None, "smtp": None, "source": "fallback"}
 
-    # Try IMAP
     for host in [f"imap.{domain}", f"mail.{domain}"]:
         for port, use_ssl in [(993, True), (143, False)]:
             try:
@@ -111,7 +92,6 @@ def _autoconfig_fallback(domain, email_addr):
         if result["imap"]:
             break
 
-    # Try SMTP
     for host in [f"smtp.{domain}", f"mail.{domain}"]:
         for port, use_ssl, use_starttls in [(465, True, False), (587, False, True), (25, False, False)]:
             try:

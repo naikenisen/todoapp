@@ -1,16 +1,25 @@
+// Module de gestion du système de fichiers
 const fs = require('fs');
+// Module utilitaires du système d'exploitation
 const os = require('os');
+// Module de gestion des chemins de fichiers
 const path = require('path');
 
+// Chemin absolu vers le répertoire du coffre-fort Obsidian
 const VAULT_PATH = path.join(os.homedir(), 'Documents', 'isenapp_mails');
+// Expression régulière pour détecter les liens wiki de type [[...]]
 const WIKILINK_RE = /\[\[([^\]|]+?)(?:\|[^\]]*)?\]\]/g;
+// Expression régulière pour extraire la date dans le contenu d'une note
 const DATE_RE = /\*\*.*Date.*:\*\*\s*(\d{4}-\d{2}-\d{2})/;
+// Ensemble des extensions de fichiers considérées comme des pièces jointes
 const ATTACHMENT_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.pdf', '.docx', '.xlsx', '.pptx', '.odt', '.csv', '.zip']);
 
+// Nettoie un chemin relatif pour éviter les traversées de répertoire
 function sanitizeVaultRelativePath(relpath) {
   return path.normalize(String(relpath || '')).replace(/^(\.\.[/\\])+/, '');
 }
 
+// Retourne le chemin complet sécurisé dans le coffre-fort ou null si hors limites
 function safeVaultFullPath(relpath) {
   const safe = sanitizeVaultRelativePath(relpath);
   const fullPath = path.join(VAULT_PATH, safe);
@@ -18,10 +27,12 @@ function safeVaultFullPath(relpath) {
   return { safe, fullPath };
 }
 
+// Parcourt le coffre-fort et construit le graphe de nœuds et d'arêtes
 function scanVaultGraph() {
   const nodes = {};
   const edges = [];
 
+  // Parcourt récursivement un répertoire pour indexer les fichiers
   function walk(dir) {
     let entries;
     try {
@@ -93,6 +104,7 @@ function scanVaultGraph() {
   return { nodes: Object.values(nodes), edges };
 }
 
+// Gère les requêtes de fichiers du coffre-fort via le protocole personnalisé
 function handleVaultFileRequest(request) {
   const url = new URL(request.url);
   const relpath = decodeURIComponent(url.pathname.replace(/^\//, ''));
@@ -123,6 +135,7 @@ function handleVaultFileRequest(request) {
   }
 }
 
+// Enregistre les gestionnaires IPC pour les opérations sur le coffre-fort
 function registerVaultGraphIpcHandlers({ ipcMain, shell }) {
   ipcMain.handle('vault:scanGraph', async () => {
     try {

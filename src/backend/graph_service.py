@@ -1,17 +1,3 @@
-"""Service Graph — graphe de vault et export email → Markdown.
-
-Gère le graphe de connaissances : scan du vault pour extraire les nœuds
-(fichiers .md + pièces jointes) et arêtes (wikilinks), lecture de fichiers,
-et export d'emails au format Markdown avec frontmatter YAML.
-
-Dépendances internes :
-    - app_config : chemins (GRAPH_VAULT, GRAPH_MD_DIR, GRAPH_ATT_DIR, MAILS_DIR)
-    - mail_utils : clean_string_for_file
-
-Dépendances externes :
-    - html2text (optionnel) : conversion HTML → texte brut pour le corps des emails
-"""
-
 import email as email_lib
 import os
 import re
@@ -24,24 +10,26 @@ from mail_utils import clean_string_for_file
 
 try:
     import html2text
+    # Indicateur de disponibilité de la bibliothèque html2text
     HAS_HTML2TEXT = True
 except ImportError:
     HAS_HTML2TEXT = False
 
+# Mots-clés utilisés pour étiqueter automatiquement les emails
 MOTS_CLES = ['projet', 'stage', 'facture', 'urgent', 'réunion', 'candidature', 'rapport', 'admin', 'examen']
 
+# Expression régulière pour extraire les wikilinks depuis un fichier Markdown
 WIKILINK_RE = re.compile(r'\[\[([^\]|]+?)(?:\|[^\]]*)?\]\]')
+# Expression régulière pour extraire la date depuis le corps d'un fichier Markdown
 DATE_RE = re.compile(r'\*\*.*Date.*:\*\*\s*(\d{4}-\d{2}-\d{2})')
 
+# Parcourt le vault pour extraire les nœuds et les arêtes du graphe de connaissances
 def scan_vault_graph():
-    """Scan le vault pour extraire nœuds (fichiers .md + attachments) et arêtes (wikilinks)."""
     vault = GRAPH_VAULT
-    nodes = {}  # name -> {id, label, path, type, tags, group}
-    edges = []  # [{source, target}]
+    nodes = {}
+    edges = []
 
-    # Collect all files
     for root, dirs, files in os.walk(vault):
-        # Skip .obsidian config
         dirs[:] = [d for d in dirs if d != '.obsidian']
         for fname in files:
             fpath = os.path.join(root, fname)
@@ -49,12 +37,11 @@ def scan_vault_graph():
             name_no_ext = os.path.splitext(fname)[0]
 
             if fname.lower().endswith('.md'):
-                # Parse frontmatter for tags
                 tags = []
                 date = None
                 try:
                     with open(fpath, 'r', encoding='utf-8', errors='replace') as f:
-                        content = f.read(4096)  # Read just enough for frontmatter
+                        content = f.read(4096)
                     if content.startswith('---'):
                         end = content.find('---', 3)
                         if end != -1:
@@ -63,14 +50,12 @@ def scan_vault_graph():
                                 line = line.strip()
                                 if line.startswith('- '):
                                     tags.append(line[2:].strip())
-                    # Extract date from body
                     m = DATE_RE.search(content)
                     if m:
                         date = m.group(1)
                 except Exception:
                     pass
 
-                # Determine group from path
                 group = 'mail' if '/mails/' in relpath or relpath.startswith('mails/') else 'note'
 
                 nodes[name_no_ext] = {
@@ -83,7 +68,6 @@ def scan_vault_graph():
                     'date': date,
                 }
             else:
-                # Attachment (pdf, jpg, etc.)
                 ext = os.path.splitext(fname)[1].lower()
                 if ext in ('.png', '.jpg', '.jpeg', '.gif', '.svg', '.pdf',
                            '.docx', '.xlsx', '.pptx', '.odt', '.csv', '.zip'):
@@ -96,7 +80,6 @@ def scan_vault_graph():
                         'group': 'attachment',
                     }
 
-    # Extract edges from wikilinks in md files
     for name, node in list(nodes.items()):
         if node['type'] != 'md':
             continue
@@ -109,11 +92,9 @@ def scan_vault_graph():
                 link = link.strip()
                 if link in nodes:
                     edges.append({'source': name, 'target': link})
-                # Also try with known extensions for attachments
                 elif link + '.md' in nodes:
-                    pass  # wikilinks usually reference without .md
+                    pass
                 else:
-                    # Target might not exist yet — create an "orphan" node
                     if link not in nodes:
                         nodes[link] = {
                             'id': link,
@@ -130,9 +111,8 @@ def scan_vault_graph():
     return {'nodes': list(nodes.values()), 'edges': edges}
 
 
+# Lit un fichier du vault par son chemin relatif en vérifiant qu'il n'y a pas de traversée de répertoire
 def read_vault_file(relpath):
-    """Read a file from the graph vault by relative path."""
-    # Sanitize: prevent directory traversal
     safe = os.path.normpath(relpath)
     if safe.startswith('..') or os.path.isabs(safe):
         raise ValueError('Invalid path')
@@ -145,8 +125,8 @@ def read_vault_file(relpath):
         return f.read()
 
 
+# Exporte un email au format Markdown avec frontmatter YAML dans le vault du graphe
 def export_email_to_graph(mail_meta):
-    """Export a single email to graph markdown, replicating mail_to_md.py logic."""
     os.makedirs(GRAPH_MD_DIR, exist_ok=True)
     os.makedirs(GRAPH_ATT_DIR, exist_ok=True)
 
@@ -165,7 +145,6 @@ def export_email_to_graph(mail_meta):
     cc_hdr = msg.get('Cc', '')
     date_str = msg.get('Date', '')
 
-    # Clean subject — move RE/FW prefixes to end
     subject_clean = subject
     prefixes = []
     prefix_pattern = r'^(\s*(re|fw|fwd)\s*[:：\-]+)'
@@ -179,7 +158,7 @@ def export_email_to_graph(mail_meta):
     subject_final = f"{subject_clean} ({' '.join(prefixes)})" if prefixes else subject_clean
     safe_subject = clean_string_for_file(subject_final) or "Sans_Sujet"
 
-    # Parse addresses
+    # Convertit un en-tête d'adresses email en liste de noms nettoyés
     def parse_addresses_list(header_value):
         if not header_value:
             return []
@@ -199,7 +178,6 @@ def export_email_to_graph(mail_meta):
     to_list = parse_addresses_list(to_hdr)
     cc_list = parse_addresses_list(cc_hdr)
 
-    # Date parsing
     daily_note_link = ""
     year_month_tag = ""
     mois_fr = ["janvier", "février", "mars", "avril", "mai", "juin",
@@ -213,7 +191,6 @@ def export_email_to_graph(mail_meta):
     except Exception:
         file_time = datetime.now().strftime("%Y-%m-%d_%H%M%S")
 
-    # Filename
     base_md_filename = safe_subject[:100]
     md_filename = f"{base_md_filename}.md"
     md_filepath = os.path.join(GRAPH_MD_DIR, md_filename)
@@ -223,7 +200,6 @@ def export_email_to_graph(mail_meta):
         md_filepath = os.path.join(GRAPH_MD_DIR, md_filename)
         r_idx += 1
 
-    # Tags
     tags = ["email"]
     if sender_domain:
         tags.append(f"domaine/{sender_domain.replace('.', '_')}")
@@ -234,7 +210,6 @@ def export_email_to_graph(mail_meta):
         if kw in subject_lower:
             tags.append(f"sujet/{kw}")
 
-    # Body & attachments
     h = None
     if HAS_HTML2TEXT:
         h = html2text.HTML2Text()
@@ -282,7 +257,6 @@ def export_email_to_graph(mail_meta):
         if kw in body_lower and f"sujet/{kw}" not in tags:
             tags.append(f"sujet/{kw}")
 
-    # Write markdown
     with open(md_filepath, 'w', encoding='utf-8') as md_file:
         md_file.write("---\n")
         md_file.write("type: email\n")

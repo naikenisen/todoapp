@@ -1,24 +1,15 @@
-"""Service d'intelligence artificielle — appels Google Gemini.
-
-Fournit des fonctions de génération de texte via l'API Google Gemini :
-reformulation, rédaction de relances et réponses email.
-
-Dépendances internes :
-    (aucune)
-
-Dépendances externes :
-    - API Google Gemini (generativelanguage.googleapis.com)
-"""
-
 import json
 import logging
 import os
 import urllib.error
 import urllib.request
 
+# Journaliseur de l'application
 logger = logging.getLogger("todoapp")
 
+# Modèle Gemini principal utilisé pour les appels IA
 GEMINI_MODEL = (os.getenv("GEMINI_MODEL", "gemma-3-27b-it") or "").strip() or "gemma-3-27b-it"
+# Liste des modèles Gemini de secours
 GEMINI_FALLBACK_MODELS = [
     m.strip()
     for m in (os.getenv("GEMINI_FALLBACK_MODELS", "gemini-2.5-flash") or "").split(",")
@@ -26,6 +17,7 @@ GEMINI_FALLBACK_MODELS = [
 ]
 
 
+# Retourne la liste ordonnée des modèles Gemini à essayer
 def _gemini_model_candidates():
     models = []
     for model in [GEMINI_MODEL, *GEMINI_FALLBACK_MODELS]:
@@ -34,8 +26,8 @@ def _gemini_model_candidates():
     return models or ["gemma-3-27b-it", "gemini-2.5-flash"]
 
 
+# Effectue un appel générique à l'API Google Gemini et retourne le texte généré
 def ai_call(token, prompt):
-    """Generic AI call via Google Gemini API — single request."""
     body = json.dumps({
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.3},
@@ -77,8 +69,8 @@ def ai_call(token, prompt):
     raise last_exc if last_exc else RuntimeError("All Gemini models failed")
 
 
+# Corrige la syntaxe, la grammaire et l'orthographe d'un texte via l'IA
 def ai_reformulate(payload):
-    """Corrige la syntaxe, grammaire et orthographe d'un texte."""
     token = payload.get("token", "")
     text = payload.get("text", "")
     prompt = (
@@ -89,8 +81,8 @@ def ai_reformulate(payload):
     return ai_call(token, prompt)
 
 
+# Génère un mail de relance professionnel à partir d'un mail original
 def ai_generate_reminder(payload):
-    """Génère un mail de relance à partir d'un mail original."""
     token = payload.get("token", "")
     original_subject = payload.get("subject", "")
     original_to = payload.get("to", "")
@@ -112,8 +104,8 @@ def ai_generate_reminder(payload):
     return json.loads(content.strip())
 
 
+# Génère une réponse email professionnelle à partir du contexte et des instructions fournies
 def ai_generate_reply(payload):
-    """Génère une réponse email professionnelle à partir du contexte fourni."""
     token = payload.get("token", "")
     user_prompt = payload.get("prompt", "")
     subject = payload.get("subject", "")

@@ -1,19 +1,7 @@
-"""Handler HTTP pour le callback OAuth Google.
-
-Reçoit le code d'autorisation renvoyé par Google et finalise le flux
-OAuth2 PKCE pour les comptes Gmail.
-
-Dépendances internes :
-    (aucune — toutes les dépendances sont injectées via les arguments
-     nommés)
-
-Dépendances externes :
-    (aucune)
-"""
-
 from urllib.parse import parse_qs, urlparse
 
 
+# Traite le callback OAuth Google et finalise l'authentification du compte Gmail
 def handle_oauth_callback(
     handler,
     *,

@@ -1,23 +1,10 @@
-"""Lecture et écriture atomique de fichiers JSON.
-
-Fournit deux fonctions principales : lecture avec fallback sur un
-fichier .bak, et écriture atomique (tmp → rename) avec backup
-automatique de la version précédente.
-
-Dépendances internes :
-    (aucune — module utilitaire bas niveau)
-
-Dépendances externes :
-    (aucune)
-"""
-
 import json
 import os
 import shutil
 
 
+# Lit un fichier JSON avec repli sur une sauvegarde en cas d'erreur de lecture
 def read_json_with_backup(path, default_value):
-    """Read JSON file with fallback to <file>.bak if primary is unreadable."""
     try:
         with open(path, encoding="utf-8") as f:
             return json.load(f)
@@ -30,8 +17,8 @@ def read_json_with_backup(path, default_value):
             return default_value
 
 
+# Écrit un fichier JSON de manière atomique en conservant une sauvegarde de la version précédente
 def atomic_write_json(path, payload):
-    """Write JSON atomically and keep a one-file backup of previous content."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp_path = f"{path}.tmp"
     bak_path = f"{path}.bak"

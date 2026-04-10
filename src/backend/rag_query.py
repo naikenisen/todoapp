@@ -1,22 +1,3 @@
-"""Graph RAG Query — interroge le graphe Neo4j d'emails via recherche vectorielle + Cypher.
-
-Pipeline :
-  1. Vectorise la question utilisateur (sentence-transformers, all-MiniLM-L6-v2)
-  2. Recherche vectorielle dans l'index Neo4j → emails les plus proches
-  3. Traversée du graphe (Cypher) → expéditeur, destinataires, pièces jointes
-  4. Génération de la réponse finale via Google Gemini (LangChain)
-
-Usage :
-  python rag_query.py "Trouve-moi le CV de la personne qui a postulé pour un stage M2 IA en avril"
-  python rag_query.py --interactive     (mode interactif)
-
-Dépendances internes :
-    - app_config : (indirectement via neo4j_ingest)
-    - neo4j_ingest : EmbeddingService, connect_neo4j, EMBEDDING_DIM
-
-Dépendances externes :
-    - neo4j, sentence-transformers, langchain-google-genai, python-dotenv
-"""
 
 from __future__ import annotations
 
@@ -37,19 +18,20 @@ from neo4j.exceptions import ServiceUnavailable
 from neo4j_ingest import EmbeddingService, connect_neo4j
 from app_config import APP_DATA_DIR
 
-# ── Logging ───────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%H:%M:%S",
 )
+# Logger du module
 log = logging.getLogger(__name__)
 
-# ── Env ───────────────────────────────────────────────
 from pathlib import Path as _Path
+# Chemin absolu de la racine du projet
 _PROJECT_ROOT = str(_Path(__file__).resolve().parents[2])
 
 
+# Charge les variables d'environnement depuis plusieurs emplacements candidats
 def _load_runtime_env() -> None:
     candidates = [
         (os.getenv("ISENAPP_ENV_FILE") or "").strip(),
@@ -71,17 +53,21 @@ def _load_runtime_env() -> None:
 
 
 _load_runtime_env()
+# Clé d'API Google Gemini pour la génération de réponses
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+# Modèle Gemini principal utilisé pour la génération
 GEMINI_MODEL = (os.getenv("GEMINI_MODEL", "gemma-3-27b-it") or "").strip() or "gemma-3-27b-it"
+# Liste des modèles Gemini de repli en cas d'échec du modèle principal
 GEMINI_FALLBACK_MODELS = [
     m.strip()
     for m in (os.getenv("GEMINI_FALLBACK_MODELS", "gemini-2.5-flash") or "").split(",")
     if m.strip()
 ]
 
-# Nombre de résultats vectoriels à récupérer
+# Nombre de résultats vectoriels récupérés par défaut
 TOP_K = 5
 
+# Ensemble de mots vides français exclus de la tokenisation
 STOPWORDS_FR = {
     "a", "au", "aux", "avec", "ce", "ces", "dans", "de", "des", "du",
     "elle", "en", "et", "eux", "il", "je", "la", "le", "les", "leur",
@@ -92,13 +78,13 @@ STOPWORDS_FR = {
 }
 
 
+# Vérifie si la clé API Gemini est configurée
 def is_llm_configured() -> bool:
-    """Retourne True si la configuration Gemini est presente."""
     return bool((GEMINI_API_KEY or "").strip())
 
 
+# Retourne la liste ordonnée des modèles Gemini à tenter
 def _gemini_model_candidates() -> list[str]:
-    """Retourne la liste des modèles à tenter (primaire + fallback)."""
     models: list[str] = []
     for model in [GEMINI_MODEL, *GEMINI_FALLBACK_MODELS]:
         if model and model not in models:
@@ -106,12 +92,8 @@ def _gemini_model_candidates() -> list[str]:
     return models or ["gemma-3-27b-it", "gemini-2.5-flash"]
 
 
+# Réécrit la question utilisateur via Gemini pour améliorer la pertinence du retrieval
 def rewrite_question_for_retrieval(question: str) -> str:
-    """Réécrit la question utilisateur pour améliorer le retrieval GraphRAG.
-
-    La réécriture conserve l'intention et les contraintes explicites (personne,
-    date, type de document) mais reformule en requête de recherche plus dense.
-    """
     q = (question or "").strip()
     if not q:
         return q
@@ -148,7 +130,6 @@ def rewrite_question_for_retrieval(question: str) -> str:
             if not rewritten:
                 continue
 
-            # Garde-fou: rejeter les réécritures trop courtes/tronquées (ex: "lettre de").
             orig_tokens = _tokenize_question(q)
             rew_tokens = _tokenize_question(rewritten)
             if len(rew_tokens) < max(3, len(orig_tokens) // 2):
@@ -164,13 +145,10 @@ def rewrite_question_for_retrieval(question: str) -> str:
     return q
 
 
-# ═════════════════════════════════════════════════════════
-#  Data model pour les résultats
-# ═════════════════════════════════════════════════════════
 
+# Résultat de recherche enrichi par la traversée du graphe Neo4j
 @dataclass
 class EmailGraphResult:
-    """Résultat enrichi par la traversée du graphe."""
     email_id: str
     subject: str
     date: str
@@ -184,12 +162,9 @@ class EmailGraphResult:
     eml_file: str = ""
 
 
-# ═════════════════════════════════════════════════════════
-#  Recherche vectorielle
-# ═════════════════════════════════════════════════════════
 
+# Interroge l'index vectoriel Neo4j et retourne les emails les plus proches
 def vector_search(driver, question_embedding: list[float], top_k: int = TOP_K) -> list[dict]:
-    """Interroge l'index vectoriel Neo4j et retourne les top_k emails les plus proches."""
     query = """
     CALL db.index.vector.queryNodes('email_embedding', $top_k, $embedding)
     YIELD node AS email, score
@@ -207,27 +182,23 @@ def vector_search(driver, question_embedding: list[float], top_k: int = TOP_K) -
         return [dict(record) for record in result]
 
 
+# Normalise un texte en minuscules sans accents
 def _normalize_text(text: str) -> str:
-    """Normalise un texte (minuscules + suppression des accents)."""
     txt = (text or "").lower()
     txt = unicodedata.normalize("NFD", txt)
     txt = "".join(ch for ch in txt if unicodedata.category(ch) != "Mn")
     return txt
 
 
+# Tokenise la question en filtrant les stopwords français
 def _tokenize_question(question: str) -> list[str]:
-    """Tokenise la question en retirant les stopwords courts non informatifs."""
     norm = _normalize_text(question)
     tokens = re.findall(r"[a-z0-9_\-]{2,}", norm)
     return [t for t in tokens if t not in STOPWORDS_FR]
 
 
+# Calcule un bonus lexical et métadonnées pour compléter le score vectoriel
 def _hybrid_bonus(tokens: list[str], result: EmailGraphResult) -> float:
-    """Bonus lexical/métadonnées pour compléter le score vectoriel.
-
-    L'objectif est de mieux remonter des résultats contenant des entités explicites
-    (nom de personne, mot-clé métier, pièce jointe) même si le vecteur seul hésite.
-    """
     if not tokens:
         return 0.0
 
@@ -253,8 +224,8 @@ def _hybrid_bonus(tokens: list[str], result: EmailGraphResult) -> float:
     return bonus
 
 
+# Extrait un indice d'expéditeur depuis les formulations du type envoyé par X
 def _extract_sender_hint(question: str) -> str:
-    """Extrait un indice d'expéditeur dans les requêtes du type 'envoyé par X'."""
     norm_q = _normalize_text(question)
     patterns = [
         r"\bpar\s+([a-z0-9_\-]{2,})",
@@ -268,13 +239,13 @@ def _extract_sender_hint(question: str) -> str:
     return ""
 
 
+# Retourne True si l'un des termes est présent dans la chaîne
 def _contains_any(haystack: str, needles: list[str]) -> bool:
-    """Retourne True si l'un des termes est présent dans la chaîne normalisée."""
     return any(n in haystack for n in needles)
 
 
+# Calcule des bonus et malus selon les contraintes explicites détectées dans la question
 def _intent_constraint_bonus(question: str, result: EmailGraphResult) -> float:
-    """Applique des bonus/malus selon les contraintes explicites de la question."""
     q = _normalize_text(question)
     sender = _normalize_text(result.sender_name)
     blob = " ".join([
@@ -297,8 +268,6 @@ def _intent_constraint_bonus(question: str, result: EmailGraphResult) -> float:
         if has_cover:
             bonus += 0.95
         elif has_stage_or_cand:
-            # Souvent, le mail cible est une candidature/stage forwardée sans mention
-            # explicite de "lettre de motivation" dans le snippet extrait.
             bonus += 0.15
         else:
             bonus -= 0.65
@@ -318,8 +287,8 @@ def _intent_constraint_bonus(question: str, result: EmailGraphResult) -> float:
     return bonus
 
 
+# Concatène les champs textuels normalisés d'un résultat pour les règles d'intention
 def _result_blob(result: EmailGraphResult) -> str:
-    """Concatène les champs textuels utiles pour des règles d'intention."""
     return " ".join([
         _normalize_text(result.subject),
         _normalize_text(result.body_snippet),
@@ -329,11 +298,13 @@ def _result_blob(result: EmailGraphResult) -> str:
     ])
 
 
+# Vérifie si un résultat contient des indicateurs de lettre de motivation
 def _matches_cover_letter_intent(result: EmailGraphResult) -> bool:
     blob = _result_blob(result)
     return _contains_any(blob, ["lettre de motivation", "motivation", "cover letter"])
 
 
+# Détecte les types d'intention présents dans la question
 def _intent_flags(question: str) -> dict[str, bool]:
     q = _normalize_text(question)
     return {
@@ -343,6 +314,7 @@ def _intent_flags(question: str) -> dict[str, bool]:
     }
 
 
+# Retourne les IDs d'emails correspondant aux contraintes métier via Neo4j
 def _lexical_intent_candidate_ids(
     driver,
     sender_hint: str,
@@ -351,7 +323,6 @@ def _lexical_intent_candidate_ids(
     asks_candidature: bool,
     limit: int = 80,
 ) -> set[str]:
-    """Retourne les IDs qui matchent explicitement les contraintes métier dans Neo4j."""
     if not sender_hint and not asks_cover and not asks_stage and not asks_candidature:
         return set()
 
@@ -412,8 +383,8 @@ def _lexical_intent_candidate_ids(
         return {r["id"] for r in rows}
 
 
+# Récupère les champs de base depuis Neo4j pour une liste d'IDs d'email
 def _fetch_hits_by_ids(driver, ids: list[str]) -> list[dict]:
-    """Récupère les champs de base pour une liste d'IDs Email."""
     if not ids:
         return []
     query = """
@@ -433,19 +404,16 @@ def _fetch_hits_by_ids(driver, ids: list[str]) -> list[dict]:
     return [by_id[i] for i in ids if i in by_id]
 
 
+# Calcule la moyenne de deux vecteurs d'embedding de même dimension
 def _blend_vectors(v1: list[float], v2: list[float]) -> list[float]:
-    """Moyenne deux embeddings de même dimension."""
     if len(v1) != len(v2):
         return v1
     return [(a + b) / 2.0 for a, b in zip(v1, v2)]
 
 
-# ═════════════════════════════════════════════════════════
-#  Traversée du graphe (enrichissement Cypher)
-# ═════════════════════════════════════════════════════════
 
+# Traverse le graphe autour d'un email pour récupérer expéditeur, destinataires et pièces jointes
 def enrich_with_graph(driver, email_id: str) -> dict:
-    """Traverse le graphe autour d'un nœud Email pour récupérer le contexte complet."""
     query = """
     MATCH (e:Email {id: $eid})
 
@@ -469,24 +437,24 @@ def enrich_with_graph(driver, email_id: str) -> dict:
         return dict(record)
 
 
+# Alias de search_and_enrich_with_meta retournant uniquement la liste de résultats
 def search_and_enrich(
     driver,
     embedder: EmbeddingService,
     question: str,
     top_k: int = TOP_K,
 ) -> list[EmailGraphResult]:
-    """Compatibilité: retourne uniquement la liste des résultats."""
     results, _meta = search_and_enrich_with_meta(driver, embedder, question, top_k=top_k)
     return results
 
 
+# Pipeline complet de recherche avec réécriture de requête, retrieval vectoriel et reranking hybride
 def search_and_enrich_with_meta(
     driver,
     embedder: EmbeddingService,
     question: str,
     top_k: int = TOP_K,
 ) -> tuple[list[EmailGraphResult], dict]:
-    """Pipeline complet : query rewrite → retrieval vectoriel → reranking hybride."""
     log.info("Vectorisation de la question …")
     original_question = (question or "").strip()
     retrieval_question = rewrite_question_for_retrieval(original_question)
@@ -498,7 +466,6 @@ def search_and_enrich_with_meta(
     else:
         question_embedding = base_embedding
 
-    # On récupère un pool de candidats large pour éviter de manquer les bons mails.
     retrieve_k = min(max(top_k * 30, 120), 400)
     log.info("Recherche vectorielle (top %d candidates) …", retrieve_k)
     hits = vector_search(driver, question_embedding, retrieve_k)
@@ -525,8 +492,6 @@ def search_and_enrich_with_meta(
         limit=120,
     )
 
-    # Complète le pool vectoriel avec des candidats strictement alignés sur l'intention,
-    # même s'ils n'étaient pas présents dans le top vectoriel initial.
     if strict_ids:
         existing = {h["id"] for h in hits}
         missing_ids = [eid for eid in strict_ids if eid not in existing]
@@ -550,15 +515,12 @@ def search_and_enrich_with_meta(
             eml_file=eml_file,
         )
 
-        # Score hybride = score vectoriel + bonus lexical/métadonnées.
         row.score = float(row.score) + _hybrid_bonus(q_tokens, row)
         row.score += _intent_constraint_bonus(original_question + " " + retrieval_question, row)
         if strict_ids and row.email_id in strict_ids:
             row.score += 1.75
         results.append(row)
 
-    # Si un expéditeur explicite est demandé et qu'on a des candidats qui matchent,
-    # on favorise fortement ces candidats et on pénalise les autres.
     if sender_hint:
         any_sender_match = any(sender_hint in _normalize_text(r.sender_name) for r in results)
         if any_sender_match:
@@ -569,8 +531,6 @@ def search_and_enrich_with_meta(
                 else:
                     r.score -= 50.0
         else:
-            # Fallback: on tente aussi un match dans le sujet/corps/PJ quand le sender
-            # est absent ou mal extrait depuis certains emails forwardés.
             for r in results:
                 blob = " ".join([
                     _normalize_text(r.subject),
@@ -580,8 +540,6 @@ def search_and_enrich_with_meta(
                 if sender_hint in blob:
                     r.score += 0.65
 
-    # Si la question demande explicitement une lettre de motivation, on privilégie
-    # fortement les candidats qui matchent cette contrainte.
     if flags["cover"]:
         has_cover_match = any(_matches_cover_letter_intent(r) for r in results)
         if has_cover_match:
@@ -591,10 +549,8 @@ def search_and_enrich_with_meta(
                 else:
                     r.score -= 0.90
 
-    # Tri final par score hybride décroissant.
     results.sort(key=lambda r: r.score, reverse=True)
 
-    # Déduplication douce pour éviter des doublons quasi-identiques dans le top-k.
     deduped: list[EmailGraphResult] = []
     seen: set[tuple[str, str, str]] = set()
     for r in results:
@@ -614,12 +570,9 @@ def search_and_enrich_with_meta(
     return deduped, meta
 
 
-# ═════════════════════════════════════════════════════════
-#  Génération de la réponse (LangChain + Gemini)
-# ═════════════════════════════════════════════════════════
 
+# Formate les résultats de recherche en contexte compact pour le LLM
 def _format_context(results: list[EmailGraphResult]) -> str:
-    """Formate les résultats en contexte compact pour le LLM (économie de tokens)."""
     parts: list[str] = []
     for i, r in enumerate(results, 1):
         lines = [f"[{i}] {r.subject} | {r.date} | De: {r.sender_name}"]
@@ -629,7 +582,6 @@ def _format_context(results: list[EmailGraphResult]) -> str:
             lines.append(f"  Tags: {', '.join(r.topics)}")
         if r.attachments:
             lines.append(f"  PJ: {', '.join(r.attachments)}")
-        # Tronquer le body à 300 chars pour limiter les tokens
         snippet = r.body_snippet[:300].strip()
         if snippet:
             lines.append(f"  > {snippet}")
@@ -637,8 +589,8 @@ def _format_context(results: list[EmailGraphResult]) -> str:
     return "\n\n".join(parts)
 
 
+# Génère la réponse finale à la question via Gemini en se basant sur les résultats
 def generate_answer(question: str, results: list[EmailGraphResult]) -> str:
-    """Génère la réponse finale via Gemini (modèle configurable + fallback)."""
     if not is_llm_configured():
         log.warning("GEMINI_API_KEY non définie — réponse brute sans LLM.")
         return _format_context(results)
@@ -650,7 +602,6 @@ def generate_answer(question: str, results: list[EmailGraphResult]) -> str:
         return _format_context(results)
 
     context = _format_context(results)
-    # Prompt compact pour minimiser la consommation de tokens
     prompt = (
         "Réponds en français, concis. Base-toi UNIQUEMENT sur ces emails. "
         "Cite noms, dates, pièces jointes si pertinent. "
@@ -680,12 +631,9 @@ def generate_answer(question: str, results: list[EmailGraphResult]) -> str:
     return _format_context(results)
 
 
-# ═════════════════════════════════════════════════════════
-#  Affichage
-# ═════════════════════════════════════════════════════════
 
+# Affiche les résultats de recherche de façon lisible dans le terminal
 def print_results(results: list[EmailGraphResult]) -> None:
-    """Affiche les résultats de recherche de façon lisible."""
     if not results:
         print("\n  Aucun email trouvé.\n")
         return
@@ -705,12 +653,9 @@ def print_results(results: list[EmailGraphResult]) -> None:
         print()
 
 
-# ═════════════════════════════════════════════════════════
-#  CLI
-# ═════════════════════════════════════════════════════════
 
+# Exécute une requête complète et affiche les résultats avec la réponse LLM
 def run_query(driver, embedder: EmbeddingService, question: str, top_k: int = TOP_K) -> None:
-    """Exécute une requête complète et affiche les résultats + réponse LLM."""
     results = search_and_enrich(driver, embedder, question, top_k=top_k)
     print_results(results)
 
@@ -722,6 +667,7 @@ def run_query(driver, embedder: EmbeddingService, question: str, top_k: int = TO
         print(f"\n{'═' * 60}\n")
 
 
+# Point d'entrée CLI pour l'interrogation interactive ou directe du graphe d'emails
 def main() -> None:
     parser = argparse.ArgumentParser(description="Graph RAG — Interroge le graphe d'emails")
     parser.add_argument(

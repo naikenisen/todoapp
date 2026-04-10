@@ -1,18 +1,3 @@
-"""Utilitaires de traitement email — parsing, .eml I/O, deduplication.
-
-Ce module regroupe toutes les fonctions de manipulation d'emails :
-parsing des headers et corps, gestion des pièces jointes, construction
-et sauvegarde de fichiers .eml, et maintien des index locaux (seen UIDs,
-inbox index).
-
-Dépendances internes :
-    - app_config : chemins (MAILS_DIR, SEEN_UIDS_FILE, INBOX_INDEX_FILE, DOWNLOADS)
-    - json_store : lecture/écriture atomique JSON
-
-Dépendances externes :
-    - html2text (optionnel) : conversion HTML → texte brut
-"""
-
 import email as email_lib
 import email.policy
 import hashlib
@@ -29,6 +14,7 @@ from email.utils import getaddresses, parsedate_to_datetime
 from app_config import DOWNLOADS, INBOX_INDEX_FILE, MAILS_DIR, SEEN_UIDS_FILE
 from json_store import atomic_write_json, read_json_with_backup
 
+# Indicateur de disponibilité de la bibliothèque html2text
 try:
     import html2text
     HAS_HTML2TEXT = True
@@ -36,26 +22,22 @@ except ImportError:
     HAS_HTML2TEXT = False
 
 
-# ═══════════════════════════════════════════════════════
-#  Seen UIDs — deduplication
-# ═══════════════════════════════════════════════════════
+# Charge les UIDs déjà vus depuis le fichier de déduplication
 def load_seen_uids():
     return read_json_with_backup(SEEN_UIDS_FILE, {})
 
 
+# Sauvegarde les UIDs vus dans le fichier de déduplication
 def save_seen_uids(seen):
     atomic_write_json(SEEN_UIDS_FILE, seen)
 
 
-# ═══════════════════════════════════════════════════════
-#  Inbox Index — local mail metadata
-# ═══════════════════════════════════════════════════════
+# Charge l'index local de la boîte de réception en filtrant les entrées obsolètes
 def load_inbox_index():
     index = read_json_with_backup(INBOX_INDEX_FILE, [])
     if not isinstance(index, list):
         return []
 
-    # Drop entries pointing to missing .eml files to avoid stale inbox rows.
     filtered = []
     changed = False
     for m in index:
@@ -72,15 +54,17 @@ def load_inbox_index():
     return filtered
 
 
+# Sauvegarde l'index de la boîte de réception
 def save_inbox_index(index):
     atomic_write_json(INBOX_INDEX_FILE, index)
 
 
+# Calcule un hash stable pour la déduplication des emails
 def compute_mail_id(raw_bytes):
-    """Compute a stable hash for deduplication."""
     return hashlib.sha256(raw_bytes).hexdigest()[:24]
 
 
+# Nettoie une chaîne en supprimant les caractères invalides pour les noms de fichiers
 def clean_string_for_file(name):
     if not name:
         return ""
@@ -88,8 +72,8 @@ def clean_string_for_file(name):
     return re.sub(r'[\\/*?:"<>|]', "", name).strip()
 
 
+# Génère un nom de fichier .eml unique à partir du sujet en ajoutant un suffixe numérique si nécessaire
 def unique_eml_filename_from_subject(subject, prefix=""):
-    """Build a unique .eml filename from subject with _1, _2... suffixes."""
     safe_subject = clean_string_for_file(subject)[:120] or "mail"
     if prefix:
         safe_subject = f"{prefix}{safe_subject}"
@@ -102,8 +86,8 @@ def unique_eml_filename_from_subject(subject, prefix=""):
     return candidate
 
 
+# Extrait les corps texte brut et HTML d'un message email parsé
 def extract_bodies(msg):
-    """Extract plain-text and HTML bodies from a parsed email message."""
     body_text = ""
     body_html = ""
     h = None
@@ -142,8 +126,8 @@ def extract_bodies(msg):
     return body_text, body_html
 
 
+# Retourne les données brutes, le nom de fichier et le type MIME d'une pièce jointe identifiée par index ou nom
 def get_attachment_payload(msg, index=None, filename=None):
-    """Return (bytes, filename, content_type) for an attachment by index or filename."""
     found_idx = 0
     for part in msg.walk():
         content_disposition = str(part.get("Content-Disposition", ""))
@@ -167,8 +151,8 @@ def get_attachment_payload(msg, index=None, filename=None):
     return None, None, None
 
 
+# Enrichit un mail avec le corps et les pièces jointes depuis le fichier .eml local correspondant
 def enrich_mail_from_eml(mail):
-    """Populate body/body_html/attachments from local .eml when available."""
     eml_file = mail.get("eml_file", "")
     if not eml_file:
         return mail
@@ -189,8 +173,8 @@ def enrich_mail_from_eml(mail):
     return mail
 
 
+# Retourne la liste des noms de pièces jointes d'un message email
 def extract_attachments_info(msg):
-    """Return list of attachment filenames from a message."""
     attachments = []
     for part in msg.walk():
         content_disposition = str(part.get("Content-Disposition", ""))
@@ -200,8 +184,8 @@ def extract_attachments_info(msg):
     return attachments
 
 
+# Parse les octets bruts d'un email et retourne un dictionnaire de métadonnées
 def parse_email_metadata(raw_bytes, account_email=""):
-    """Parse raw email bytes into metadata dict."""
     msg = email_lib.message_from_bytes(raw_bytes, policy=email_policy.default)
 
     subject = msg.get('Subject', 'Sans sujet') or 'Sans sujet'
@@ -211,7 +195,6 @@ def parse_email_metadata(raw_bytes, account_email=""):
     date_str = msg.get('Date', '')
     message_id = msg.get('Message-ID', '') or ''
 
-    # Parse sender
     from_addrs = getaddresses([from_hdr])
     sender_name = ''
     sender_email = ''
@@ -219,7 +202,6 @@ def parse_email_metadata(raw_bytes, account_email=""):
         sender_name = from_addrs[0][0] or ''
         sender_email = from_addrs[0][1] or ''
 
-    # Parse date
     date_ts = 0
     date_display = date_str
     try:
@@ -249,8 +231,8 @@ def parse_email_metadata(raw_bytes, account_email=""):
     }
 
 
+# Construit une chaîne email RFC-2822 à partir des paramètres fournis
 def build_eml(from_addr, to_addr, subject, body_text, html_body=None):
-    """Build a RFC-2822 email string."""
     if html_body:
         msg = MIMEMultipart("alternative")
         msg.attach(MIMEText(body_text, "plain", "utf-8"))
@@ -264,8 +246,8 @@ def build_eml(from_addr, to_addr, subject, body_text, html_body=None):
     return msg.as_string()
 
 
+# Sauvegarde un email en fichier .eml dans le dossier Téléchargements
 def save_eml_to_downloads(from_addr, to_addr, subject, body_text, html_body=None):
-    """Save an email as .eml file in the Downloads folder."""
     eml_content = build_eml(from_addr, to_addr, subject, body_text, html_body=html_body)
     safe_subject = "".join(c for c in subject if c.isalnum() or c in " _-").strip()[:80] or "mail"
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")

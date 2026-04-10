@@ -1,22 +1,3 @@
-"""Neo4j Ingestion — importe les emails dans un graphe Neo4j.
-
-Deux modes d'ingestion :
-  - eml   : parse les fichiers .eml bruts depuis MAILS_DIR
-  - vault : parse les fichiers Markdown existants depuis GRAPH_MD_DIR
-
-Usage :
-  python neo4j_ingest.py --mode eml
-  python neo4j_ingest.py --mode vault
-  python neo4j_ingest.py --mode both
-  python neo4j_ingest.py --init-only   (crée uniquement le schéma)
-
-Dépendances internes :
-    - app_config : chemins (MAILS_DIR, GRAPH_MD_DIR, GRAPH_ATT_DIR)
-
-Dépendances externes :
-    - neo4j, sentence-transformers, python-dotenv
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -36,10 +17,10 @@ from dotenv import load_dotenv
 from neo4j import GraphDatabase
 from neo4j.exceptions import ServiceUnavailable, AuthError
 
-# ── Projet ────────────────────────────────────────────
 from app_config import APP_DATA_DIR, GRAPH_ATT_DIR, GRAPH_MD_DIR, MAILS_DIR
 from mail_utils import clean_string_for_file
 
+# Convertisseur HTML vers texte brut, chargé si disponible
 try:
     import html2text
     _H2T = html2text.HTML2Text()
@@ -48,25 +29,21 @@ try:
 except ImportError:
     _H2T = None
 
-# ── Logging ───────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%H:%M:%S",
 )
+# Logger du module
 log = logging.getLogger(__name__)
 
-# ── Env ───────────────────────────────────────────────
 from pathlib import Path as _Path
+# Chemin absolu de la racine du projet
 _PROJECT_ROOT = str(_Path(__file__).resolve().parents[2])
 
 
+# Charge les variables d'environnement depuis plusieurs emplacements candidats
 def _load_runtime_env() -> list[str]:
-    """Charge les variables d'env depuis plusieurs emplacements possibles.
-
-    En version installée, le backend n'est pas forcément lancé depuis la racine
-    du repo, donc le .env local peut être introuvable.
-    """
     loaded: list[str] = []
     env_override = (os.getenv("ISENAPP_ENV_FILE") or "").strip()
     candidates = [
@@ -86,59 +63,62 @@ def _load_runtime_env() -> list[str]:
             continue
         seen.add(path)
         if os.path.isfile(path):
-            # override=False pour conserver une valeur déjà fournie par l'OS.
             if load_dotenv(path, override=False):
                 loaded.append(path)
     return loaded
 
 
+# Liste des fichiers .env effectivement chargés au démarrage
 _ENV_FILES = _load_runtime_env()
 if _ENV_FILES:
     log.info("Fichiers .env chargés: %s", ", ".join(_ENV_FILES))
 else:
     log.warning("Aucun fichier .env trouvé (chemins testés: repo/cwd/app-data).")
 
+# URI de connexion au serveur Neo4j
 NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+# Nom d'utilisateur Neo4j
 NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+# Mot de passe Neo4j
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
+# Nom du modèle d'embedding utilisé pour la vectorisation
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
 
-# Valeur de repli. La dimension réelle est lue depuis le modèle chargé.
+# Dimension par défaut des vecteurs d'embedding
 EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "1024"))
 
+# Mots-clés métier pour le tagging automatique des emails
 MOTS_CLES: list[str] = [
     "projet", "stage", "facture", "urgent", "réunion",
     "candidature", "rapport", "admin", "examen",
 ]
 
+# Noms des mois en français pour les tags de période
 MOIS_FR: list[str] = [
     "janvier", "février", "mars", "avril", "mai", "juin",
     "juillet", "août", "septembre", "octobre", "novembre", "décembre",
 ]
 
-# ═════════════════════════════════════════════════════════
-#  Data model
-# ═════════════════════════════════════════════════════════
 
+# Représente une personne (expéditeur ou destinataire) avec nom et email
 @dataclass
 class PersonData:
-    """Représente une personne (expéditeur / destinataire)."""
     name: str
     email: str = ""
 
+    # Clé de fusion Neo4j basée sur l'email si disponible, sinon le nom
     @property
     def merge_key(self) -> str:
-        """Clé utilisée pour le MERGE Neo4j (email si dispo, sinon nom)."""
         return self.email if self.email else self.name
 
 
+# Données structurées d'un email prêtes pour l'ingestion Neo4j
 @dataclass
 class EmailData:
-    """Données structurées extraites d'un email, prêtes pour l'ingestion."""
     message_id: str
     subject: str
     date_str: str
-    date_iso: str  # YYYY-MM-DD
+    date_iso: str
     body: str
     sender: PersonData
     recipients: list[PersonData] = field(default_factory=list)
@@ -148,18 +128,16 @@ class EmailData:
     source_file: str = ""
 
 
-# ═════════════════════════════════════════════════════════
-#  Embedding service (chargement lazy)
-# ═════════════════════════════════════════════════════════
-
+# Service d'encodage de texte en vecteurs via sentence-transformers avec chargement différé
 class EmbeddingService:
-    """Wrapper lazy autour de sentence-transformers."""
 
+    # Initialise le service avec le nom du modèle et la dimension par défaut
     def __init__(self, model_name: str = EMBEDDING_MODEL) -> None:
         self._model_name = model_name
         self._model = None
         self._dimension = EMBEDDING_DIM
 
+    # Charge le modèle d'embedding en mémoire si ce n'est pas encore fait
     def _load(self) -> None:
         if self._model is not None:
             return
@@ -177,42 +155,35 @@ class EmbeddingService:
             pass
         log.info("Modèle chargé.")
 
+    # Retourne la dimension effective des embeddings après chargement du modèle
     @property
     def dimension(self) -> int:
-        """Dimension d'embedding effectivement utilisée."""
         self._load()
         return self._dimension
 
+    # Encode un texte en vecteur normalisé
     def encode(self, text: str) -> list[float]:
-        """Encode un texte en vecteur normalisé."""
         self._load()
-        vec = self._model.encode(text, normalize_embeddings=True)  # type: ignore[union-attr]
+        vec = self._model.encode(text, normalize_embeddings=True)
         return vec.tolist()
 
+    # Encode une requête utilisateur avec le préfixe approprié pour les modèles E5
     def encode_query(self, text: str) -> list[float]:
-        """Encode une requête utilisateur (format query pour modèles E5)."""
         q = (text or "").strip()
         if "e5" in self._model_name.lower() and not q.lower().startswith("query:"):
             q = f"query: {q}"
         return self.encode(q)
 
+    # Encode un document avec le préfixe passage pour les modèles E5
     def encode_document(self, text: str) -> list[float]:
-        """Encode un document (format passage pour modèles E5)."""
         d = (text or "")
         if "e5" in self._model_name.lower() and not d.lower().startswith("passage:"):
             d = f"passage: {d}"
         return self.encode(d)
 
 
-# ═════════════════════════════════════════════════════════
-#  Neo4j helpers
-# ═════════════════════════════════════════════════════════
-
+# Crée et vérifie la connexion au driver Neo4j, lève ConnectionError si inaccessible
 def connect_neo4j() -> GraphDatabase.driver:
-    """Crée et vérifie la connexion au driver Neo4j.
-
-    Raises ConnectionError when Neo4j is unreachable (safe for library use).
-    """
     if not NEO4J_PASSWORD:
         raise ConnectionError(
             "NEO4J_PASSWORD non défini. Ajoute-le dans l'environnement "
@@ -230,8 +201,8 @@ def connect_neo4j() -> GraphDatabase.driver:
         raise ConnectionError(f"Authentification Neo4j échouée (user={NEO4J_USER}). Vérifie tes identifiants.")
 
 
+# Initialise les contraintes d'unicité et l'index vectoriel dans Neo4j
 def init_schema(driver: GraphDatabase.driver, embedding_dim: int = EMBEDDING_DIM) -> None:
-    """Crée les contraintes d'unicité et l'index vectoriel (dimension-aware)."""
     constraints = [
         "CREATE CONSTRAINT email_id IF NOT EXISTS FOR (e:Email) REQUIRE e.id IS UNIQUE",
         "CREATE CONSTRAINT person_email IF NOT EXISTS FOR (p:Person) REQUIRE p.email IS UNIQUE",
@@ -282,12 +253,8 @@ def init_schema(driver: GraphDatabase.driver, embedding_dim: int = EMBEDDING_DIM
     log.info("Schéma Neo4j initialisé.")
 
 
-# ═════════════════════════════════════════════════════════
-#  Parsing — mode .eml
-# ═════════════════════════════════════════════════════════
-
+# Déplace les préfixes RE/FW à la fin du sujet de l'email
 def _clean_subject(subject: str) -> str:
-    """Déplace les préfixes RE/FW à la fin du sujet."""
     clean = subject
     prefixes: list[str] = []
     pattern = r'^(\s*(re|fw|fwd)\s*[:：\-]+)'
@@ -301,8 +268,8 @@ def _clean_subject(subject: str) -> str:
     return f"{clean} ({' '.join(prefixes)})" if prefixes else clean
 
 
+# Parse un header d'adresses email en liste de PersonData
 def _extract_addresses(header_value: str) -> list[PersonData]:
-    """Parse un header d'adresse email en liste de PersonData."""
     if not header_value:
         return []
     result: list[PersonData] = []
@@ -314,8 +281,8 @@ def _extract_addresses(header_value: str) -> list[PersonData]:
     return result
 
 
+# Génère les tags à partir du sujet, du corps, du domaine expéditeur et de la date
 def _extract_tags(subject: str, body: str, sender_domain: str, dt: Optional[datetime]) -> list[str]:
-    """Génère les tags à partir du sujet, corps, domaine et date."""
     tags = ["email"]
     if sender_domain:
         tags.append(f"domaine/{sender_domain.replace('.', '_')}")
@@ -329,8 +296,8 @@ def _extract_tags(subject: str, body: str, sender_domain: str, dt: Optional[date
     return tags
 
 
+# Extrait le corps texte et les noms de pièces jointes d'un message parsé
 def _extract_body_and_attachments(msg: email.message.Message) -> tuple[str, list[str]]:
-    """Extrait le corps texte et les noms de pièces jointes d'un email parsé."""
     body = ""
     attachments: list[str] = []
 
@@ -338,14 +305,12 @@ def _extract_body_and_attachments(msg: email.message.Message) -> tuple[str, list
         content_type = part.get_content_type()
         disposition = str(part.get("Content-Disposition", ""))
 
-        # Pièce jointe
         if "attachment" in disposition or part.get_filename():
             filename = part.get_filename()
             if filename and not content_type.startswith("image/"):
                 attachments.append(clean_string_for_file(filename))
             continue
 
-        # Corps texte
         if content_type == "text/plain" and not body:
             try:
                 charset = part.get_content_charset("utf-8") or "utf-8"
@@ -363,8 +328,8 @@ def _extract_body_and_attachments(msg: email.message.Message) -> tuple[str, list
     return body, attachments
 
 
+# Parse un fichier .eml et retourne un EmailData ou None en cas d'erreur
 def parse_eml(eml_path: str) -> Optional[EmailData]:
-    """Parse un fichier .eml et retourne un EmailData."""
     try:
         with open(eml_path, "rb") as f:
             msg = email_lib.message_from_bytes(f.read(), policy=email_policy.default)
@@ -377,7 +342,6 @@ def parse_eml(eml_path: str) -> Optional[EmailData]:
     message_id = msg.get("Message-ID", "") or ""
     date_hdr = msg.get("Date", "")
 
-    # Parse date
     dt: Optional[datetime] = None
     date_iso = ""
     try:
@@ -386,13 +350,11 @@ def parse_eml(eml_path: str) -> Optional[EmailData]:
     except Exception:
         pass
 
-    # Adresses
     sender_list = _extract_addresses(msg.get("From", ""))
     sender = sender_list[0] if sender_list else PersonData(name="Inconnu")
     recipients = _extract_addresses(msg.get("To", ""))
     cc = _extract_addresses(msg.get("Cc", ""))
 
-    # Domaine expéditeur
     sender_domain = ""
     if sender.email and "@" in sender.email:
         sender_domain = sender.email.split("@")[-1]
@@ -400,7 +362,6 @@ def parse_eml(eml_path: str) -> Optional[EmailData]:
     body, attachments = _extract_body_and_attachments(msg)
     tags = _extract_tags(subject_raw, body, sender_domain, dt)
 
-    # ID unique : Message-ID ou hash du fichier
     unique_id = message_id.strip("<>") if message_id else os.path.basename(eml_path)
 
     return EmailData(
@@ -418,22 +379,24 @@ def parse_eml(eml_path: str) -> Optional[EmailData]:
     )
 
 
-# ═════════════════════════════════════════════════════════
-#  Parsing — mode vault Markdown
-# ═════════════════════════════════════════════════════════
-
-# Regex pour extraire les métadonnées du Markdown
+# Regex d'extraction du titre principal depuis le Markdown
 _RE_HEADING = re.compile(r"^#\s+(.+)$", re.MULTILINE)
+# Regex d'extraction de la date depuis le Markdown
 _RE_DATE = re.compile(r"\*\*🗓️\s*Date\s*:\*\*\s*(\d{4}-\d{2}-\d{2})\s*(?:\(([^)]+)\))?")
+# Regex d'extraction de l'expéditeur depuis le Markdown
 _RE_FROM = re.compile(r"\*\*👤\s*De\s*:\*\*\s*\[\[([^\]]+)\]\]")
+# Regex d'extraction des destinataires depuis le Markdown
 _RE_TO = re.compile(r"\*\*👥\s*À\s*:\*\*\s*(.+)")
+# Regex d'extraction des destinataires en copie depuis le Markdown
 _RE_CC = re.compile(r"\*\*👀\s*Cc\s*:\*\*\s*(.+)")
+# Regex d'extraction des liens wiki de type [[nom]]
 _RE_WIKILINK = re.compile(r"\[\[([^\]|]+?)(?:\|[^\]]*)?\]\]")
+# Regex d'extraction de la section pièces jointes depuis le Markdown
 _RE_ATTACHMENT_SECTION = re.compile(r"###\s*📎\s*Pièces Jointes\s*\n((?:\s*-\s*\[\[[^\]]+\]\]\s*\n?)+)", re.MULTILINE)
 
 
+# Extrait les tags du frontmatter YAML d'un fichier Markdown
 def _parse_frontmatter_tags(content: str) -> list[str]:
-    """Extrait les tags du frontmatter YAML."""
     if not content.startswith("---"):
         return []
     end = content.find("---", 3)
@@ -448,8 +411,8 @@ def _parse_frontmatter_tags(content: str) -> list[str]:
     return tags
 
 
+# Extrait un champ scalaire du frontmatter YAML par son nom
 def _parse_frontmatter_field(content: str, field: str) -> str:
-    """Extrait un champ scalaire du frontmatter YAML (ex: eml_file)."""
     if not content.startswith("---"):
         return ""
     end = content.find("---", 3)
@@ -463,8 +426,8 @@ def _parse_frontmatter_field(content: str, field: str) -> str:
     return ""
 
 
+# Parse un fichier Markdown du vault et retourne un EmailData ou None
 def parse_vault_md(md_path: str) -> Optional[EmailData]:
-    """Parse un fichier Markdown du vault et retourne un EmailData."""
     try:
         with open(md_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
@@ -474,62 +437,50 @@ def parse_vault_md(md_path: str) -> Optional[EmailData]:
 
     tags = _parse_frontmatter_tags(content)
 
-    # Vérifier que c'est bien un email
     if "email" not in tags:
         return None
 
-    # Référence au fichier .eml source (si présent dans le frontmatter)
     eml_file = _parse_frontmatter_field(content, "eml_file")
 
-    # Sujet
     m_heading = _RE_HEADING.search(content)
     subject = m_heading.group(1).strip() if m_heading else os.path.splitext(os.path.basename(md_path))[0]
 
-    # Date
     m_date = _RE_DATE.search(content)
     date_iso = m_date.group(1) if m_date else ""
     date_str = m_date.group(2) if m_date and m_date.group(2) else date_iso
 
-    # Expéditeur
     m_from = _RE_FROM.search(content)
     sender_name = m_from.group(1).strip() if m_from else "Inconnu"
     sender = PersonData(name=sender_name)
 
-    # Destinataires
     recipients: list[PersonData] = []
     m_to = _RE_TO.search(content)
     if m_to:
         for link in _RE_WIKILINK.findall(m_to.group(1)):
             recipients.append(PersonData(name=link.strip()))
 
-    # Cc
     cc: list[PersonData] = []
     m_cc = _RE_CC.search(content)
     if m_cc:
         for link in _RE_WIKILINK.findall(m_cc.group(1)):
             cc.append(PersonData(name=link.strip()))
 
-    # Pièces jointes (section dédiée)
     attachments: list[str] = []
     m_att = _RE_ATTACHMENT_SECTION.search(content)
     if m_att:
         for att_link in _RE_WIKILINK.findall(m_att.group(1)):
             attachments.append(att_link.strip())
 
-    # Corps : tout entre le séparateur `---` (après métadonnées) et la section PJ
     body = ""
     parts = content.split("\n---\n")
     if len(parts) >= 3:
-        # parts[0] = frontmatter, parts[1] = header+meta, parts[2+] = body(+PJ)
         body_parts = parts[2:]
         body = "\n---\n".join(body_parts)
-        # Retirer la section pièces jointes du body
         att_section = _RE_ATTACHMENT_SECTION.search(body)
         if att_section:
             body = body[:att_section.start()].rstrip()
     body = body.strip()
 
-    # ID unique basé sur le nom de fichier
     unique_id = f"vault:{os.path.basename(md_path)}"
 
     return EmailData(
@@ -547,14 +498,9 @@ def parse_vault_md(md_path: str) -> Optional[EmailData]:
     )
 
 
-# ═════════════════════════════════════════════════════════
-#  Ingestion Neo4j
-# ═════════════════════════════════════════════════════════
-
+# Transaction Cypher qui crée les nœuds et relations pour un email dans Neo4j
 def _ingest_email_tx(tx, data: EmailData, embedding: list[float]) -> None:
-    """Transaction Cypher : crée les nœuds et relations pour un email."""
 
-    # 1. Nœud Email
     tx.run(
         """
         MERGE (e:Email {id: $id})
@@ -574,7 +520,6 @@ def _ingest_email_tx(tx, data: EmailData, embedding: list[float]) -> None:
         embedding=embedding,
     )
 
-    # 2. Expéditeur → SENT → Email
     if data.sender.email:
         tx.run(
             """
@@ -600,7 +545,6 @@ def _ingest_email_tx(tx, data: EmailData, embedding: list[float]) -> None:
             eid=data.message_id,
         )
 
-    # 3. Email → RECEIVED_BY → destinataires (To + Cc)
     all_recipients = data.recipients + data.cc
     for person in all_recipients:
         if person.email:
@@ -628,7 +572,6 @@ def _ingest_email_tx(tx, data: EmailData, embedding: list[float]) -> None:
                 eid=data.message_id,
             )
 
-    # 4. Email → ABOUT → Topics (tags sujet/*)
     for tag in data.tags:
         if tag.startswith("sujet/"):
             topic_name = tag.split("/", 1)[1]
@@ -643,7 +586,6 @@ def _ingest_email_tx(tx, data: EmailData, embedding: list[float]) -> None:
                 eid=data.message_id,
             )
 
-    # 5. Email → HAS_ATTACHMENT → Documents
     for filename in data.attachments:
         tx.run(
             """
@@ -657,9 +599,8 @@ def _ingest_email_tx(tx, data: EmailData, embedding: list[float]) -> None:
         )
 
 
+# Ingère un EmailData complet dans Neo4j en calculant et stockant son embedding
 def ingest_email(driver, embedder: EmbeddingService, data: EmailData) -> None:
-    """Ingère un EmailData complet dans Neo4j."""
-    # Texte à vectoriser : sujet + corps (tronqué à 512 tokens environ)
     text_for_embedding = f"{data.subject}\n\n{data.body[:2000]}"
     embedding = embedder.encode_document(text_for_embedding)
 
@@ -667,8 +608,8 @@ def ingest_email(driver, embedder: EmbeddingService, data: EmailData) -> None:
         session.execute_write(_ingest_email_tx, data, embedding)
 
 
+# Parse et ingère un seul fichier .eml dans Neo4j, retourne True si succès
 def ingest_single_eml(driver, embedder: EmbeddingService, eml_path: str) -> bool:
-    """Ingère un seul fichier .eml dans Neo4j. Retourne True si succès."""
     data = parse_eml(eml_path)
     if data is None:
         return False
@@ -676,28 +617,24 @@ def ingest_single_eml(driver, embedder: EmbeddingService, eml_path: str) -> bool
     return True
 
 
+# Compte récursivement les fichiers .eml dans un répertoire
 def count_eml_files(directory: str) -> int:
-    """Compte les fichiers .eml dans un dossier récursivement."""
     total = 0
     for root, _dirs, files in os.walk(directory):
         total += sum(1 for fname in files if fname.lower().endswith(".eml"))
     return total
 
 
+# Compte les fichiers .md dans un répertoire vault
 def count_vault_files(directory: str) -> int:
-    """Compte les fichiers .md d'un dossier vault (non récursif)."""
     try:
         return sum(1 for fname in os.listdir(directory) if fname.lower().endswith(".md"))
     except Exception:
         return 0
 
 
-# ═════════════════════════════════════════════════════════
-#  Orchestration
-# ═════════════════════════════════════════════════════════
-
+# Parcourt un répertoire de fichiers .eml et les ingère, retourne le nombre traité
 def ingest_eml_directory(driver, embedder: EmbeddingService, directory: str, progress_cb=None) -> int:
-    """Parcourt un répertoire de fichiers .eml et les ingère. Retourne le nombre traité."""
     count = 0
     total = count_eml_files(directory)
     processed = 0
@@ -724,8 +661,8 @@ def ingest_eml_directory(driver, embedder: EmbeddingService, directory: str, pro
     return count
 
 
+# Parcourt un répertoire de fichiers Markdown du vault et les ingère, retourne le nombre traité
 def ingest_vault_directory(driver, embedder: EmbeddingService, directory: str, progress_cb=None) -> int:
-    """Parcourt un répertoire de fichiers .md du vault et les ingère. Retourne le nombre traité."""
     count = 0
     total = count_vault_files(directory)
     processed = 0
@@ -751,10 +688,7 @@ def ingest_vault_directory(driver, embedder: EmbeddingService, directory: str, p
     return count
 
 
-# ═════════════════════════════════════════════════════════
-#  CLI
-# ═════════════════════════════════════════════════════════
-
+# Point d'entrée CLI pour l'ingestion des emails depuis .eml ou vault Markdown
 def main() -> None:
     parser = argparse.ArgumentParser(description="Ingestion d'emails dans Neo4j")
     parser.add_argument(

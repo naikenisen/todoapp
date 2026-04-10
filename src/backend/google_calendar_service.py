@@ -1,15 +1,3 @@
-"""Service Google OAuth2 pour Gmail.
-
-Gère l'intégralité du flux OAuth2 Google (PKCE, échange de code,
-rafraîchissement de tokens) pour les comptes Gmail.
-
-Dépendances internes :
-    - account_store : chargement et sauvegarde des comptes (tokens OAuth)
-
-Dépendances externes :
-    - API Google OAuth2 (accounts.google.com)
-"""
-
 import base64
 import hashlib
 import json
@@ -28,6 +16,7 @@ from account_store import (
 )
 
 
+# Génère la page HTML de retour OAuth Google indiquant le succès ou l'échec
 def build_oauth_callback_page(ok, message):
     color = "#34d399" if ok else "#ef4444"
     icon = "✅" if ok else "❌"
@@ -44,16 +33,19 @@ def build_oauth_callback_page(ok, message):
 </body></html>"""
 
 
+# Encode des octets en base64 URL-safe sans rembourrage
 def _b64url(data_bytes):
     return base64.urlsafe_b64encode(data_bytes).decode().rstrip("=")
 
 
+# Génère une paire verifier/challenge PKCE pour le flux OAuth2
 def generate_pkce_pair():
     verifier = _b64url(secrets.token_bytes(64))
     challenge = _b64url(hashlib.sha256(verifier.encode("utf-8")).digest())
     return verifier, challenge
 
 
+# Échange un code d'autorisation Google contre des tokens OAuth2
 def exchange_google_auth_code(client_id, client_secret, redirect_uri, code, code_verifier):
     payload = {
         "grant_type": "authorization_code",
@@ -75,6 +67,7 @@ def exchange_google_auth_code(client_id, client_secret, redirect_uri, code, code
         return json.loads(resp.read())
 
 
+# Rafraîchit le token d'accès Gmail via le refresh token stocké dans le compte
 def refresh_google_token(account):
     refresh_token = (account.get("oauth_refresh_token", "") or "").strip()
     client_id = (account.get("oauth_client_id", "") or "").strip()
@@ -114,8 +107,8 @@ def refresh_google_token(account):
     return account
 
 
+# Retourne un token d'accès Gmail valide en le rafraîchissant si nécessaire
 def get_valid_gmail_access_token(account_email):
-    """Load account from storage, refresh token when needed, and return valid token."""
     accounts = load_accounts()
     idx = find_account_index_by_email(accounts, account_email)
     if idx < 0:
