@@ -593,9 +593,20 @@
         }
         .btn-restore:hover { opacity: 1; color: var(--accent-green) !important; }
 
+        /* ─── Priority Badge ─────────────────────────── */
+        .priority-badge {
+            display: flex; align-items: center; justify-content: center;
+            width: 22px; height: 22px; min-width: 22px;
+            border-radius: 4px; font-size: 0.7rem; font-weight: 700;
+            color: #fff; margin-top: 1px; user-select: none;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
         /* ─── Drag & Drop ────────────────────────────── */
         .task-item[draggable="true"] { cursor: grab; }
         .task-item.dragging { opacity: 0.3; }
+        .task-item.drag-above { box-shadow: 0 -2px 0 0 var(--accent-blue); }
+        .task-item.drag-below { box-shadow: 0 2px 0 0 var(--accent-blue); }
         .section.drag-over { outline: 2px dashed var(--accent-blue); outline-offset: -2px; }
 
         /* ─── Modal ──────────────────────────────────── */

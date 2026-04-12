@@ -179,7 +179,8 @@ function renderProgress() {
 
 function renderSections() {
     return state.sections.map(s => {
-        const tasksHtml = s.tasks.map(t => renderTask(t, s.id)).join('');
+        const totalTasks = s.tasks.length;
+        const tasksHtml = s.tasks.map((t, idx) => renderTask(t, s.id, idx, totalTasks)).join('');
         const editBtns = `
             <button class="btn-icon" onclick="event.stopPropagation();openSectionModal('${s.id}')" title="Modifier"><i class="icon-pencil"></i></button>
         `;
@@ -220,7 +221,32 @@ function renderSections() {
     }).join('');
 }
 
-function renderTask(t, sid) {
+function getPriorityColor(index, total) {
+    if (total <= 1) return '#6c8aff';
+    const ratio = index / (total - 1);
+    // Red (urgent) → Orange → Yellow → Green (less urgent)
+    if (ratio <= 0.33) {
+        const t = ratio / 0.33;
+        const r = Math.round(239 + (245 - 239) * t);
+        const g = Math.round(68 + (158 - 68) * t);
+        const b = Math.round(68 + (11 - 68) * t);
+        return `rgb(${r},${g},${b})`;
+    } else if (ratio <= 0.66) {
+        const t = (ratio - 0.33) / 0.33;
+        const r = Math.round(245 + (52 - 245) * t);
+        const g = Math.round(158 + (211 - 158) * t);
+        const b = Math.round(11 + (153 - 11) * t);
+        return `rgb(${r},${g},${b})`;
+    } else {
+        const t = (ratio - 0.66) / 0.34;
+        const r = Math.round(52 + (108 - 52) * t);
+        const g = Math.round(211 + (138 - 211) * t);
+        const b = Math.round(153 + (255 - 153) * t);
+        return `rgb(${r},${g},${b})`;
+    }
+}
+
+function renderTask(t, sid, index, total) {
     const cls = [
         'task-item',
         t.done ? 'checked' : '',
@@ -231,12 +257,16 @@ function renderTask(t, sid) {
     const check = `<div class="custom-check" onclick="toggleTask('${sid}','${t.id}')">
         <svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg></div>`;
 
+    const priorityColor = getPriorityColor(index, total);
+    const priorityBadge = `<span class="priority-badge" style="background:${priorityColor}" title="Priorité ${index + 1}">${index + 1}</span>`;
+
     if (editMode) {
         const typeBadge = (t.type === 'mail' || t.isMail)
             ? '<span class="task-type-badge"><i class="icon-mail"></i> Mail</span>'
             : '';
         return `
         <div class="${cls}" data-sid="${sid}" data-tid="${t.id}" draggable="true">
+            ${priorityBadge}
             ${check}
             <div class="task-edit-fields">
                 <input type="text" class="task-input" value="${esc(t.label)}"
@@ -257,6 +287,7 @@ function renderTask(t, sid) {
 
     return `
     <div class="${cls}" data-sid="${sid}" data-tid="${t.id}" draggable="true">
+        ${priorityBadge}
         ${check}
         <span class="task-label" onclick="toggleTask('${sid}','${t.id}')">
             ${esc(t.label)}${t.note ? `<span class="task-note">${esc(t.note)}</span>` : ''}
@@ -491,7 +522,68 @@ function setupDragDrop() {
         el.addEventListener('dragend', () => {
             el.classList.remove('dragging');
             document.querySelectorAll('.drag-over').forEach(x => x.classList.remove('drag-over'));
+            document.querySelectorAll('.drag-above').forEach(x => x.classList.remove('drag-above'));
+            document.querySelectorAll('.drag-below').forEach(x => x.classList.remove('drag-below'));
             dragData = null;
+        });
+
+        el.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.dataTransfer.dropEffect = 'move';
+            if (!dragData) return;
+            // Show drop indicator above or below the hovered task
+            const rect = el.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            document.querySelectorAll('.drag-above, .drag-below').forEach(x => {
+                x.classList.remove('drag-above', 'drag-below');
+            });
+            if (e.clientY < midY) {
+                el.classList.add('drag-above');
+            } else {
+                el.classList.add('drag-below');
+            }
+        });
+
+        el.addEventListener('dragleave', () => {
+            el.classList.remove('drag-above', 'drag-below');
+        });
+
+        el.addEventListener('drop', e => {
+            e.preventDefault();
+            e.stopPropagation();
+            el.classList.remove('drag-above', 'drag-below');
+            if (!dragData) return;
+
+            const targetSid = el.dataset.sid;
+            const targetTid = el.dataset.tid;
+            const fromSection = state.sections.find(s => s.id === dragData.sid);
+            const toSection = state.sections.find(s => s.id === targetSid);
+            if (!fromSection || !toSection) return;
+
+            const fromIdx = fromSection.tasks.findIndex(t => t.id === dragData.tid);
+            if (fromIdx === -1) return;
+
+            // Determine insert position
+            const rect = el.getBoundingClientRect();
+            const midY = rect.top + rect.height / 2;
+            let toIdx = toSection.tasks.findIndex(t => t.id === targetTid);
+            if (e.clientY >= midY) toIdx += 1;
+
+            // Same section reorder
+            if (dragData.sid === targetSid) {
+                if (fromIdx === toIdx || fromIdx + 1 === toIdx) return;
+                const [task] = fromSection.tasks.splice(fromIdx, 1);
+                const insertIdx = fromIdx < toIdx ? toIdx - 1 : toIdx;
+                fromSection.tasks.splice(insertIdx, 0, task);
+            } else {
+                const [task] = fromSection.tasks.splice(fromIdx, 1);
+                toSection.tasks.splice(toIdx, 0, task);
+            }
+
+            render();
+            autoSave();
+            showToast('Tâche déplacée', 'success', 1500);
         });
     });
 
@@ -1591,9 +1683,10 @@ async function runV3() {
 function getAllMailTasks() {
     const mails = [];
     state.sections.forEach(s => {
-        s.tasks.forEach(t => {
+        const totalTasks = s.tasks.length;
+        s.tasks.forEach((t, idx) => {
             if (t.type === 'mail' || t.isMail) {
-                mails.push({ ...t, sectionId: s.id, sectionTitle: s.title, sectionEmoji: s.emoji });
+                mails.push({ ...t, sectionId: s.id, sectionTitle: s.title, sectionEmoji: s.emoji, priorityIndex: idx, priorityTotal: totalTasks });
             }
         });
     });
@@ -1693,8 +1786,12 @@ function renderMailGroup(title, mails, isExpanded = true, groupType = null) {
             actionsHtml += `<button onclick="event.stopPropagation();markResponseReceived('${m.sectionId}','${m.id}')" title="Réponse reçue"><i class="icon-check"></i></button>`;
         }
 
+        const priorityColor = getPriorityColor(m.priorityIndex, m.priorityTotal);
+        const priorityBadge = `<span class="priority-badge" style="background:${priorityColor}" title="Priorité ${m.priorityIndex + 1}">${m.priorityIndex + 1}</span>`;
+
         return `
         <div class="${cls}" onclick="selectMailForCompose('${m.sectionId}','${m.id}')">
+            ${priorityBadge}
             <div class="mail-item-check ${checkDone}" onclick="event.stopPropagation();toggleMailSentFromList('${m.sectionId}','${m.id}')">
                 <svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg>
             </div>
