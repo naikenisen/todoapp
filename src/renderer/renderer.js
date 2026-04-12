@@ -4100,12 +4100,25 @@ function sitePartitionForTabId(tabId) {
     return `persist:site-tab-${slug}`;
 }
 
+/* Shared session partitions — services that use the same SSO / login
+   must share a single Electron partition so auth cookies persist across tabs.
+   Renater services all authenticate through the same university IdP (ENT).
+   Google services share the Google account session. */
+const SHARED_PARTITIONS = {
+    'site-default-evento':     'persist:site-renater-sso',
+    'site-default-filesender': 'persist:site-renater-sso',
+    'site-default-renavisio':  'persist:site-renater-sso',
+    'site-default-gemini':     'persist:site-google',
+    'site-default-calendar':   'persist:site-google',
+};
+
 const DEFAULT_SITE_TABS = [
-    { id: 'site-default-evento', label: 'Evento', url: 'https://evento.renater.fr/', icon: 'icon-calendar-days' },
-    { id: 'site-default-filesender', label: 'FileSender', url: 'https://filesender.renater.fr/', icon: 'icon-send' },
-    { id: 'site-default-renavisio', label: 'RenaVisio', url: 'https://rendez-vous.renater.fr/home/renavisio', icon: 'icon-video' },
+    { id: 'site-default-evento', label: 'Evento', url: 'https://evento.renater.fr/', icon: 'icon-calendar-days', partition: 'persist:site-renater-sso' },
+    { id: 'site-default-filesender', label: 'FileSender', url: 'https://filesender.renater.fr/', icon: 'icon-send', partition: 'persist:site-renater-sso' },
+    { id: 'site-default-renavisio', label: 'RenaVisio', url: 'https://rendez-vous.renater.fr/home/renavisio', icon: 'icon-video', partition: 'persist:site-renater-sso' },
     { id: 'site-default-github', label: 'GitHub', url: 'https://github.com/', icon: 'icon-github' },
-    { id: 'site-default-gemini', label: 'Gemini', url: 'https://gemini.google.com/app', icon: 'icon-sparkles' },
+    { id: 'site-default-gemini', label: 'Gemini', url: 'https://gemini.google.com/app', icon: 'icon-sparkles', partition: 'persist:site-google' },
+    { id: 'site-default-calendar', label: 'Google Calendar', url: 'https://calendar.google.com/', icon: 'icon-calendar-days', partition: 'persist:site-google' },
 ];
 
 function buildDefaultSiteTabs() {
@@ -4122,9 +4135,10 @@ function normalizeSiteTabs(input) {
             label: String(t.label || hostFromAnyUrl(t.url) || 'Site'),
             url: ensureUrlWithScheme(t.url),
             icon: String(t.icon || 'icon-globe'),
-            partition: (typeof t.partition === 'string' && t.partition.trim())
-                ? t.partition.trim()
-                : sitePartitionForTabId(t.id),
+            partition: SHARED_PARTITIONS[t.id]
+                || ((typeof t.partition === 'string' && t.partition.trim())
+                    ? t.partition.trim()
+                    : sitePartitionForTabId(t.id)),
         }));
 }
 
@@ -4143,6 +4157,20 @@ function saveSiteTabs() {
 function loadSiteTabs() {
     const fromState = normalizeSiteTabs(state?.settings?.siteTabs);
     if (fromState.length) {
+        // Inject any new default tabs that are missing (e.g. Google Calendar).
+        const defaults = buildDefaultSiteTabs();
+        let changed = false;
+        for (const def of defaults) {
+            if (!fromState.find(t => t.id === def.id)) {
+                fromState.push(def);
+                changed = true;
+            }
+        }
+        if (changed) {
+            if (!state.settings) state.settings = {};
+            state.settings.siteTabs = fromState;
+            autoSave();
+        }
         try {
             localStorage.setItem(SITE_TABS_STORAGE_KEY, JSON.stringify(fromState));
         } catch {}
