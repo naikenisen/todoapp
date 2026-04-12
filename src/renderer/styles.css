@@ -213,28 +213,35 @@
         .app-content {
             margin-top: 0;
             height: 100vh;
-            overflow-y: auto;
-            overflow-x: hidden;
-            padding: 1rem 0.75rem;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 0 0.75rem;
         }
 
         /* ─── Layout ─────────────────────────────────── */
-        .container { max-width: 100%; margin: 0 auto; }
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
 
         /* ─── Tabs ───────────────────────────────────── */
         .tab-bar {
             display: flex;
             align-items: stretch;
             gap: 0.35rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
             background: transparent;
             border: none;
             overflow: visible;
             min-width: 0;
-            position: sticky;
-            top: 0;
+            flex-shrink: 0;
             z-index: 120;
-            padding-top: 0.2rem;
+            padding-top: 0.75rem;
             -webkit-app-region: drag;
             app-region: drag;
         }
@@ -391,7 +398,19 @@
         }
 
         .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        .tab-content.active { display: block; flex: 1; min-height: 0; overflow: hidden; }
+
+        /* Todo tab scrolls its sections */
+        #tab-todo.active { overflow-y: auto; }
+
+        /* Rédiger tab scrolls */
+        #tab-mail.active { overflow-y: auto; }
+
+        /* Inbox tab: flex column so inbox-layout fills remaining space */
+        #tab-inbox.active { display: flex; flex-direction: column; }
+        #tab-inbox header { flex-shrink: 0; }
+        #tab-inbox .inbox-status { flex-shrink: 0; }
+        #tab-inbox .terminal-output { flex-shrink: 0; }
 
         /* ─── Header ─────────────────────────────────── */
         header { text-align: left; margin-bottom: 0.85rem; }
@@ -1183,7 +1202,7 @@
         .attachment-chip-remove:hover { color: var(--text); }
 
         .site-tab-shell {
-            height: calc(100vh - 140px);
+            height: 100%;
             display: flex;
             flex-direction: column;
         }
@@ -1567,7 +1586,7 @@
 
         /* ─── Inbox Tab ──────────────────────────────── */
         .inbox-layout {
-            display: flex; gap: 0; height: calc(100vh - 230px);
+            display: flex; gap: 0; flex: 1; min-height: 0;
             background: var(--bg-surface); border: 1px solid var(--card-border);
             border-radius: var(--radius-md); overflow: hidden;
         }
@@ -1816,7 +1835,6 @@
             min-height: 0;
         }
         #tab-mailchat {
-            height: calc(100vh - 120px);
             overflow: hidden;
         }
         #tab-mailchat.active {
@@ -2101,7 +2119,7 @@
             .emoji-grid { grid-template-columns: repeat(8, 1fr); }
             .tab-btn { font-size: 0.85rem; padding: 0.7rem 0.5rem; }
             .mailchat-container {
-                height: calc(100vh - 112px);
+                height: 100%;
             }
             .mailchat-semantic-grid {
                 grid-template-columns: 1fr 1fr;
@@ -2130,11 +2148,11 @@
             --mailchat-chip-active-bg: rgba(37, 99, 235, 0.15);
         }
         #tab-mailchat {
-            height: calc(100vh - 110px);
             overflow: hidden;
         }
         #tab-mailchat.active {
-            display: block;
+            display: flex;
+            flex-direction: column;
         }
         #tab-mailchat .mailchat-v2 {
             height: 100%;
@@ -2525,7 +2543,6 @@
 
         /* ─── Archive Mail Tab ───────────────────────── */
         #tab-archive {
-            height: calc(100vh - 110px);
             overflow: hidden;
         }
         #tab-archive.active {
