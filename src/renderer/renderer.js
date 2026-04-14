@@ -3748,7 +3748,7 @@ async function loadChatbotPeriodMails() {
 function openMarkdownReaderWindow({ subject, date, sender }, rawMarkdown) {
         const safeSubject = esc(subject || 'Sans sujet');
         const meta = `📅 ${esc(date || '?')} · 👤 ${esc(sender || '?')}`;
-        const isDark = !document.body.classList.contains('light-mode');
+        const isDark = false; // Always use light background for readability
         const renderedBody = marked.parse(rawMarkdown || '(contenu indisponible)');
 
         const htmlDoc = `<!DOCTYPE html>
