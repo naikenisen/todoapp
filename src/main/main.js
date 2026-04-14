@@ -827,109 +827,6 @@ ipcMain.on('context-menu:show', (_event, params) => {
   menu.popup({ window: mainWindow });
 });
 
-/* ═══════════════════════════════════════════════════════
-   Neo4j Auto-Start
-   ═══════════════════════════════════════════════════════ */
-
-/**
- * Read Neo4j Docker config from runtime_config.json (shared with the Settings panel).
- * Falls back to sensible defaults if the file doesn't exist yet.
- */
-function readNeo4jDockerConfig() {
-  // Fixed Neo4j Docker config — not user-editable.
-  return { container_name: 'neurail-neo4j', image: 'neo4j:latest', volume: 'neurail-neo4j-data', bolt_port: 7687, http_port: 7474 };
-}
-
-/**
- * Read NEO4J_PASSWORD from .env files (app data dir first, then project root).
- */
-function readNeo4jPassword() {
-  const appDataDir = path.join(process.env.HOME || os.homedir(), '.local', 'share', 'isenapp');
-  const candidates = [
-    path.join(appDataDir, '.env'),
-    path.join(path.dirname(path.dirname(__dirname)), '.env'),
-  ];
-  for (const envPath of candidates) {
-    try {
-      if (!fs.existsSync(envPath)) continue;
-      const content = fs.readFileSync(envPath, 'utf-8');
-      const match = content.match(/^NEO4J_PASSWORD=(.+)$/m);
-      if (match && match[1].trim()) return match[1].trim();
-    } catch { /* skip */ }
-  }
-  return '';
-}
-
-function startNeo4j() {
-  return new Promise(async (resolve) => {
-    const cfg = readNeo4jDockerConfig();
-    const containerName = cfg.container_name; // always 'neurail-neo4j'
-    const boltPort = cfg.bolt_port;
-    const httpPort = cfg.http_port;
-
-    // If Neo4j is already reachable, skip
-    if (await isPortOpen(boltPort, '127.0.0.1', 500)) {
-      console.log(`[neo4j] already running on port ${boltPort}`);
-      resolve(true);
-      return;
-    }
-
-    // Check if Docker is available
-    try {
-      execSync('docker info', { timeout: 8000, stdio: 'ignore' });
-    } catch {
-      console.warn('[neo4j] Docker not available — Neo4j must be started manually');
-      resolve(false);
-      return;
-    }
-
-    // Try to start the named container (covers both running & stopped states).
-    try {
-      execSync(`docker start ${containerName}`, { timeout: 10000, stdio: 'ignore' });
-      console.log(`[neo4j] Existing container started (${containerName})`);
-    } catch {
-      // Container doesn’t exist yet — create it.
-      const neo4jPassword = readNeo4jPassword() || 'changeme';
-      console.log('[neo4j] Creating detached Neo4j container...');
-      try {
-        execSync(
-          [
-            'docker run -d',
-            `--name ${containerName}`,
-            `-p ${httpPort}:7474`,
-            `-p ${boltPort}:7687`,
-            `-e NEO4J_AUTH=neo4j/${neo4jPassword}`,
-            `-v ${cfg.volume}:/data`,
-            cfg.image,
-          ].join(' '),
-          { timeout: 30000, stdio: 'ignore' },
-        );
-        console.log(`[neo4j] New detached container created (${containerName})`);
-      } catch (createErr) {
-        console.error('[neo4j] Failed to create container:', createErr.message);
-        resolve(false);
-        return;
-      }
-    }
-
-    // Wait up to 30s for Neo4j to become reachable.
-    const start = Date.now();
-    const waitLoop = async () => {
-      if (await isPortOpen(boltPort, '127.0.0.1', 500)) {
-        console.log(`[neo4j] Ready on port ${boltPort}`);
-        resolve(true);
-        return;
-      }
-      if (Date.now() - start > 30000) {
-        console.error('[neo4j] Timeout waiting for Neo4j to start');
-        resolve(false);
-        return;
-      }
-      setTimeout(waitLoop, 800);
-    };
-    setTimeout(waitLoop, 2000); // Give Docker a head start
-  });
-}
 
 /* ═══════════════════════════════════════════════════════
    App Lifecycle
@@ -937,8 +834,6 @@ function startNeo4j() {
 app.whenReady().then(async () => {
   protocol.handle('vault-file', handleVaultFileRequest);
 
-  // Start Neo4j in background (non-blocking for app startup)
-  const neo4jReady = startNeo4j();
 
   const backendAlreadyRunning = await isPortOpen(PORT);
   if (backendAlreadyRunning) {
@@ -956,11 +851,6 @@ app.whenReady().then(async () => {
     app.quit();
     return;
   }
-
-  // Log Neo4j status (don't block app launch)
-  neo4jReady.then(ok => {
-    if (!ok) console.warn('[neo4j] Neo4j not available — chatbot features will be disabled');
-  });
 
   createWindow();
 

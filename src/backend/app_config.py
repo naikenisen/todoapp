@@ -131,9 +131,6 @@ def ensure_runtime_env_file():
     template = "\n".join([
         "# NeuRail runtime environment",
         "# Ce fichier est local a cette machine (hors .deb et hors repository)",
-        "NEO4J_URI=bolt://localhost:7687",
-        "NEO4J_USER=neo4j",
-        "NEO4J_PASSWORD=changeme",
         "GEMINI_API_KEY=",
         "GEMINI_MODEL=gemma-3-27b-it",
         "GEMINI_FALLBACK_MODELS=gemini-2.5-flash",
