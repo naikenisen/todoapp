@@ -4230,17 +4230,17 @@ function sitePartitionForTabId(tabId) {
    Renater services all authenticate through the same university IdP (ENT).
    Google services share the Google account session. */
 const SHARED_PARTITIONS = {
-    'site-default-evento':     'persist:site-renater-sso',
+    'site-default-doodle':      'persist:site-doodle',
     'site-default-filesender': 'persist:site-renater-sso',
-    'site-default-renavisio':  'persist:site-renater-sso',
+    'site-default-jitsi':      'persist:site-jitsi',
     'site-default-gemini':     'persist:site-google',
     'site-default-calendar':   'persist:site-google',
 };
 
 const DEFAULT_SITE_TABS = [
-    { id: 'site-default-evento', label: 'Evento', url: 'https://evento.renater.fr/', icon: 'icon-calendar-days', partition: 'persist:site-renater-sso' },
+    { id: 'site-default-doodle', label: 'Doodle', url: 'https://doodle.com/home', icon: 'icon-calendar-days', partition: 'persist:site-doodle' },
     { id: 'site-default-filesender', label: 'FileSender', url: 'https://filesender.renater.fr/', icon: 'icon-send', partition: 'persist:site-renater-sso' },
-    { id: 'site-default-renavisio', label: 'RenaVisio', url: 'https://rendez-vous.renater.fr/home/renavisio', icon: 'icon-video', partition: 'persist:site-renater-sso' },
+    { id: 'site-default-jitsi', label: 'Jitsi Meet', url: 'https://meet.jit.si/', icon: 'icon-video', partition: 'persist:site-jitsi' },
     { id: 'site-default-github', label: 'GitHub', url: 'https://github.com/', icon: 'icon-github' },
     { id: 'site-default-gemini', label: 'Gemini', url: 'https://gemini.google.com/app', icon: 'icon-sparkles', partition: 'persist:site-google' },
     { id: 'site-default-calendar', label: 'Google Calendar', url: 'https://calendar.google.com/', icon: 'icon-calendar-days', partition: 'persist:site-google' },

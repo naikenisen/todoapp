@@ -216,13 +216,12 @@
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            padding: 0 0.75rem;
+            padding: 0;
         }
 
         /* ─── Layout ─────────────────────────────────── */
         .container {
-            max-width: 100%;
-            margin: 0 auto;
+            width: 100%;
             flex: 1;
             display: flex;
             flex-direction: column;
@@ -241,7 +240,7 @@
             min-width: 0;
             flex-shrink: 0;
             z-index: 120;
-            padding-top: 0.75rem;
+            padding: 0.75rem 0.75rem 0;
             -webkit-app-region: drag;
             app-region: drag;
         }
@@ -398,7 +397,8 @@
         }
 
         .tab-content { display: none; }
-        .tab-content.active { display: block; flex: 1; min-height: 0; overflow: hidden; }
+        .tab-content.active { display: block; flex: 1; min-height: 0; overflow: hidden; padding: 0; }
+        #tab-site.active { display: flex; flex-direction: column; }
 
         /* Todo tab scrolls its sections */
         #tab-todo.active { overflow-y: auto; }
