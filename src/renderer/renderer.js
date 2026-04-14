@@ -4604,6 +4604,8 @@ let archiveAllMails = [];
 let archiveVisibleMails = [];
 let archivePeriod = 'today';
 let archiveLoaded = false;
+let archiveSearchTimer = null;
+let archiveSearchQuery = '';
 
 async function loadArchiveMails() {
     if (archiveLoaded) return;
@@ -4641,7 +4643,34 @@ function setArchivePeriod(period) {
     filterArchiveMails();
 }
 
-function filterArchiveMails() {
+function onArchiveSearchInput() {
+    const raw = (document.getElementById('archiveSearchInput')?.value || '').trim();
+    if (archiveSearchTimer) clearTimeout(archiveSearchTimer);
+    archiveSearchTimer = setTimeout(() => {
+        archiveSearchQuery = raw;
+        filterArchiveMails();
+    }, 350);
+}
+
+async function filterArchiveMails() {
+    // When search query is active, use backend search (markdown + attachments)
+    if (archiveSearchQuery) {
+        const list = document.getElementById('archiveList');
+        if (list) list.innerHTML = '<div class="chatbot-welcome"><p>Recherche en cours…</p></div>';
+        try {
+            const r = await fetch('/api/vault/mails/search?q=' + encodeURIComponent(archiveSearchQuery));
+            if (!r.ok) throw new Error('Erreur serveur');
+            const results = await r.json();
+            results.sort((a, b) => parseArchiveDate(b.date) - parseArchiveDate(a.date));
+            archiveVisibleMails = results;
+            renderArchiveList(results);
+        } catch (err) {
+            if (list) list.innerHTML = `<div class="archive-empty">Erreur: ${esc(err.message)}</div>`;
+        }
+        return;
+    }
+
+    // No search query: apply period filter on cached mails
     const now = new Date();
     const rangeStart = new Date(now);
     rangeStart.setHours(0, 0, 0, 0);

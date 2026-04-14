@@ -210,6 +210,113 @@ def _list_vault_mails():
     return mails
 
 
+# Regex d'extraction des wikilinks depuis le contenu Markdown
+_WIKILINK_RE = re.compile(r'\[\[([^\]|]+?)(?:\|[^\]]*)?\]\]')
+
+# Extensions de pièces jointes dont le texte peut être extrait pour la recherche
+_SEARCHABLE_ATT_EXTS = {'.pdf', '.docx', '.xlsx', '.odt'}
+
+
+def _extract_text_from_attachment(filepath: str) -> str:
+    """Extrait le texte brut d'une pièce jointe (PDF, DOCX, XLSX, ODT)."""
+    ext = os.path.splitext(filepath)[1].lower()
+    if not os.path.isfile(filepath):
+        return ""
+    try:
+        if ext == '.pdf':
+            try:
+                from PyPDF2 import PdfReader
+            except ImportError:
+                return ""
+            reader = PdfReader(filepath)
+            parts = []
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    parts.append(text)
+            return "\n".join(parts)
+
+        if ext == '.docx':
+            try:
+                from docx import Document
+            except ImportError:
+                return ""
+            doc = Document(filepath)
+            return "\n".join(p.text for p in doc.paragraphs if p.text)
+
+        if ext == '.xlsx':
+            try:
+                from openpyxl import load_workbook
+            except ImportError:
+                return ""
+            wb = load_workbook(filepath, read_only=True, data_only=True)
+            parts = []
+            for ws in wb.worksheets:
+                for row in ws.iter_rows(values_only=True):
+                    cells = [str(c) for c in row if c is not None]
+                    if cells:
+                        parts.append(" ".join(cells))
+            wb.close()
+            return "\n".join(parts)
+
+        if ext == '.odt':
+            try:
+                from odf.opendocument import load as odf_load
+                from odf.text import P as OdfP
+                from odf import teletype
+            except ImportError:
+                return ""
+            doc = odf_load(filepath)
+            parts = []
+            for p in doc.getElementsByType(OdfP):
+                text = teletype.extractText(p)
+                if text:
+                    parts.append(text)
+            return "\n".join(parts)
+
+    except Exception as e:
+        logging.warning("Erreur extraction texte de %s: %s", filepath, e)
+        return ""
+    return ""
+
+
+def _get_attachment_texts_for_mail(body: str) -> str:
+    """Extrait le texte de toutes les pièces jointes référencées dans un mail."""
+    links = _WIKILINK_RE.findall(body)
+    parts = []
+    for link in links:
+        ext = os.path.splitext(link)[1].lower()
+        if ext not in _SEARCHABLE_ATT_EXTS:
+            continue
+        att_path = os.path.join(GRAPH_ATT_DIR, link)
+        text = _extract_text_from_attachment(att_path)
+        if text:
+            parts.append(text)
+    return "\n".join(parts)
+
+
+def _search_vault_mails(query: str) -> list:
+    """Recherche dans les mails archivés (markdown + pièces jointes)."""
+    all_mails = _list_vault_mails()
+    if not query:
+        return all_mails
+    terms = query.lower().split()
+    results = []
+    for mail in all_mails:
+        searchable = " ".join([
+            mail.get("subject", ""),
+            mail.get("from", ""),
+            mail.get("to", ""),
+            mail.get("body", ""),
+            mail.get("tags", ""),
+        ]).lower()
+        att_text = _get_attachment_texts_for_mail(mail.get("body", "")).lower()
+        combined = searchable + " " + att_text
+        if all(t in combined for t in terms):
+            results.append(mail)
+    return results
+
+
 # Callback de progression pour l'ingestion Neo4j
 def _ingest_progress_cb(ingested: int, processed: int, total: int, fname: str, source: str) -> None:
     with _neo4j_ingest_lock:
@@ -1239,6 +1346,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/api/vault/mails":
             try:
                 return self._json(_list_vault_mails())
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+        if self.path.startswith("/api/vault/mails/search?"):
+            try:
+                qs = parse_qs(urlparse(self.path).query)
+                q = (qs.get("q", [""])[0] or "").strip()
+                return self._json(_search_vault_mails(q))
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
         if self.path.startswith("/api/vault/read?"):

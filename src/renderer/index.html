@@ -426,6 +426,10 @@
                     <button class="archive-chip" data-period="week" onclick="setArchivePeriod('week')">Semaine</button>
                     <button class="archive-chip" data-period="month" onclick="setArchivePeriod('month')">Mois</button>
                 </div>
+                <div class="archive-search-wrap">
+                    <i class="icon-search"></i>
+                    <input type="text" id="archiveSearchInput" placeholder="Rechercher dans les archives…" oninput="onArchiveSearchInput()">
+                </div>
             </div>
             <div class="archive-list" id="archiveList">
                 <div class="chatbot-welcome"><p>Chargement des archives…</p></div>
