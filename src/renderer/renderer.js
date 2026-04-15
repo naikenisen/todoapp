@@ -1613,6 +1613,13 @@ function mpRenderPreparedAttachment() {
     const link = document.getElementById('mpPreparedAttachmentLink');
     if (!link) return;
     link.addEventListener('dragstart', (e) => {
+        const descInput = document.getElementById('mpAttachmentDescription');
+        const desc = String(descInput?.value || '').trim();
+        if (!desc || /[\r\n]/.test(desc)) {
+            e.preventDefault();
+            showToast('Ajoute une description courte sur une ligne avant le glisser-deposer.', 'warning', 3200);
+            return;
+        }
         const mime = mpPreparedAttachment.contentType || 'application/octet-stream';
         e.dataTransfer.effectAllowed = 'copy';
         e.dataTransfer.setData('DownloadURL', `${mime}:${mpPreparedAttachment.filename}:${mpPreparedAttachment.url}`);
@@ -1803,6 +1810,7 @@ function mpKeepAttachment() {
     mpClearPreparedAttachment();
     mpShowStep('mpStep3b');
     document.getElementById('mpDocType').value = '';
+    document.getElementById('mpAttachmentDescription').value = '';
     mpRenderN1Options('');
     mpUpdateN2();
 }
@@ -1898,8 +1906,13 @@ async function mpPrepareAttachmentForDrop() {
     const docType = document.getElementById('mpDocType').value;
     const n1 = document.getElementById('mpN1').value;
     const n2 = document.getElementById('mpN2').value;
+    const description = String(document.getElementById('mpAttachmentDescription')?.value || '').trim();
 
     if (!docType) { showToast('Choisis un type de fichier.', 'error'); return; }
+    if (!description || /[\r\n]/.test(description)) {
+        showToast('La description courte sur une ligne est obligatoire.', 'error');
+        return;
+    }
     if (!mpCurrentMail || !mpRelevantAtts[mpAttIndex]) return;
 
     const att = mpRelevantAtts[mpAttIndex];
@@ -1925,6 +1938,7 @@ async function mpPrepareAttachmentForDrop() {
             filename,
             contentType: blob.type || 'application/octet-stream',
             url: URL.createObjectURL(blob),
+            description,
         };
         mpRenderPreparedAttachment();
         showToast('Fichier prêt: glisse-dépose le chip dans ton logiciel documentaire.', 'success', 3500);
