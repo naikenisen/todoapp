@@ -712,9 +712,7 @@ function renderInstallStorageList(paths = {}) {
         ['UIDs vus', paths.seen_uids_file],
         ['Contacts CSV', paths.contacts_csv],
         ['Dossier mails .eml', paths.mails_dir],
-        ['Vault principal', paths.vault_dir],
-        ['Vault mails', paths.vault_mails_dir],
-        ['Vault pièces jointes', paths.vault_attachments_dir],
+        ['Dossier principal', paths.vault_dir],
         ['Logs backend', paths.log_file],
     ].filter(([, value]) => value);
 
@@ -759,10 +757,11 @@ async function loadInstallLocalSettings() {
 
 async function saveInstallLocalSettings(options = {}) {
     const quiet = !!options.quiet;
+    const mailsDir = (document.getElementById('settingMailsDirInput')?.value || '').trim();
     const payload = {
         paths: {
-            mails_dir: (document.getElementById('settingMailsDirInput')?.value || '').trim(),
-            vault_dir: (document.getElementById('settingVaultDirInput')?.value || '').trim(),
+            mails_dir: mailsDir,
+            vault_dir: mailsDir,
         },
         env: {
             GEMINI_API_KEY: (document.getElementById('settingGeminiApiInput')?.value || '').trim(),
@@ -1365,6 +1364,7 @@ let mpRelevantAtts = [];
 let mpAttIndex = 0;
 let mpSkipStep1 = false;
 let mpDeferredServerDeleteIds = [];
+let mpPreparedAttachment = null;
 
 function mpShowStep(stepId) {
     document.querySelectorAll('#mailProcessContent .mp-step').forEach(el => el.classList.add('is-hidden'));
@@ -1400,6 +1400,75 @@ function closeMailProcess() {
     mpIndex = 0;
     mpCurrentMail = null;
     mpDeferredServerDeleteIds = [];
+    mpClearPreparedAttachment();
+}
+
+function mpSanitizeForFilename(value, maxLen = 50) {
+    return String(value || '').trim().replace(/[\\/*?:"<>|@\s]+/g, '_').slice(0, maxLen);
+}
+
+function mpDateForFilename(mailDate) {
+    const raw = String(mailDate || '').trim();
+    if (!raw) return new Date().toISOString().slice(0, 10);
+    const firstPart = raw.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(firstPart)) return firstPart;
+    return new Date().toISOString().slice(0, 10);
+}
+
+function mpBuildClassifiedFilename(attName, docType, n1, n2, sender, mailDate) {
+    const extIdx = String(attName || '').lastIndexOf('.');
+    const ext = extIdx >= 0 ? String(attName).slice(extIdx).toLowerCase() : '';
+    const parts = [
+        mpDateForFilename(mailDate),
+        mpSanitizeForFilename(docType, 40) || 'document',
+        mpSanitizeForFilename(sender, 50) || 'inconnu',
+    ];
+    const safeN1 = mpSanitizeForFilename(n1, 40);
+    const safeN2 = mpSanitizeForFilename(n2, 40);
+    if (safeN1) parts.push(safeN1);
+    if (safeN2) parts.push(safeN2);
+    return parts.join('-') + ext;
+}
+
+function mpClearPreparedAttachment() {
+    if (mpPreparedAttachment && mpPreparedAttachment.url) {
+        URL.revokeObjectURL(mpPreparedAttachment.url);
+    }
+    mpPreparedAttachment = null;
+    const holder = document.getElementById('mpPreparedAttachment');
+    const ph = document.getElementById('mpPreparedPlaceholder');
+    if (holder) holder.innerHTML = '';
+    if (ph) ph.style.display = '';
+}
+
+function mpRenderPreparedAttachment() {
+    const holder = document.getElementById('mpPreparedAttachment');
+    const ph = document.getElementById('mpPreparedPlaceholder');
+    if (!holder || !mpPreparedAttachment) return;
+    if (ph) ph.style.display = 'none';
+
+    const safeName = esc(mpPreparedAttachment.filename);
+    holder.innerHTML = `
+        <a
+            id="mpPreparedAttachmentLink"
+            class="attachment-chip"
+            href="${mpPreparedAttachment.url}"
+            download="${safeName}"
+            draggable="true"
+            title="Glisse-dépose ce fichier dans ton logiciel documentaire"
+        >
+            <span class="attachment-chip-name"><i class="icon-paperclip"></i> ${safeName}</span>
+            <span class="attachment-chip-size">Prêt à déposer</span>
+        </a>`;
+
+    const link = document.getElementById('mpPreparedAttachmentLink');
+    if (!link) return;
+    link.addEventListener('dragstart', (e) => {
+        const mime = mpPreparedAttachment.contentType || 'application/octet-stream';
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('DownloadURL', `${mime}:${mpPreparedAttachment.filename}:${mpPreparedAttachment.url}`);
+        e.dataTransfer.setData('text/uri-list', mpPreparedAttachment.url);
+    });
 }
 
 async function mpFlushDeferredServerDeletes() {
@@ -1559,6 +1628,7 @@ function mpShowAttachment() {
         mpNextMail();
         return;
     }
+    mpClearPreparedAttachment();
     const att = mpRelevantAtts[mpAttIndex];
     document.getElementById('mpAttName').textContent = att.name;
     mpShowStep('mpStep3');
@@ -1577,6 +1647,7 @@ function mpDiscardAttachment() {
 }
 
 function mpKeepAttachment() {
+    mpClearPreparedAttachment();
     mpShowStep('mpStep3b');
     document.getElementById('mpDocType').value = '';
     document.getElementById('mpN1').value = '';
@@ -1601,45 +1672,57 @@ function mpUpdateN2() {
 }
 
 function mpCancelClassification() {
+    mpClearPreparedAttachment();
     mpAttIndex++;
     mpShowAttachment();
 }
 
-async function mpSaveAttachment() {
+async function mpPrepareAttachmentForDrop() {
     const docType = document.getElementById('mpDocType').value;
     const n1 = document.getElementById('mpN1').value;
     const n2 = document.getElementById('mpN2').value;
 
     if (!docType) { showToast('Choisis un type de fichier.', 'error'); return; }
+    if (!mpCurrentMail || !mpRelevantAtts[mpAttIndex]) return;
 
     const att = mpRelevantAtts[mpAttIndex];
+    const filename = mpBuildClassifiedFilename(
+        att.name,
+        docType,
+        n1,
+        n2,
+        mpCurrentMail.from_email || mpCurrentMail.from_name || 'inconnu',
+        mpCurrentMail.date || ''
+    );
+
     try {
-        const r = await fetch('/api/mail/save-classified-attachment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                id: mpCurrentMail.id,
-                att_idx: att.idx,
-                att_name: att.name,
-                type: docType,
-                n1: n1,
-                n2: n2,
-                sender: mpCurrentMail.from_email || mpCurrentMail.from_name || 'inconnu',
-                date: mpCurrentMail.date || ''
-            })
-        });
-        const result = await r.json();
-        if (result.ok) {
-            showToast(`Sauvegardé : ${result.filename}`, 'success', 3000);
-        } else {
-            showToast('Erreur : ' + (result.error || 'Erreur'), 'error', 3000);
+        const url = `/api/mail/attachment?id=${encodeURIComponent(mpCurrentMail.id)}&idx=${att.idx}&name=${encodeURIComponent(att.name)}`;
+        const resp = await fetch(url);
+        if (!resp.ok) {
+            showToast('Impossible de préparer la pièce jointe.', 'error', 3000);
             return;
         }
+        const blob = await resp.blob();
+        mpClearPreparedAttachment();
+        mpPreparedAttachment = {
+            filename,
+            contentType: blob.type || 'application/octet-stream',
+            url: URL.createObjectURL(blob),
+        };
+        mpRenderPreparedAttachment();
+        showToast('Fichier prêt: glisse-dépose le chip dans ton logiciel documentaire.', 'success', 3500);
     } catch (e) {
         showToast('Erreur : ' + e.message, 'error', 3000);
+    }
+}
+
+async function mpSaveAttachment() {
+    if (!mpPreparedAttachment) {
+        showToast('Prépare d\'abord le fichier pour glisser-déposer.', 'warning', 2800);
         return;
     }
 
+    mpClearPreparedAttachment();
     mpAttIndex++;
     mpShowAttachment();
 }

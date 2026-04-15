@@ -57,7 +57,7 @@ def ensure_runtime_config_file():
     default_cfg = {
         "paths": {
             "mails_dir": "/home/naiken/mails",
-            "vault_dir": str(Path.home() / "Documents" / "isenapp_mails"),
+            "vault_dir": "/home/naiken/mails",
         }
     }
     try:
@@ -95,7 +95,7 @@ _PATHS = _RUNTIME.get("paths", {}) if isinstance(_RUNTIME.get("paths", {}), dict
 # Répertoire de mails par défaut
 _default_mails_dir = "/home/naiken/mails"
 # Répertoire de vault par défaut
-_default_vault_dir = str(Path.home() / "Documents" / "isenapp_mails")
+_default_vault_dir = "/home/naiken/mails"
 
 # Répertoire de stockage des mails
 MAILS_DIR = str(_PATHS.get("mails_dir", _default_mails_dir)).strip() or _default_mails_dir
@@ -107,7 +107,7 @@ ACCOUNTS_FILE = os.path.join(APP_DATA_DIR, "accounts.json")
 INBOX_INDEX_FILE = os.path.join(APP_DATA_DIR, "inbox_index.json")
 
 # Répertoire principal du vault applicatif
-ISENAPP_DATA = str(_PATHS.get("vault_dir", _default_vault_dir)).strip() or _default_vault_dir
+ISENAPP_DATA = MAILS_DIR
 # Répertoire des fichiers Markdown du graphe
 GRAPH_MD_DIR = os.path.join(ISENAPP_DATA, "mails")
 # Répertoire des pièces jointes du graphe

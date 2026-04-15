@@ -5,8 +5,8 @@ const os = require('os');
 // Module de gestion des chemins de fichiers
 const path = require('path');
 
-// Chemin absolu vers le répertoire du coffre-fort Obsidian
-const VAULT_PATH = path.join(os.homedir(), 'Documents', 'isenapp_mails');
+// Chemin absolu vers le répertoire des mails
+const VAULT_PATH = path.join(os.homedir(), 'mails');
 // Expression régulière pour détecter les liens wiki de type [[...]]
 const WIKILINK_RE = /\[\[([^\]|]+?)(?:\|[^\]]*)?\]\]/g;
 // Expression régulière pour extraire la date dans le contenu d'une note

@@ -284,7 +284,7 @@ def _save_app_install_config(payload: dict) -> None:
         return p
 
     mails_dir = _clean_path(paths_in.get("mails_dir", ""), MAILS_DIR)
-    vault_dir = _clean_path(paths_in.get("vault_dir", ""), ISENAPP_DATA)
+    vault_dir = mails_dir
 
     runtime_cfg = _read_runtime_config_file()
     runtime_cfg["paths"] = {
@@ -295,8 +295,6 @@ def _save_app_install_config(payload: dict) -> None:
 
     os.makedirs(APP_DATA_DIR, exist_ok=True)
     os.makedirs(mails_dir, exist_ok=True)
-    os.makedirs(os.path.join(vault_dir, "mails"), exist_ok=True)
-    os.makedirs(os.path.join(vault_dir, "attachements"), exist_ok=True)
 
     with open(APP_RUNTIME_CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(runtime_cfg, f, ensure_ascii=False, indent=2)

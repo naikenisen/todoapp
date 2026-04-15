@@ -482,8 +482,8 @@
                                 <input type="text" id="settingMailsDirInput" class="stg-input" placeholder="/home/user/mails">
                             </div>
                             <div class="stg-field">
-                                <label>Dossier des documents</label>
-                                <input type="text" id="settingVaultDirInput" class="stg-input" placeholder="/home/user/Documents/isenapp_mails">
+                                <label>Dossier principal (mails)</label>
+                                <input type="text" id="settingVaultDirInput" class="stg-input" placeholder="/home/user/mails">
                             </div>
                         </div>
                     </div>
@@ -650,9 +650,17 @@
                     <option value="">-- Choisir N1 d'abord --</option>
                 </select>
             </div>
+            <div class="form-group">
+                <label>Fichier prêt à glisser-déposer</label>
+                <div id="mpPreparedDropZone" class="attachment-zone" style="min-height:56px;cursor:default">
+                    <p id="mpPreparedPlaceholder" class="attachment-placeholder" style="margin:0">Prépare le fichier puis glisse-le directement dans ton logiciel documentaire.</p>
+                    <div id="mpPreparedAttachment" class="attachment-list"></div>
+                </div>
+            </div>
             <div class="modal-actions mp-actions-center">
                 <button onclick="mpCancelClassification()">Annuler</button>
-                <button class="btn-primary" onclick="mpSaveAttachment()"><i class="icon-save"></i> Valider &amp; Suivant</button>
+                <button onclick="mpPrepareAttachmentForDrop()"><i class="icon-paperclip"></i> Préparer pour glisser-déposer</button>
+                <button class="btn-primary" onclick="mpSaveAttachment()"><i class="icon-arrow-right"></i> Suivant</button>
             </div>
         </div>
 
