@@ -2,7 +2,9 @@ import email as email_lib
 import email.policy
 import hashlib
 import os
+import random
 import re
+import string
 import time
 from datetime import datetime
 from email import policy as email_policy
@@ -20,6 +22,10 @@ try:
     HAS_HTML2TEXT = True
 except ImportError:
     HAS_HTML2TEXT = False
+
+
+EML_NAME_LENGTH = 9
+EML_ALPHABET = string.ascii_uppercase + string.digits
 
 
 # Charge les UIDs déjà vus depuis le fichier de déduplication
@@ -74,16 +80,10 @@ def clean_string_for_file(name):
 
 # Génère un nom de fichier .eml unique à partir du sujet en ajoutant un suffixe numérique si nécessaire
 def unique_eml_filename_from_subject(subject, prefix=""):
-    safe_subject = clean_string_for_file(subject)[:120] or "mail"
-    if prefix:
-        safe_subject = f"{prefix}{safe_subject}"
-
-    candidate = f"{safe_subject}.eml"
-    index = 1
-    while os.path.exists(os.path.join(MAILS_DIR, candidate)):
-        candidate = f"{safe_subject}_{index}.eml"
-        index += 1
-    return candidate
+    while True:
+        candidate = "".join(random.choices(EML_ALPHABET, k=EML_NAME_LENGTH)) + ".eml"
+        if not os.path.exists(os.path.join(MAILS_DIR, candidate)):
+            return candidate
 
 
 # Extrait les corps texte brut et HTML d'un message email parsé

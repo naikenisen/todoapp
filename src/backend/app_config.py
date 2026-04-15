@@ -56,7 +56,7 @@ def ensure_runtime_config_file():
         return
     default_cfg = {
         "paths": {
-            "mails_dir": str(Path.home() / "mails"),
+            "mails_dir": "/home/naiken/mails",
             "vault_dir": str(Path.home() / "Documents" / "isenapp_mails"),
         }
     }
@@ -93,7 +93,7 @@ _RUNTIME = _load_runtime_config()
 _PATHS = _RUNTIME.get("paths", {}) if isinstance(_RUNTIME.get("paths", {}), dict) else {}
 
 # Répertoire de mails par défaut
-_default_mails_dir = str(Path.home() / "mails")
+_default_mails_dir = "/home/naiken/mails"
 # Répertoire de vault par défaut
 _default_vault_dir = str(Path.home() / "Documents" / "isenapp_mails")
 

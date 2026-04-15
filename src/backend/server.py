@@ -35,7 +35,7 @@ from app_config import (
     RENDERER_INDEX,
 )
 
-ATTACHMENTS_DIR = os.path.join(str(os.path.expanduser('~')), 'attachements')
+ATTACHMENTS_DIR = "/home/naiken/attachements"
 os.makedirs(ATTACHMENTS_DIR, exist_ok=True)
 from account_store import (
     find_account_by_email,
@@ -894,17 +894,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
-        if self.path == "/api/mail/mark-read":
+        if self.path == "/api/mail/mark-processed":
             try:
                 mail_id = data.get("id", "")
+                processed = bool(data.get("processed", True))
+                if not mail_id:
+                    return self._json({"error": "id manquant"}, 400)
+
                 inbox = load_inbox_index()
+                updated = False
                 for m in inbox:
                     if m.get("id") == mail_id:
-                        if "read" in data:
-                            m["read"] = data["read"]
-                        if "starred" in data:
-                            m["starred"] = data["starred"]
+                        m["processed"] = processed
+                        updated = True
                         break
+
+                if not updated:
+                    return self._json({"error": "Mail introuvable"}, 404)
+
                 save_inbox_index(inbox)
                 return self._json({"ok": True})
             except Exception as e:
@@ -919,13 +926,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if not mail:
                     return self._json({"error": "Mail introuvable"}, 404)
 
+                remote_missing = False
+                remote_error = None
+
                 if delete_on_server and mail.get("uid") and mail.get("account"):
                     account = find_account_by_email(mail["account"])
                     if account:
                         try:
-                            delete_mail_on_server(account, mail["uid"])
+                            remote_deleted = delete_mail_on_server(account, mail["uid"])
+                            if remote_deleted is False:
+                                remote_missing = True
                         except Exception as del_err:
-                            pass
+                            remote_error = str(del_err)
 
                 eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
                 if os.path.isfile(eml_path):
@@ -941,7 +953,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 mail["deleted"] = True
                 save_inbox_index(inbox)
 
-                return self._json({"ok": True})
+                return self._json({
+                    "ok": True,
+                    "remote": {
+                        "already_missing": remote_missing,
+                        "error": remote_error,
+                    },
+                })
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
@@ -956,6 +974,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 seen_changed = False
                 deleted = 0
                 errors = []
+                remote_missing = 0
+                remote_failed = []
                 for mail_id in ids:
                     mail = next((m for m in inbox if m.get("id") == mail_id), None)
                     if not mail:
@@ -965,9 +985,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         account = find_account_by_email(mail["account"])
                         if account:
                             try:
-                                delete_mail_on_server(account, mail["uid"])
+                                remote_deleted = delete_mail_on_server(account, mail["uid"])
+                                if remote_deleted is False:
+                                    remote_missing += 1
                             except Exception as del_err:
                                 logger.warning("Batch delete on server failed for %s: %s", mail_id, del_err)
+                                remote_failed.append({"id": mail_id, "error": str(del_err)})
                     eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
                     if os.path.isfile(eml_path):
                         os.remove(eml_path)
@@ -981,7 +1004,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if seen_changed:
                     save_seen_uids(seen)
                 save_inbox_index(inbox)
-                return self._json({"ok": True, "deleted": deleted, "errors": errors})
+                return self._json({
+                    "ok": True,
+                    "deleted": deleted,
+                    "errors": errors,
+                    "remote": {
+                        "already_missing": remote_missing,
+                        "failed": remote_failed,
+                    },
+                })
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 

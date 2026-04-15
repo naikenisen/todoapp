@@ -1364,6 +1364,7 @@ let mpCurrentMail = null;
 let mpRelevantAtts = [];
 let mpAttIndex = 0;
 let mpSkipStep1 = false;
+let mpDeferredServerDeleteIds = [];
 
 function mpShowStep(stepId) {
     document.querySelectorAll('#mailProcessContent .mp-step').forEach(el => el.classList.add('is-hidden'));
@@ -1374,9 +1375,23 @@ function startMailProcess(mailIds, skipDeleteStep) {
     mpQueue = mailIds;
     mpIndex = 0;
     mpSkipStep1 = !!skipDeleteStep;
+    mpDeferredServerDeleteIds = [];
     const modal = document.getElementById('mailProcessModal');
     modal.classList.add('show');
     mpProcessCurrent();
+}
+
+async function markMailProcessed(mailId) {
+    if (!mailId) return;
+    try {
+        await fetch('/api/mail/mark-processed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: mailId, processed: true })
+        });
+        const local = inboxMails.find(m => m.id === mailId);
+        if (local) local.processed = true;
+    } catch {}
 }
 
 function closeMailProcess() {
@@ -1384,10 +1399,46 @@ function closeMailProcess() {
     mpQueue = [];
     mpIndex = 0;
     mpCurrentMail = null;
+    mpDeferredServerDeleteIds = [];
+}
+
+async function mpFlushDeferredServerDeletes() {
+    const ids = [...new Set(mpDeferredServerDeleteIds)];
+    if (!ids.length) return;
+
+    showLoading('Suppression distante en cours…');
+    try {
+        const r = await fetch('/api/mail/delete-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids, delete_on_server: true })
+        });
+        const result = await r.json();
+        if (result.ok) {
+            const missing = result.remote?.already_missing || 0;
+            const failed = (result.remote?.failed || []).length;
+            if (failed > 0) {
+                showToast(`Suppression distante partielle: ${failed} erreur(s), ${missing} déjà supprimé(s).`, 'warning', 4500);
+            } else if (missing > 0) {
+                showToast(`Suppression distante terminée (${missing} déjà supprimé(s) sur le serveur).`, 'success', 3500);
+            } else {
+                showToast('Suppression distante terminée.', 'success', 2500);
+            }
+        } else {
+            showToast('Erreur suppression distante: ' + (result.error || 'Erreur inconnue'), 'error', 4500);
+        }
+    } catch (e) {
+        showToast('Erreur suppression distante: ' + e.message, 'error', 4500);
+    } finally {
+        hideLoading();
+        mpDeferredServerDeleteIds = [];
+        await loadInbox();
+    }
 }
 
 async function mpProcessCurrent() {
     if (mpIndex >= mpQueue.length) {
+        await mpFlushDeferredServerDeletes();
         mpShowStep('mpStepDone');
         return;
     }
@@ -1412,7 +1463,10 @@ async function mpProcessCurrent() {
     }
 }
 
-function mpNextMail() {
+async function mpNextMail() {
+    if (mpCurrentMail && mpCurrentMail.id) {
+        await markMailProcessed(mpCurrentMail.id);
+    }
     mpIndex++;
     mpProcessCurrent();
 }
@@ -1423,9 +1477,9 @@ async function mpDeleteFromServer() {
         await fetch('/api/mail/delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: mpCurrentMail.id, delete_on_server: true })
+            body: JSON.stringify({ id: mpCurrentMail.id, delete_on_server: false })
         });
-        await loadInbox();
+        mpDeferredServerDeleteIds.push(mpCurrentMail.id);
     } catch {}
     mpNextMail();
 }
@@ -2214,10 +2268,8 @@ function launchConfetti() {
    ═══════════════════════════════════════════════════════ */
 let inboxMails = [];
 let selectedInboxId = null;
-let inboxFilter = 'all';
 let deleteMailTarget = null;
 let inboxFolder = 'inbox'; // 'inbox' or 'sent'
-let selectedInboxIds = new Set();
 
 /* ═══════════════════════════════════════════════════════
    Inbox — Load & Render
@@ -2253,19 +2305,9 @@ function filterInbox() {
     renderInboxList();
 }
 
-function setInboxFilter(filter, btn) {
-    inboxFilter = filter;
-    document.querySelectorAll('.inbox-filter-btn').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-    renderInboxList();
-}
-
 function getFilteredInbox() {
     const query = (document.getElementById('inboxSearch')?.value || '').toLowerCase().trim();
     let mails = [...inboxMails];
-
-    if (inboxFilter === 'unread') mails = mails.filter(m => !m.read);
-    if (inboxFilter === 'starred') mails = mails.filter(m => m.starred);
 
     if (query) {
         mails = mails.filter(m =>
@@ -2294,21 +2336,13 @@ function renderInboxList() {
 
     container.innerHTML = mails.map(m => {
         const isSelected = selectedInboxId === m.id;
-        const isChecked = selectedInboxIds.has(m.id);
-        const unread = !m.read ? 'unread' : '';
         const isSent = m.folder === 'sent';
         const fromDisplay = isSent ? ('→ ' + (m.to || '').split(',')[0].trim()) : (m.from_name || m.from_email || 'Inconnu');
         const preview = (m.body || '').substring(0, 80).replace(/\n/g, ' ');
         const hasAttach = m.attachments && m.attachments.length > 0;
 
         return `
-        <div class="inbox-item ${unread} ${isSelected ? 'selected' : ''} ${isChecked ? 'checked' : ''}" onclick="openInboxMail('${esc(m.id)}')">
-            <input type="checkbox" class="inbox-item-check" ${isChecked ? 'checked' : ''}
-                aria-label="Sélectionner ce mail"
-                onclick="event.stopPropagation();toggleMailSelection('${esc(m.id)}')">
-            <div class="inbox-item-dot"></div>
-            <span class="inbox-item-star ${m.starred ? 'starred' : ''}"
-                onclick="event.stopPropagation();toggleInboxStar('${esc(m.id)}')">★</span>
+        <div class="inbox-item ${isSelected ? 'selected' : ''}" onclick="openInboxMail('${esc(m.id)}')">
             <div class="inbox-item-content">
                 <div class="inbox-item-top">
                     <span class="inbox-item-from">${esc(fromDisplay)}</span>
@@ -2330,6 +2364,11 @@ async function openInboxMail(mailId) {
     let mail = inboxMails.find(m => m.id === mailId);
     if (!mail) return;
 
+    if (inboxFolder === 'inbox' && !mail.processed) {
+        showToast('Ce mail doit être traité via "Traiter mes mails" avant ouverture.', 'warning', 3000);
+        return;
+    }
+
     // Refresh selected mail details (HTML body, attachments) from backend.
     try {
         const r = await fetch('/api/mail/' + encodeURIComponent(mailId));
@@ -2340,17 +2379,6 @@ async function openInboxMail(mailId) {
             mail = fresh;
         }
     } catch {}
-
-    // Mark as read
-    if (!mail.read) {
-        mail.read = true;
-        fetch('/api/mail/mark-read', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: mailId, read: true })
-        }).catch(() => {});
-        updateInboxBadge();
-    }
 
     renderInboxList();
     renderInboxReader(mail);
@@ -2391,7 +2419,6 @@ function renderInboxReader(mail) {
                 <button onclick="replyToMail('${esc(mail.id)}')"><i class="icon-reply"></i> Répondre</button>
                 <button onclick="replyToMail('${esc(mail.id)}', true)"><i class="icon-reply"></i> Répondre à tous</button>
                 <button onclick="forwardMail('${esc(mail.id)}')"><i class="icon-forward"></i> Transférer</button>
-                <button onclick="toggleInboxRead('${esc(mail.id)}')">${mail.read ? '<i class="icon-mail-open"></i> Marquer non lu' : '<i class="icon-mail"></i> Marquer lu'}</button>
                 <button class="danger" onclick="openDeleteMailModal('${esc(mail.id)}')"><i class="icon-trash-2"></i> Supprimer</button>
             </div>
         </div>
@@ -2418,8 +2445,6 @@ async function fetchEmails() {
     statusEl.className = 'inbox-status loading';
     statusEl.textContent = 'Connexion aux serveurs (POP3/IMAP/Gmail OAuth)…';
 
-    const previousIds = new Set(inboxMails.map(m => m.id));
-
     try {
         const r = await fetch('/api/fetch-emails', { method: 'POST' });
         const result = await r.json();
@@ -2432,14 +2457,7 @@ async function fetchEmails() {
                 ? ` (${result.errors.length} erreur(s))`
                 : '';
             statusEl.className = 'inbox-status success';
-            statusEl.textContent = `${result.new_count} nouveau(x) mail(s) récupéré(s)${errStr}`;
-
-            const newMailIds = inboxMails
-                .filter(m => !previousIds.has(m.id) && !m.deleted)
-                .map(m => m.id);
-            if (newMailIds.length > 0) {
-                setTimeout(() => startMailProcess(newMailIds, false), 500);
-            }
+            statusEl.textContent = `${result.new_count} nouveau(x) mail(s) récupéré(s) dans /home/naiken/mails${errStr}`;
         }
     } catch (e) {
         statusEl.className = 'inbox-status error';
@@ -2449,31 +2467,15 @@ async function fetchEmails() {
     setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
 }
 
-async function toggleInboxStar(mailId) {
-    const mail = inboxMails.find(m => m.id === mailId);
-    if (!mail) return;
-    mail.starred = !mail.starred;
-    // Persist star state
-    fetch('/api/mail/mark-read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: mailId, read: mail.read, starred: mail.starred })
-    }).catch(() => {});
-    renderInboxList();
-}
-
-async function toggleInboxRead(mailId) {
-    const mail = inboxMails.find(m => m.id === mailId);
-    if (!mail) return;
-    mail.read = !mail.read;
-    fetch('/api/mail/mark-read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: mailId, read: mail.read })
-    }).catch(() => {});
-    renderInboxList();
-    renderInboxReader(mail);
-    updateInboxBadge();
+function processMyMails() {
+    const ids = inboxMails
+        .filter(m => !m.deleted && m.folder !== 'sent' && !m.processed)
+        .map(m => m.id);
+    if (!ids.length) {
+        showToast('Aucun mail à traiter.', 'warning', 2500);
+        return;
+    }
+    startMailProcess(ids, false);
 }
 
 function replyToMail(mailId, replyAll) {
@@ -2552,51 +2554,14 @@ function forwardMail(mailId) {
 /* ═══════════════════════════════════════════════════════
    Inbox — Delete
    ═══════════════════════════════════════════════════════ */
-function toggleMailSelection(mailId) {
-    if (selectedInboxIds.has(mailId)) {
-        selectedInboxIds.delete(mailId);
-    } else {
-        selectedInboxIds.add(mailId);
-    }
-    updateBatchToolbar();
-    renderInboxList();
-}
-
-function clearMailSelection() {
-    selectedInboxIds.clear();
-    updateBatchToolbar();
-    renderInboxList();
-}
-
-function updateBatchToolbar() {
-    const toolbar = document.getElementById('inboxBatchToolbar');
-    const countEl = document.getElementById('inboxBatchCount');
-    if (!toolbar) return;
-    const count = selectedInboxIds.size;
-    if (count > 0) {
-        toolbar.classList.remove('is-hidden');
-        if (countEl) countEl.textContent = count + ' mail(s) sélectionné(s)';
-    } else {
-        toolbar.classList.add('is-hidden');
-    }
-}
-
 function openDeleteMailModal(mailId) {
     deleteMailTarget = mailId;
-    const isBatch = mailId === null;
     const modal = document.getElementById('deleteMailModal');
     const subjectEl = document.getElementById('deleteMailSubject');
     const titleEl = document.getElementById('deleteMailModalTitle');
-    if (isBatch) {
-        const count = selectedInboxIds.size;
-        if (count === 0) return;
-        if (titleEl) titleEl.textContent = `Supprimer ${count} mail(s) ?`;
-        if (subjectEl) subjectEl.textContent = count + ' mail(s) sélectionné(s) seront supprimés.';
-    } else {
-        const mail = inboxMails.find(m => m.id === mailId);
-        if (titleEl) titleEl.textContent = 'Supprimer ce mail ?';
-        if (subjectEl) subjectEl.textContent = mail ? mail.subject : '';
-    }
+    const mail = inboxMails.find(m => m.id === mailId);
+    if (titleEl) titleEl.textContent = 'Supprimer ce mail ?';
+    if (subjectEl) subjectEl.textContent = mail ? mail.subject : '';
     document.getElementById('deleteOnServer').checked = false;
     modal.classList.add('show');
 }
@@ -2608,45 +2573,6 @@ function closeDeleteMailModal() {
 
 async function confirmDeleteMail() {
     const deleteOnServer = document.getElementById('deleteOnServer').checked;
-    const isBatch = deleteMailTarget === null;
-
-    if (isBatch) {
-        if (selectedInboxIds.size === 0) return;
-        const ids = [...selectedInboxIds];
-        closeDeleteMailModal();
-        showLoading('Suppression des mails…');
-        try {
-            const r = await fetch('/api/mail/delete-batch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids, delete_on_server: deleteOnServer })
-            });
-            const result = await r.json();
-            if (result.ok) {
-                inboxMails = inboxMails.filter(m => !ids.includes(m.id));
-                if (ids.includes(selectedInboxId)) {
-                    selectedInboxId = null;
-                    document.getElementById('inboxReader').innerHTML = `
-                        <div class="inbox-reader-empty">
-                            <i class="icon-mail-open" style="font-size:2.5rem;color:var(--text-muted)"></i>
-                            <p>Sélectionne un mail pour le lire</p>
-                        </div>`;
-                }
-                selectedInboxIds.clear();
-                updateBatchToolbar();
-                renderInboxList();
-                updateInboxBadge();
-                showToast(`${result.deleted} mail(s) supprimé(s)`, 'success');
-            } else {
-                showToast('Erreur : ' + (result.error || 'Erreur'), 'error', 5000);
-            }
-        } catch (e) {
-            showToast('Erreur : ' + e.message, 'error', 5000);
-        } finally {
-            hideLoading();
-        }
-        return;
-    }
 
     if (!deleteMailTarget) return;
     const targetId = deleteMailTarget;
@@ -2686,10 +2612,10 @@ async function confirmDeleteMail() {
    Inbox — Badge
    ═══════════════════════════════════════════════════════ */
 function updateInboxBadge() {
-    const unread = inboxMails.filter(m => !m.read).length;
+    const count = inboxMails.filter(m => !m.deleted).length;
     const tabBtn = document.querySelector('.tab-btn[data-tab="inbox"]');
     if (tabBtn) {
-        tabBtn.innerHTML = unread > 0 ? `<i class="icon-inbox"></i> Inbox <span style="font-size:0.75em;color:var(--accent-blue)">(${unread})</span>` : '<i class="icon-inbox"></i> Inbox';
+        tabBtn.innerHTML = count > 0 ? `<i class="icon-inbox"></i> Inbox <span style="font-size:0.75em;color:var(--accent-blue)">(${count})</span>` : '<i class="icon-inbox"></i> Inbox';
     }
 }
 
@@ -2713,7 +2639,7 @@ function normalizeAccountDefaults(acc = {}) {
         imap_server: provider === 'gmail_oauth' ? 'imap.gmail.com' : (acc.imap_server || ''),
         imap_port: provider === 'gmail_oauth' ? 993 : (acc.imap_port || 993),
         imap_ssl: provider === 'gmail_oauth' ? true : (acc.imap_ssl !== false),
-        imap_post_action: acc.imap_post_action || 'mark_read',
+        imap_post_action: acc.imap_post_action || 'keep',
         smtp_server: provider === 'gmail_oauth' ? 'smtp.gmail.com' : (acc.smtp_server || ''),
         smtp_port: provider === 'gmail_oauth' ? 587 : (acc.smtp_port || 587),
         smtp_starttls: provider === 'gmail_oauth' ? true : (acc.smtp_starttls !== false),
@@ -2842,7 +2768,7 @@ function renderAccountsList() {
             <div class="form-group">
                 <label>Après téléchargement</label>
                 <select onchange="accountsData[${i}].imap_post_action=this.value" style="width:100%;background:var(--bg-surface);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:0.35rem 0.5rem;color:var(--text);font-size:0.78rem;cursor:pointer">
-                    <option value="mark_read" ${(acc.imap_post_action||'mark_read')==='mark_read'?'selected':''}>Marquer comme lus (conserver sur le serveur)</option>
+                    <option value="keep" ${(acc.imap_post_action||'keep')==='keep'?'selected':''}>Conserver sur le serveur</option>
                     <option value="delete" ${acc.imap_post_action==='delete'?'selected':''}>Supprimer du serveur</option>
                 </select>
             </div>`}

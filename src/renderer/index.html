@@ -55,6 +55,7 @@
         <header>
             <div class="header-actions">
                 <button onclick="fetchEmails()"><i class="icon-refresh-cw"></i> Relever les mails</button>
+                <button onclick="processMyMails()"><i class="icon-sparkles"></i> Traiter mes mails</button>
                 <button onclick="openAccountsModal()"><i class="icon-user"></i> Comptes</button>
                 <button onclick="toggleInboxFolder()" id="inboxFolderBtn"><i class="icon-inbox"></i> Reçus</button>
             </div>
@@ -66,16 +67,6 @@
             <div class="inbox-list-panel" id="inboxListPanel">
                 <div class="inbox-search">
                     <input type="text" id="inboxSearch" placeholder="Rechercher dans les mails…" oninput="filterInbox()">
-                </div>
-                <div class="inbox-filters">
-                    <button class="inbox-filter-btn active" onclick="setInboxFilter('all', this)">Tous</button>
-                    <button class="inbox-filter-btn" onclick="setInboxFilter('unread', this)">Non lus</button>
-                    <button class="inbox-filter-btn" onclick="setInboxFilter('starred', this)"><i class="icon-star"></i></button>
-                </div>
-                <div id="inboxBatchToolbar" class="inbox-batch-toolbar is-hidden">
-                    <span id="inboxBatchCount"></span>
-                    <button class="btn-danger" onclick="openDeleteMailModal(null)"><i class="icon-trash-2"></i> Supprimer la sélection</button>
-                    <button onclick="clearMailSelection()">Annuler</button>
                 </div>
                 <div id="inboxList" class="inbox-list"></div>
             </div>

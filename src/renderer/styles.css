@@ -1657,45 +1657,7 @@
             font-size: 0.8rem; font-family: inherit;
         }
         .inbox-search input:focus { outline: none; border-color: var(--accent-blue); }
-        .inbox-filters {
-            display: flex; gap: 0; padding: 0.5rem 0.75rem;
-            border-bottom: 1px solid var(--card-border);
-        }
-        .inbox-filter-btn {
-            flex: 1; padding: 0.35rem 0.6rem; border: 1px solid var(--card-border);
-            background: transparent; color: var(--text-muted); cursor: pointer;
-            font-size: 0.75rem; font-weight: 600; transition: all 0.15s;
-        }
-        .inbox-filter-btn:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
-        .inbox-filter-btn:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
-        .inbox-filter-btn.active {
-            background: rgba(137,180,250,0.1); border-color: var(--accent-blue);
-            color: var(--accent-blue);
-        }
         .inbox-list { flex: 1; overflow-y: auto; }
-        .inbox-batch-toolbar {
-            display: flex; align-items: center; gap: 0.5rem;
-            padding: 0.5rem 1rem; background: rgba(59,130,246,0.08);
-            border-bottom: 1px solid rgba(59,130,246,0.2);
-            font-size: 0.8rem; color: var(--text-muted);
-        }
-        .inbox-batch-toolbar span { flex: 1; }
-        .inbox-batch-toolbar button {
-            padding: 0.3rem 0.7rem; border-radius: var(--radius-sm);
-            border: 1px solid var(--card-border); background: var(--progress-bg);
-            color: var(--text-muted); cursor: pointer; font-size: 0.75rem;
-            font-weight: 600; transition: all 0.15s;
-        }
-        .inbox-batch-toolbar button.btn-danger {
-            border-color: #ef4444; color: #ef4444;
-        }
-        .inbox-batch-toolbar button.btn-danger:hover {
-            background: rgba(239,68,68,0.1);
-        }
-        .inbox-item-check {
-            width: 14px; height: 14px; min-width: 14px; cursor: pointer;
-            accent-color: var(--accent-blue);
-        }
         .inbox-item.checked {
             background: rgba(59,130,246,0.06);
         }
@@ -1713,18 +1675,6 @@
             border-left: 2px solid var(--accent-blue);
             box-shadow: inset 0 0 0 1px rgba(59,130,246,0.24);
         }
-        .inbox-item.unread .inbox-item-from,
-        .inbox-item.unread .inbox-item-subject { font-weight: 700; color: var(--text); }
-        .inbox-item-dot {
-            width: 8px; height: 8px; min-width: 8px; border-radius: 50%;
-            background: transparent;
-        }
-        .inbox-item.unread .inbox-item-dot { background: var(--accent-blue); }
-        .inbox-item-star {
-            cursor: pointer; font-size: 0.9rem; opacity: 0.3; transition: opacity 0.15s;
-        }
-        .inbox-item-star:hover { opacity: 0.8; }
-        .inbox-item-star.starred { opacity: 1; color: #f59e0b; }
         .inbox-item-content { flex: 1; min-width: 0; }
         .inbox-item-top { display: flex; justify-content: space-between; align-items: baseline; }
         .inbox-item-from {

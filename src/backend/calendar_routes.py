@@ -83,7 +83,7 @@ def handle_oauth_callback(
         account["imap_server"] = "imap.gmail.com"
         account["imap_port"] = 993
         account["imap_ssl"] = True
-        account["imap_post_action"] = account.get("imap_post_action", "mark_read")
+        account["imap_post_action"] = account.get("imap_post_action", "keep")
         account["smtp_server"] = "smtp.gmail.com"
         account["smtp_port"] = 587
         account["smtp_ssl"] = False

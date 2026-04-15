@@ -13,6 +13,20 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 
+def _save_eml_bytes_atomic(raw_bytes, subject, *, unique_eml_filename_from_subject, mails_dir, max_attempts=100):
+    os.makedirs(mails_dir, exist_ok=True)
+    for _ in range(max_attempts):
+        eml_filename = unique_eml_filename_from_subject(subject)
+        eml_path = os.path.join(mails_dir, eml_filename)
+        try:
+            with open(eml_path, "xb") as f:
+                f.write(raw_bytes)
+            return eml_filename
+        except FileExistsError:
+            continue
+    raise RuntimeError("Impossible de créer un nom .eml unique sans écrasement")
+
+
 # Construit la chaîne XOAUTH2 encodée pour l'authentification OAuth2 SMTP/IMAP
 def build_xoauth2_string(username, access_token):
     raw = f"user={username}\x01auth=Bearer {access_token}\x01\x01"
@@ -92,16 +106,17 @@ def fetch_pop3(
                 mail_id = compute_mail_id(raw_bytes)
 
                 meta = parse_email_metadata(raw_bytes, account_email)
-                eml_filename = unique_eml_filename_from_subject(meta.get("subject", "mail"))
-                eml_path = os.path.join(mails_dir, eml_filename)
-                with open(eml_path, "wb") as f:
-                    f.write(raw_bytes)
+                eml_filename = _save_eml_bytes_atomic(
+                    raw_bytes,
+                    meta.get("subject", "mail"),
+                    unique_eml_filename_from_subject=unique_eml_filename_from_subject,
+                    mails_dir=mails_dir,
+                )
 
                 meta["id"] = mail_id
                 meta["uid"] = uid
                 meta["eml_file"] = eml_filename
-                meta["read"] = False
-                meta["starred"] = False
+                meta["processed"] = False
                 meta["deleted"] = False
 
                 inbox.append(meta)
@@ -144,7 +159,7 @@ def fetch_imap(
     password = account.get("password", "")
     account_email = account.get("email", username)
     auth_type = account.get("auth_type", "password")
-    post_action = account.get("imap_post_action", "mark_read")
+    post_action = account.get("imap_post_action", "keep")
 
     seen = load_seen_uids()
     account_key = f"{username}@{server}"
@@ -200,16 +215,17 @@ def fetch_imap(
                 mail_id = compute_mail_id(raw_bytes)
 
                 meta = parse_email_metadata(raw_bytes, account_email)
-                eml_filename = unique_eml_filename_from_subject(meta.get("subject", "mail"))
-                eml_path = os.path.join(mails_dir, eml_filename)
-                with open(eml_path, "wb") as f:
-                    f.write(raw_bytes)
+                eml_filename = _save_eml_bytes_atomic(
+                    raw_bytes,
+                    meta.get("subject", "mail"),
+                    unique_eml_filename_from_subject=unique_eml_filename_from_subject,
+                    mails_dir=mails_dir,
+                )
 
                 meta["id"] = mail_id
                 meta["uid"] = uid
                 meta["eml_file"] = eml_filename
-                meta["read"] = False
-                meta["starred"] = False
+                meta["processed"] = False
                 meta["deleted"] = False
                 meta["protocol"] = "imap"
 
@@ -219,8 +235,6 @@ def fetch_imap(
 
                 if post_action == "delete":
                     imap.store(num, "+FLAGS", "\\Deleted")
-                elif post_action == "mark_read":
-                    imap.store(num, "+FLAGS", "\\Seen")
 
             except Exception as e:
                 errors.append(f"IMAP message {num}: {e}")
@@ -322,17 +336,18 @@ def send_email_smtp(
     server.quit()
 
     mail_id = compute_mail_id(raw_bytes)
-    eml_filename = unique_eml_filename_from_subject(subject)
-    eml_path = os.path.join(mails_dir, eml_filename)
-    with open(eml_path, "wb") as f:
-        f.write(raw_bytes)
+    eml_filename = _save_eml_bytes_atomic(
+        raw_bytes,
+        subject,
+        unique_eml_filename_from_subject=unique_eml_filename_from_subject,
+        mails_dir=mails_dir,
+    )
 
     meta = parse_email_metadata(raw_bytes, from_addr)
     meta["id"] = mail_id
     meta["uid"] = ""
     meta["eml_file"] = eml_filename
-    meta["read"] = True
-    meta["starred"] = False
+    meta["processed"] = True
     meta["deleted"] = False
     meta["folder"] = "sent"
     inbox = load_inbox_index()
@@ -374,6 +389,10 @@ def delete_mail_on_server(account, uid_to_delete, *, normalize_auth_fields, get_
             for num in data[0].split():
                 imap.store(num, "+FLAGS", "\\Deleted")
             imap.expunge()
+        else:
+            imap.close()
+            imap.logout()
+            return False
 
         imap.close()
         imap.logout()
