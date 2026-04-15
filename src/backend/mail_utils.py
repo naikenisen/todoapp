@@ -65,6 +65,61 @@ def save_inbox_index(index):
     atomic_write_json(INBOX_INDEX_FILE, index)
 
 
+# Indexe les fichiers .eml déposés manuellement dans le dossier mails
+def ingest_manual_eml_files(*, load_inbox_index_fn, save_inbox_index_fn, compute_mail_id_fn, parse_email_metadata_fn, mails_dir):
+    if not os.path.isdir(mails_dir):
+        return 0, []
+
+    inbox = load_inbox_index_fn()
+    known_files = {str(m.get("eml_file", "")).strip() for m in inbox if m.get("eml_file")}
+    known_ids = {str(m.get("id", "")).strip() for m in inbox if m.get("id")}
+
+    added = 0
+    errors = []
+    changed = False
+
+    for fname in os.listdir(mails_dir):
+        if not fname.lower().endswith(".eml"):
+            continue
+        if fname in known_files:
+            continue
+
+        fpath = os.path.join(mails_dir, fname)
+        if not os.path.isfile(fpath):
+            continue
+
+        try:
+            with open(fpath, "rb") as f:
+                raw_bytes = f.read()
+            if not raw_bytes:
+                continue
+
+            mail_id = compute_mail_id_fn(raw_bytes)
+            if mail_id in known_ids:
+                continue
+
+            meta = parse_email_metadata_fn(raw_bytes, "")
+            meta["id"] = mail_id
+            meta["uid"] = ""
+            meta["eml_file"] = fname
+            meta["processed"] = False
+            meta["deleted"] = False
+            meta["protocol"] = "local"
+
+            inbox.append(meta)
+            known_files.add(fname)
+            known_ids.add(mail_id)
+            added += 1
+            changed = True
+        except Exception as e:
+            errors.append(f"{fname}: {e}")
+
+    if changed:
+        save_inbox_index_fn(inbox)
+
+    return added, errors
+
+
 # Calcule un hash stable pour la déduplication des emails
 def compute_mail_id(raw_bytes):
     return hashlib.sha256(raw_bytes).hexdigest()[:24]

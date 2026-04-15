@@ -24,6 +24,17 @@ let leadsFilter = 'all';
 let respondedMailsExpanded = false;
 let appInstallConfig = null;
 
+const DEFAULT_MAIL_N2_MAP = {
+    'EV': ['Congrès REVE 2024 TNE','Poster ISEV 2024 TNE','article_cart','exosarc','alcina','tne','exodiag','lymphome','exomel','pseudoprogression','evolve','krasipanc','thèse pharmacie','etude_observationnelle','memoire_des'],
+    'Histologie': ['ia2hl','these_valentin','biolymph','mdh2','iabm','intensify','modèle de diffusion','sfh'],
+    'imagerie': ['radiomic-opc','TMTVpred'],
+    'multimodal': ['AAP ICE','FRFT-Doc','AAP MIC','AAP FRFT-Doc','CART-IA','AAP ARC','presentation thèse','PIF','financement DSPS','4 plan pour le stage en PUI'],
+    'nexomedis': ['axone','article_adlis','these_alexandre','nexostock','ASH 2026'],
+    'revue ia santé': ['Banque !','Préfecture !','INPI !','CrossRef !','Reconnaissance presse !','La poste Pro !','BNF !','OJS !','Comité scientifique !','Partenaires !','Graphique design !','Comptabilité !','eseo !','maison associations !','premiere soumission !','publicité'],
+};
+
+const DEFAULT_MAIL_N1_LIST = ['EV', 'Histologie', 'imagerie', 'multimodal', 'nexomedis', 'revue ia santé'];
+
 const uid = () => Math.random().toString(36).slice(2, 10);
 const esc = s => String(s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -103,6 +114,55 @@ async function loadState() {
         if (!r.status) r.status = r.dismissed ? 'dismissed' : 'pending';
         if (!r.cycle) r.cycle = 1;
     });
+    ensureMailTaxonomySettings();
+}
+
+function ensureMailTaxonomySettings() {
+    if (!state.settings) state.settings = {};
+
+    const existing = state.settings.mailTaxonomy;
+    if (!existing || typeof existing !== 'object') {
+        state.settings.mailTaxonomy = {
+            n1List: [...DEFAULT_MAIL_N1_LIST],
+            n2Map: JSON.parse(JSON.stringify(DEFAULT_MAIL_N2_MAP)),
+        };
+        return;
+    }
+
+    if (!Array.isArray(existing.n1List)) {
+        existing.n1List = [...DEFAULT_MAIL_N1_LIST];
+    }
+    if (!existing.n2Map || typeof existing.n2Map !== 'object' || Array.isArray(existing.n2Map)) {
+        existing.n2Map = JSON.parse(JSON.stringify(DEFAULT_MAIL_N2_MAP));
+    }
+
+    const cleanedN1 = existing.n1List
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+    existing.n1List = [...new Set(cleanedN1)];
+
+    const cleanedMap = {};
+    Object.entries(existing.n2Map).forEach(([k, arr]) => {
+        const key = String(k || '').trim();
+        if (!key) return;
+        const values = Array.isArray(arr)
+            ? arr.map(v => String(v || '').trim()).filter(Boolean)
+            : [];
+        cleanedMap[key] = [...new Set(values)];
+    });
+    existing.n2Map = cleanedMap;
+
+    existing.n1List.forEach((n1) => {
+        if (!existing.n2Map[n1]) existing.n2Map[n1] = [];
+    });
+}
+
+function getMailTaxonomy() {
+    ensureMailTaxonomySettings();
+    const tax = state.settings.mailTaxonomy;
+    const n1List = Array.isArray(tax.n1List) ? tax.n1List : [];
+    const n2Map = (tax.n2Map && typeof tax.n2Map === 'object') ? tax.n2Map : {};
+    return { n1List, n2Map };
 }
 
 async function loadContacts() {
@@ -678,8 +738,67 @@ function openSettings() {
     document.getElementById('settingsModal').classList.add('show');
     switchSettingsTab('general');
     loadInstallLocalSettings();
+    renderMailTaxonomySettingsForm();
     const contactsCount = document.getElementById('contactsCount');
     if (contactsCount) contactsCount.textContent = `${contacts.length} contacts chargés`;
+}
+
+function renderMailTaxonomySettingsForm() {
+    const n1El = document.getElementById('settingN1ListInput');
+    const n2El = document.getElementById('settingN2MapInput');
+    if (!n1El || !n2El) return;
+
+    const { n1List, n2Map } = getMailTaxonomy();
+    n1El.value = n1List.join('\n');
+
+    const lines = n1List.map((n1) => {
+        const n2 = Array.isArray(n2Map[n1]) ? n2Map[n1] : [];
+        return `${n1}: ${n2.join(', ')}`;
+    });
+    n2El.value = lines.join('\n');
+}
+
+function saveMailTaxonomySettings() {
+    const n1El = document.getElementById('settingN1ListInput');
+    const n2El = document.getElementById('settingN2MapInput');
+    if (!n1El || !n2El) return;
+
+    const n1List = n1El.value
+        .split(/\r?\n/)
+        .map(v => v.trim())
+        .filter(Boolean);
+
+    const n2Map = {};
+    const rawLines = n2El.value
+        .split(/\r?\n/)
+        .map(v => v.trim())
+        .filter(Boolean);
+
+    rawLines.forEach((line) => {
+        const idx = line.indexOf(':');
+        if (idx <= 0) return;
+        const n1 = line.slice(0, idx).trim();
+        const rhs = line.slice(idx + 1).trim();
+        const n2Items = rhs
+            ? rhs.split(',').map(v => v.trim()).filter(Boolean)
+            : [];
+        if (n1) n2Map[n1] = [...new Set(n2Items)];
+    });
+
+    const finalN1 = [...new Set(n1List)];
+    finalN1.forEach((n1) => {
+        if (!n2Map[n1]) n2Map[n1] = [];
+    });
+
+    state.settings.mailTaxonomy = {
+        n1List: finalN1,
+        n2Map,
+    };
+
+    autoSave();
+    renderMailTaxonomySettingsForm();
+    mpRenderN1Options();
+    showToast('Niveaux N1/N2 sauvegardés.', 'success', 2500);
 }
 
 function closeSettings() {
@@ -1348,14 +1467,6 @@ function getActiveSignatureHtml() {
    Mail Processing Wizard
    ═══════════════════════════════════════════════════════ */
 const MP_RELEVANT_EXTS = ['.odt', '.docx', '.pdf', '.xlsx', '.csv'];
-const MP_N2_MAP = {
-    'Histologie': ['ia2hl','these_valentin','biolymph','mdh2','iabm','intensify','modèle de diffusion','sfh'],
-    'multimodal': ['AAP ICE','FRFT-Doc','AAP MIC','AAP FRFT-Doc','CART-IA','AAP ARC','presentation thèse','PIF','financement DSPS','4 plan pour le stage en PUI'],
-    'imagerie': ['radiomic-opc','TMTVpred'],
-    'nexomedis': ['axone','article_adlis','these_alexandre','nexostock','ASH 2026'],
-    'revue ia santé': ['Banque !','Préfecture !','INPI !','CrossRef !','Reconnaissance presse !','La poste Pro !','BNF !','OJS !','Comité scientifique !','Partenaires !','Graphique design !','Comptabilité !','eseo !','maison associations !','premiere soumission !','publicité'],
-    'EV': ['Congrès REVE 2024 TNE','Poster ISEV 2024 TNE','article_cart','exosarc','alcina','tne','exodiag','lymphome','exomel','pseudoprogression','evolve','krasipanc','thèse pharmacie','etude_observationnelle','memoire_des'],
-};
 
 let mpQueue = [];
 let mpIndex = 0;
@@ -1363,6 +1474,7 @@ let mpCurrentMail = null;
 let mpRelevantAtts = [];
 let mpAttIndex = 0;
 let mpSkipStep1 = false;
+let mpSkipAttachments = false;
 let mpDeferredServerDeleteIds = [];
 let mpPreparedAttachment = null;
 
@@ -1371,10 +1483,11 @@ function mpShowStep(stepId) {
     document.getElementById(stepId).classList.remove('is-hidden');
 }
 
-function startMailProcess(mailIds, skipDeleteStep) {
+function startMailProcess(mailIds, skipDeleteStep, skipAttachmentStep = false) {
     mpQueue = mailIds;
     mpIndex = 0;
     mpSkipStep1 = !!skipDeleteStep;
+    mpSkipAttachments = !!skipAttachmentStep;
     mpDeferredServerDeleteIds = [];
     const modal = document.getElementById('mailProcessModal');
     modal.classList.add('show');
@@ -1398,13 +1511,49 @@ function closeMailProcess() {
     document.getElementById('mailProcessModal').classList.remove('show');
     mpQueue = [];
     mpIndex = 0;
+    mpSkipAttachments = false;
     mpCurrentMail = null;
     mpDeferredServerDeleteIds = [];
     mpClearPreparedAttachment();
 }
 
 function mpSanitizeForFilename(value, maxLen = 50) {
-    return String(value || '').trim().replace(/[\\/*?:"<>|@\s]+/g, '_').slice(0, maxLen);
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9_-]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^[-_]+|[-_]+$/g, '')
+        .slice(0, maxLen);
+}
+
+function mpAuthorForFilename(sender) {
+    const raw = String(sender || '').trim();
+    if (!raw) return 'inconnu';
+
+    let base = raw;
+    if (raw.includes('@')) {
+        base = raw.split('@')[0] || raw;
+    }
+
+    const tokens = String(base)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .split(/[.\s_-]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+    if (tokens.length >= 2) {
+        const firstName = tokens[0];
+        const lastName = tokens[tokens.length - 1];
+        const normalized = mpSanitizeForFilename(`${lastName}-${firstName}`, 50);
+        return normalized || 'inconnu';
+    }
+
+    return mpSanitizeForFilename(base, 50) || 'inconnu';
 }
 
 function mpDateForFilename(mailDate) {
@@ -1421,7 +1570,7 @@ function mpBuildClassifiedFilename(attName, docType, n1, n2, sender, mailDate) {
     const parts = [
         mpDateForFilename(mailDate),
         mpSanitizeForFilename(docType, 40) || 'document',
-        mpSanitizeForFilename(sender, 50) || 'inconnu',
+        mpAuthorForFilename(sender),
     ];
     const safeN1 = mpSanitizeForFilename(n1, 40);
     const safeN2 = mpSanitizeForFilename(n2, 40);
@@ -1607,6 +1756,10 @@ function mpAfterSummary() {
 }
 
 function mpCheckAttachments() {
+    if (mpSkipAttachments) {
+        mpNextMail();
+        return;
+    }
     const atts = mpCurrentMail.attachments || [];
     mpRelevantAtts = [];
     atts.forEach((name, idx) => {
@@ -1650,25 +1803,89 @@ function mpKeepAttachment() {
     mpClearPreparedAttachment();
     mpShowStep('mpStep3b');
     document.getElementById('mpDocType').value = '';
-    document.getElementById('mpN1').value = '';
+    mpRenderN1Options('');
     mpUpdateN2();
+}
+
+function mpRenderN1Options(selected = '') {
+    const sel = document.getElementById('mpN1');
+    if (!sel) return;
+
+    const { n1List } = getMailTaxonomy();
+    sel.innerHTML = '<option value="">-- Choisir --</option>';
+    n1List.forEach((n1) => {
+        const opt = document.createElement('option');
+        opt.value = n1;
+        opt.textContent = n1;
+        sel.appendChild(opt);
+    });
+
+    if (selected && n1List.includes(selected)) {
+        sel.value = selected;
+    } else {
+        sel.value = '';
+    }
 }
 
 function mpUpdateN2() {
     const n1 = document.getElementById('mpN1').value;
     const sel = document.getElementById('mpN2');
+    const { n2Map } = getMailTaxonomy();
     sel.innerHTML = '';
-    if (!n1 || !MP_N2_MAP[n1]) {
+    if (!n1 || !Array.isArray(n2Map[n1])) {
         sel.innerHTML = '<option value="">-- Choisir N1 d\'abord --</option>';
         return;
     }
     sel.innerHTML = '<option value="">-- Choisir --</option>';
-    MP_N2_MAP[n1].forEach(v => {
+    n2Map[n1].forEach(v => {
         const opt = document.createElement('option');
         opt.value = v;
         opt.textContent = v;
         sel.appendChild(opt);
     });
+}
+
+function mpAddN1DuringProcess() {
+    const input = window.prompt('Nom du nouveau N1 (sujet principal) :', '');
+    const newN1 = String(input || '').trim();
+    if (!newN1) return;
+
+    const { n1List, n2Map } = getMailTaxonomy();
+    if (!n1List.includes(newN1)) {
+        n1List.push(newN1);
+    }
+    if (!n2Map[newN1]) n2Map[newN1] = [];
+    autoSave();
+
+    mpRenderN1Options(newN1);
+    mpUpdateN2();
+    renderMailTaxonomySettingsForm();
+    showToast(`N1 ajouté: ${newN1}`, 'success', 2200);
+}
+
+function mpAddN2DuringProcess() {
+    const n1 = (document.getElementById('mpN1')?.value || '').trim();
+    if (!n1) {
+        showToast('Choisis d\'abord un N1.', 'warning', 2200);
+        return;
+    }
+
+    const input = window.prompt(`Nom du nouveau N2 pour "${n1}" :`, '');
+    const newN2 = String(input || '').trim();
+    if (!newN2) return;
+
+    const { n2Map } = getMailTaxonomy();
+    if (!Array.isArray(n2Map[n1])) n2Map[n1] = [];
+    if (!n2Map[n1].includes(newN2)) {
+        n2Map[n1].push(newN2);
+    }
+    autoSave();
+
+    mpUpdateN2();
+    const n2Sel = document.getElementById('mpN2');
+    if (n2Sel) n2Sel.value = newN2;
+    renderMailTaxonomySettingsForm();
+    showToast(`N2 ajouté: ${newN2}`, 'success', 2200);
 }
 
 function mpCancelClassification() {
@@ -3067,6 +3284,7 @@ async function sendMailSMTP() {
     const html_body = signatureHtml
         ? buildHtmlBodyWithOptionalQuote(document.getElementById('mailBody').value.trim(), signatureHtml, getQuoteTextForHtml())
         : null;
+    const isForwardMail = composerReplyContext?.type === 'forward';
 
     const previousIds = new Set(inboxMails.map(m => m.id));
 
@@ -3090,13 +3308,15 @@ async function sendMailSMTP() {
             }
             setReplyComposerContext(null);
 
-            // Launch mail processing wizard for the sent mail (skip delete step)
+            // Launch mail processing wizard for sent mails only when this is not a forward.
             await loadInbox();
-            const sentMailIds = inboxMails
-                .filter(m => !previousIds.has(m.id) && m.folder === 'sent')
-                .map(m => m.id);
-            if (sentMailIds.length > 0) {
-                setTimeout(() => startMailProcess(sentMailIds, true), 500);
+            if (!isForwardMail) {
+                const sentMailIds = inboxMails
+                    .filter(m => !previousIds.has(m.id) && m.folder === 'sent')
+                    .map(m => m.id);
+                if (sentMailIds.length > 0) {
+                    setTimeout(() => startMailProcess(sentMailIds, true, true), 500);
+                }
             }
         } else {
             showToast('Erreur : ' + (result.error || 'Erreur'), 'error', 5000);
@@ -3272,6 +3492,7 @@ setInterval(() => {
 
     renderSignaturesList();
     updateSignatureSelectors();
+    mpRenderN1Options();
 
     autoSave();
     updateMailBadge();

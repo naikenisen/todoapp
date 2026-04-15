@@ -10,11 +10,12 @@
   "scripts": {
     "start": "electron .",
     "icons:generate": "mkdir -p build/icons && npx --yes icon-gen -i assets/logo.png -o build --ico --icns && mv -f build/app.icns build/icon.icns && mv -f build/app.ico build/icon.ico && for s in 16 24 32 48 64 96 128 256 512 1024; do convert assets/logo.png -resize ${s}x${s} build/icons/${s}x${s}.png; done && cp -f build/icons/512x512.png build/icon.png",
-    "build": "npm run icons:generate && electron-builder --linux",
-    "build:mac": "npm run icons:generate && electron-builder --mac",
-    "build:win": "npm run icons:generate && electron-builder --win",
-    "build:all": "npm run icons:generate && electron-builder --linux --mac --win",
-    "build:dir": "npm run icons:generate && electron-builder --linux --dir"
+    "build": "electron-builder --linux",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:all": "electron-builder --linux --mac --win",
+    "build:dir": "electron-builder --linux --dir",
+    "build:refresh-icons": "npm run icons:generate"
   },
   "build": {
     "appId": "com.nexomedis.neurail",

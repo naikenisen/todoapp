@@ -106,21 +106,10 @@ ACCOUNTS_FILE = os.path.join(APP_DATA_DIR, "accounts.json")
 # Fichier d'index de la boîte de réception
 INBOX_INDEX_FILE = os.path.join(APP_DATA_DIR, "inbox_index.json")
 
-# Répertoire principal du vault applicatif
-ISENAPP_DATA = MAILS_DIR
-# Répertoire des fichiers Markdown du graphe
-GRAPH_MD_DIR = os.path.join(ISENAPP_DATA, "mails")
-# Répertoire des pièces jointes du graphe
-GRAPH_ATT_DIR = os.path.join(ISENAPP_DATA, "attachements")
-# Alias du vault pour le graphe de connaissances
-GRAPH_VAULT = ISENAPP_DATA
-
 # Scope OAuth Google pour l'accès Gmail
 GOOGLE_MAIL_SCOPE = "https://mail.google.com/"
 
 os.makedirs(MAILS_DIR, exist_ok=True)
-os.makedirs(GRAPH_MD_DIR, exist_ok=True)
-os.makedirs(GRAPH_ATT_DIR, exist_ok=True)
 
 
 # Crée un modèle .env local dans les données applicatives si absent

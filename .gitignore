@@ -17,3 +17,4 @@ venv/
 # Build/deps
 node_modules/
 dist/
+build/

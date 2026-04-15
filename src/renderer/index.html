@@ -409,6 +409,29 @@
                             <span id="contactsCount" class="stg-hint"></span>
                         </div>
                     </div>
+
+                    <div class="stg-section">
+                        <div class="stg-section-header">
+                            <div class="stg-section-icon"><i class="icon-folder-tree"></i></div>
+                            <div class="stg-section-text">
+                                <h3>Taxonomie documentaire (N1 / N2)</h3>
+                                <p>Liste personnalisée des sujets principaux et sous-sujets utilisée pendant le traitement des pièces jointes.</p>
+                            </div>
+                        </div>
+                        <div class="stg-section-body">
+                            <div class="stg-field">
+                                <label>Niveaux N1 (un par ligne)</label>
+                                <textarea id="settingN1ListInput" class="stg-input" rows="6" placeholder="EV&#10;Histologie&#10;imagerie"></textarea>
+                            </div>
+                            <div class="stg-field">
+                                <label>Mapping N2 (format: N1: n2a, n2b, n2c)</label>
+                                <textarea id="settingN2MapInput" class="stg-input" rows="8" placeholder="EV: memoire_des, article_cart&#10;Histologie: ia2hl, biolymph"></textarea>
+                            </div>
+                            <div class="mail-actions">
+                                <button onclick="saveMailTaxonomySettings()" class="stg-btn stg-btn-primary"><i class="icon-save"></i> Sauvegarder N1/N2</button>
+                            </div>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- ── Intelligence Artificielle ──── -->
@@ -636,19 +659,19 @@
                 <label>Niveau 1</label>
                 <select id="mpN1" onchange="mpUpdateN2()">
                     <option value="">-- Choisir --</option>
-                    <option value="EV">EV</option>
-                    <option value="Histologie">Histologie</option>
-                    <option value="imagerie">Imagerie</option>
-                    <option value="multimodal">Multimodal</option>
-                    <option value="nexomedis">Nexomedis</option>
-                    <option value="revue ia santé">Revue IA santé</option>
                 </select>
+                <div class="mail-actions mt-05">
+                    <button onclick="mpAddN1DuringProcess()"><i class="icon-plus"></i> Ajouter un N1</button>
+                </div>
             </div>
             <div class="form-group">
                 <label>Niveau 2</label>
                 <select id="mpN2">
                     <option value="">-- Choisir N1 d'abord --</option>
                 </select>
+                <div class="mail-actions mt-05">
+                    <button onclick="mpAddN2DuringProcess()"><i class="icon-plus"></i> Ajouter un N2</button>
+                </div>
             </div>
             <div class="form-group">
                 <label>Fichier prêt à glisser-déposer</label>

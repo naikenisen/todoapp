@@ -26,7 +26,6 @@ from app_config import (
     CONTACTS_CSV,
     DATA,
     DIR,
-    ISENAPP_DATA,
     GOOGLE_MAIL_SCOPE,
     LOG_FILE,
     MAILS_DIR,
@@ -35,8 +34,6 @@ from app_config import (
     RENDERER_INDEX,
 )
 
-ATTACHMENTS_DIR = "/home/naiken/attachements"
-os.makedirs(ATTACHMENTS_DIR, exist_ok=True)
 from account_store import (
     find_account_by_email,
     find_account_index_by_email,
@@ -50,6 +47,7 @@ from mail_utils import (
     compute_mail_id,
     enrich_mail_from_eml,
     get_attachment_payload,
+    ingest_manual_eml_files,
     load_inbox_index,
     load_seen_uids,
     parse_email_metadata,
@@ -257,7 +255,7 @@ def _get_app_install_config() -> dict:
             "seen_uids_file": os.path.join(APP_DATA_DIR, "seen_uids.json"),
             "contacts_csv": CONTACTS_CSV,
             "mails_dir": MAILS_DIR,
-            "vault_dir": ISENAPP_DATA,
+            "vault_dir": MAILS_DIR,
             "log_file": LOG_FILE,
         },
         "env": {
@@ -455,6 +453,16 @@ def fetch_all_accounts():
         except Exception as e:
             all_errors.append(f"{acc.get('email', '?')}: {e}")
 
+    local_new, local_errors = ingest_manual_eml_files(
+        load_inbox_index_fn=load_inbox_index,
+        save_inbox_index_fn=save_inbox_index,
+        compute_mail_id_fn=compute_mail_id,
+        parse_email_metadata_fn=parse_email_metadata,
+        mails_dir=MAILS_DIR,
+    )
+    total_new += local_new
+    all_errors.extend(local_errors)
+
     return total_new, all_errors
 
 
@@ -545,6 +553,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/api/accounts":
             return self._json(load_accounts())
         if self.path == "/api/inbox":
+            # Indexe aussi les .eml locaux lors de l'ouverture de la boite
+            # pour afficher les mails de /mails sans action manuelle "Relever".
+            try:
+                ingest_manual_eml_files(
+                    load_inbox_index_fn=load_inbox_index,
+                    save_inbox_index_fn=save_inbox_index,
+                    compute_mail_id_fn=compute_mail_id,
+                    parse_email_metadata_fn=parse_email_metadata,
+                    mails_dir=MAILS_DIR,
+                )
+            except Exception:
+                pass
             inbox = load_inbox_index()
             visible = [m for m in inbox if not m.get("deleted") and m.get("folder") != "sent"]
             visible.sort(key=lambda m: m.get("date_ts", 0), reverse=True)
@@ -659,76 +679,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             try:
                 text = ai_summarize_mail(data)
                 return self._json({"ok": True, "text": text})
-            except Exception as e:
-                return self._json({"error": str(e)}, 500)
-
-        if self.path == "/api/mail/save-classified-attachment":
-            try:
-                mail_id = data.get("id", "")
-                att_idx = data.get("att_idx")
-                att_name = data.get("att_name", "")
-                doc_type = data.get("type", "document")
-                n1 = data.get("n1", "")
-                n2 = data.get("n2", "")
-                sender = data.get("sender", "inconnu")
-                mail_date = data.get("date", "")
-
-                if att_idx is None:
-                    return self._json({"error": "att_idx requis"}, 400)
-
-                inbox = load_inbox_index()
-                mail = next((m for m in inbox if m.get("id") == mail_id), None)
-                if not mail:
-                    return self._json({"error": "Mail introuvable"}, 404)
-
-                eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
-                if not os.path.isfile(eml_path):
-                    return self._json({"error": "Fichier .eml introuvable"}, 404)
-
-                with open(eml_path, "rb") as f:
-                    msg = email_lib.message_from_bytes(f.read(), policy=email_policy.default)
-
-                payload_data, resolved_name, _ct = get_attachment_payload(msg, index=int(att_idx), filename=att_name)
-                if payload_data is None:
-                    return self._json({"error": "Pièce jointe introuvable"}, 404)
-
-                ext = os.path.splitext(resolved_name)[1].lower() if resolved_name else ""
-                safe_sender = re.sub(r'[\\/*?:"<>|@\s]+', '_', sender.strip())[:50]
-                safe_type = re.sub(r'[\\/*?:"<>|]+', '_', doc_type.strip())
-                safe_n1 = re.sub(r'[\\/*?:"<>|]+', '_', n1.strip()) if n1 else ""
-                safe_n2 = re.sub(r'[\\/*?:"<>|]+', '_', n2.strip()) if n2 else ""
-
-                if not mail_date:
-                    mail_date = datetime.now().strftime("%Y-%m-%d")
-                else:
-                    try:
-                        from email.utils import parsedate_to_datetime as _pdt
-                        dt = _pdt(mail_date)
-                        mail_date = dt.strftime("%Y-%m-%d")
-                    except Exception:
-                        try:
-                            mail_date = mail_date[:10]
-                        except Exception:
-                            mail_date = datetime.now().strftime("%Y-%m-%d")
-
-                parts = [mail_date, safe_type, safe_sender]
-                if safe_n1:
-                    parts.append(safe_n1)
-                if safe_n2:
-                    parts.append(safe_n2)
-                new_name = "-".join(parts) + ext
-
-                dest_path = os.path.join(ATTACHMENTS_DIR, new_name)
-                counter = 1
-                while os.path.exists(dest_path):
-                    new_name = "-".join(parts) + f"_{counter}" + ext
-                    dest_path = os.path.join(ATTACHMENTS_DIR, new_name)
-                    counter += 1
-
-                with open(dest_path, "wb") as f:
-                    f.write(payload_data)
-
-                return self._json({"ok": True, "path": dest_path, "filename": new_name})
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
