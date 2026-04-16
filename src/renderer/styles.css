@@ -1855,6 +1855,106 @@
             border-color: var(--accent-blue);
             background: rgba(74,144,244,0.14);
         }
+        /* ─── Inbox: unprocessed red dot ───────────── */
+        .inbox-item-unprocessed-dot {
+            width: 8px; height: 8px; min-width: 8px;
+            border-radius: 50%; background: #ef4444;
+            display: inline-block; margin-right: 0.3rem;
+            flex-shrink: 0;
+        }
+
+        /* ─── Inbox: date section bookmarks ────────── */
+        .inbox-date-separator {
+            display: flex; align-items: center; gap: 0.6rem;
+            padding: 0.5rem 1rem 0.3rem;
+            font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            user-select: none;
+        }
+        .inbox-date-separator::after {
+            content: ''; flex: 1; height: 1px;
+            background: var(--card-border);
+        }
+
+        /* ─── Inbox: today / week color coding ────── */
+        .inbox-item.inbox-today {
+            border-left: 3px solid var(--accent-green);
+        }
+        .inbox-item.inbox-today .inbox-item-subject {
+            color: var(--accent-green);
+        }
+        .inbox-item.inbox-this-week {
+            border-left: 3px solid var(--accent-orange);
+        }
+        .inbox-item.inbox-this-week .inbox-item-subject {
+            color: var(--accent-orange);
+        }
+        .inbox-item.inbox-this-month {
+            border-left: 3px solid var(--accent-purple);
+        }
+        .inbox-item.inbox-this-month .inbox-item-subject {
+            color: var(--accent-purple);
+        }
+
+        /* ─── Mail Process: reply modal ───────────── */
+        .mp-reply-overlay {
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0,0,0,0.55);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .mp-reply-modal {
+            background: var(--bg-secondary);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            padding: 1.5rem;
+            width: 700px; max-width: 95vw;
+            max-height: 85vh; overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+        }
+        .mp-reply-modal h3 {
+            margin-bottom: 1rem; font-size: 1.1rem;
+        }
+        .mp-reply-field {
+            margin-bottom: 0.75rem;
+        }
+        .mp-reply-field label {
+            display: block; font-size: 0.8rem; color: var(--text-muted);
+            margin-bottom: 0.25rem; font-weight: 600;
+        }
+        .mp-reply-field input,
+        .mp-reply-field textarea,
+        .mp-reply-field select {
+            width: 100%; padding: 0.45rem 0.6rem;
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            background: var(--progress-bg);
+            color: var(--text); font-family: inherit; font-size: 0.85rem;
+        }
+        .mp-reply-field textarea {
+            min-height: 140px; resize: vertical;
+        }
+        .mp-reply-field input:focus,
+        .mp-reply-field textarea:focus {
+            outline: none; border-color: var(--accent-blue);
+        }
+        .mp-reply-actions {
+            display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem;
+        }
+
+        /* ─── Mail Process Step1: extra buttons ──── */
+        .mp-actions-center .btn-reply-keep {
+            background: var(--accent-green) !important;
+            border-color: var(--accent-green) !important;
+            color: white !important;
+        }
+        .mp-actions-center .btn-reply-delete {
+            background: var(--accent-orange) !important;
+            border-color: var(--accent-orange) !important;
+            color: white !important;
+        }
+
         .inbox-status {
             padding: 0.75rem 1rem; border-radius: 10px; margin-bottom: 1rem;
             font-size: 0.85rem; font-weight: 600;

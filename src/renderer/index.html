@@ -588,6 +588,8 @@
         <div class="mp-step" id="mpStep1">
             <div class="modal-actions mp-actions-center">
                 <button class="btn-danger" onclick="mpDeleteFromServer()"><i class="icon-trash-2"></i> Supprimer du serveur</button>
+                <button class="btn-reply-delete" onclick="mpReplyAndDelete()"><i class="icon-reply"></i> Répondre &amp; Supprimer</button>
+                <button class="btn-reply-keep" onclick="mpReplyAndKeep()"><i class="icon-reply"></i> Répondre &amp; Conserver</button>
                 <button class="btn-primary" onclick="mpKeepMail()"><i class="icon-check"></i> Conserver</button>
             </div>
         </div>
@@ -652,6 +654,52 @@
             <div class="modal-actions mp-actions-center">
                 <button class="btn-primary" onclick="closeMailProcess(true)">Fermer</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reply in Mail Process Modal -->
+<div class="mp-reply-overlay" id="mpReplyModal" style="display:none" onclick="if(event.target===this)closeMpReplyModal()">
+    <div class="mp-reply-modal">
+        <h3><i class="icon-reply"></i> Répondre au mail</h3>
+        <div class="mp-reply-field">
+            <label>Expéditeur</label>
+            <select id="mpReplyFrom"></select>
+        </div>
+        <div class="mp-reply-field">
+            <label>Destinataires</label>
+            <input type="text" id="mpReplyTo" readonly>
+        </div>
+        <div class="mp-reply-field">
+            <label>Sujet</label>
+            <input type="text" id="mpReplySubject" readonly>
+        </div>
+        <div class="mp-reply-field">
+            <label>Prompt IA (optionnel)</label>
+            <textarea id="mpReplyPrompt" rows="2" placeholder="Ex: Réponse courte, ton ferme mais cordial."></textarea>
+        </div>
+        <div class="mp-reply-field">
+            <label>Corps de la réponse</label>
+            <textarea id="mpReplyBody" placeholder="Rédigez votre réponse ici…"></textarea>
+        </div>
+        <div class="mp-reply-field">
+            <label>Message original (figé)</label>
+            <textarea id="mpReplyOriginal" readonly style="min-height:80px;opacity:0.7;font-size:0.8rem"></textarea>
+        </div>
+        <div class="mp-reply-field">
+            <label>Signature</label>
+            <select id="mpReplySignature" class="signature-select" onchange="onMpReplySignatureChange()">
+                <option value="">-- Aucune signature --</option>
+            </select>
+        </div>
+        <div class="mp-reply-field" id="mpReplySignaturePreviewField" style="display:none">
+            <label>Aperçu de la signature</label>
+            <div id="mpReplySignaturePreview" class="signature-preview-box"></div>
+        </div>
+        <div class="mp-reply-actions">
+            <button onclick="closeMpReplyModal()">Annuler</button>
+            <button class="accent-purple" onclick="mpReplyGenerate()"><i class="icon-sparkles"></i> Générer réponse IA</button>
+            <button class="btn-primary" onclick="mpReplySend()"><i class="icon-send"></i> Envoyer</button>
         </div>
     </div>
 </div>

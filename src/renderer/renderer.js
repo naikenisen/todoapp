@@ -1562,6 +1562,8 @@ function closeMailProcess(completed = false) {
     }
 
     document.getElementById('mailProcessModal').classList.remove('show');
+    document.getElementById('mpReplyModal').style.display = 'none';
+    mpReplyMode = null;
     mpQueue = [];
     mpIndex = 0;
     mpSkipAttachments = false;
@@ -1848,6 +1850,179 @@ function mpKeepMail() {
     if (btnSummarize) { btnSummarize.style.display = ''; btnSummarize.disabled = false; }
     if (btnCopy) btnCopy.style.display = 'none';
     mpShowStep('mpStep2');
+}
+
+/* ═══════════════════════════════════════════════════════
+   Mail Process — Reply & Keep / Reply & Delete
+   ═══════════════════════════════════════════════════════ */
+let mpReplyMode = null; // 'keep' or 'delete'
+
+function mpReplyAndKeep() {
+    mpReplyMode = 'keep';
+    openMpReplyModal();
+}
+
+function mpReplyAndDelete() {
+    mpReplyMode = 'delete';
+    openMpReplyModal();
+}
+
+function openMpReplyModal() {
+    if (!mpCurrentMail) return;
+
+    // Populate From selector with available accounts
+    const fromSel = document.getElementById('mpReplyFrom');
+    const enabled = accountsData.filter(acc => acc.email && acc.enabled !== false);
+    fromSel.innerHTML = '';
+    if (!enabled.length) {
+        fromSel.innerHTML = '<option value="">Aucun compte</option>';
+    } else {
+        enabled.forEach(acc => {
+            const opt = document.createElement('option');
+            opt.value = acc.email;
+            opt.textContent = acc.provider === 'gmail_oauth' ? `${acc.email} (Gmail OAuth)` : acc.email;
+            fromSel.appendChild(opt);
+        });
+        // Try to match the account of the current mail
+        if (mpCurrentMail.account) {
+            for (let i = 0; i < fromSel.options.length; i++) {
+                if (fromSel.options[i].value === mpCurrentMail.account) { fromSel.selectedIndex = i; break; }
+            }
+        }
+    }
+
+    document.getElementById('mpReplyTo').value = mpCurrentMail.from_email || '';
+    document.getElementById('mpReplySubject').value = 'Re: ' + (mpCurrentMail.subject || '').replace(/^Re:\s*/i, '');
+    document.getElementById('mpReplyBody').value = '';
+    document.getElementById('mpReplyPrompt').value = 'Réponse professionnelle, claire et concise.';
+    document.getElementById('mpReplyOriginal').value = mpCurrentMail.body || '';
+
+    // Populate signature selector
+    const sigSel = document.getElementById('mpReplySignature');
+    const sigs = state.settings.signatures || [];
+    sigSel.innerHTML = '<option value="">-- Aucune signature --</option>' +
+        sigs.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    onMpReplySignatureChange();
+
+    document.getElementById('mpReplyModal').style.display = '';
+    document.getElementById('mpReplyBody').focus();
+}
+
+function closeMpReplyModal() {
+    document.getElementById('mpReplyModal').style.display = 'none';
+    mpReplyMode = null;
+}
+
+function onMpReplySignatureChange() {
+    const sel = document.getElementById('mpReplySignature');
+    const preview = document.getElementById('mpReplySignaturePreview');
+    const field = document.getElementById('mpReplySignaturePreviewField');
+    if (!sel || !preview || !field) return;
+    const sig = sel.value ? (state.settings.signatures || []).find(s => s.id === sel.value) : null;
+    if (sig) {
+        preview.innerHTML = sig.html;
+        field.style.display = '';
+    } else {
+        preview.innerHTML = '';
+        field.style.display = 'none';
+    }
+}
+
+function getMpReplySignatureHtml() {
+    const sel = document.getElementById('mpReplySignature');
+    if (!sel || !sel.value) return null;
+    const sig = (state.settings.signatures || []).find(s => s.id === sel.value);
+    return sig ? sig.html : null;
+}
+
+async function mpReplyGenerate() {
+    if (!state.settings.geminiKey) {
+        showToast('Configure ta clé API Gemini dans les paramètres.', 'error', 3000);
+        return;
+    }
+    const prompt = (document.getElementById('mpReplyPrompt').value || '').trim();
+    if (!prompt) {
+        showToast('Ajoute un prompt pour orienter la réponse.', 'error');
+        document.getElementById('mpReplyPrompt').focus();
+        return;
+    }
+
+    showLoading('Génération de la réponse avec Gemini…');
+    try {
+        const r = await fetch('/api/generate-reply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: state.settings.geminiKey,
+                prompt,
+                subject: document.getElementById('mpReplySubject').value.trim(),
+                from: mpCurrentMail.from_name || mpCurrentMail.from_email || '',
+                original_text: mpCurrentMail.body || '',
+                draft: document.getElementById('mpReplyBody').value.trim()
+            })
+        });
+        const result = await r.json();
+        if (result.error) {
+            showToast('Erreur IA : ' + result.error, 'error', 5000);
+        } else if (result.text) {
+            document.getElementById('mpReplyBody').value = result.text.trim();
+            showToast('Réponse générée.', 'success');
+        }
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 5000);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function mpReplySend() {
+    const from = document.getElementById('mpReplyFrom').value;
+    const to = document.getElementById('mpReplyTo').value.trim();
+    const subject = document.getElementById('mpReplySubject').value.trim();
+    const bodyDraft = document.getElementById('mpReplyBody').value.trim();
+
+    if (!from) { showToast('Aucun compte expéditeur.', 'error'); return; }
+    if (!to || !subject) { showToast('Destinataire et sujet requis.', 'error'); return; }
+    if (!bodyDraft) { showToast('Le corps de la réponse est vide.', 'error'); return; }
+
+    // Build quoted original text
+    const originalText = mpCurrentMail.body || '';
+    const mailDate = mpCurrentMail.date || '';
+    const mailFrom = mpCurrentMail.from_name || mpCurrentMail.from_email || '';
+    const quoteHeader = 'Le ' + mailDate + ', ' + mailFrom + ' a écrit :';
+    const quotedLines = originalText.split('\n').map(l => l ? '> ' + l : '>').join('\n');
+    const fullBody = bodyDraft + '\n\n> ' + quoteHeader + '\n>\n' + quotedLines;
+
+    const signatureHtml = getMpReplySignatureHtml();
+    const html_body = signatureHtml
+        ? buildHtmlBodyWithOptionalQuote(bodyDraft, signatureHtml, originalText ? 'Le ' + mailDate + ', ' + mailFrom + ' a écrit :\n\n' + originalText : '')
+        : null;
+
+    showLoading('Envoi de la réponse via SMTP…');
+    try {
+        const r = await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ from, to, subject, body: fullBody, html_body })
+        });
+        const result = await r.json();
+        if (result.ok) {
+            showToast('Réponse envoyée !', 'success', 3000);
+            closeMpReplyModal();
+            // Execute the appropriate follow-up action
+            if (mpReplyMode === 'delete') {
+                await mpDeleteFromServer();
+            } else {
+                mpKeepMail();
+            }
+        } else {
+            showToast('Erreur envoi : ' + (result.error || 'Erreur'), 'error', 5000);
+        }
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 5000);
+    } finally {
+        hideLoading();
+    }
 }
 
 async function mpTextImportant() {
@@ -2829,26 +3004,87 @@ function renderInboxList() {
         return;
     }
 
-    container.innerHTML = mails.map(m => {
-        const isSelected = selectedInboxId === m.id;
-        const isSent = m.folder === 'sent';
-        const fromDisplay = isSent ? ('→ ' + (m.to || '').split(',')[0].trim()) : (m.from_name || m.from_email || 'Inconnu');
-        const preview = (m.body || '').substring(0, 80).replace(/\n/g, ' ');
-        const hasAttach = m.attachments && m.attachments.length > 0;
+    // ── date helpers ──
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
 
-        return `
-        <div class="inbox-item ${isSelected ? 'selected' : ''}" onclick="openInboxMail('${esc(m.id)}')">
-            <div class="inbox-item-content">
-                <div class="inbox-item-top">
-                    <span class="inbox-item-from">${esc(fromDisplay)}</span>
-                    <span class="inbox-item-date">${esc(m.date || '')}</span>
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1)); // Monday
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    function parseMailDate(dateStr) {
+        if (!dateStr) return null;
+        const d = new Date(dateStr);
+        return isNaN(d.getTime()) ? null : d;
+    }
+
+    function getDateBucket(d) {
+        if (!d) return 'older';
+        const ds = d.toISOString().slice(0, 10);
+        if (ds === todayStr) return 'today';
+        if (d >= weekStart && d <= weekEnd) return 'week';
+        if (d >= monthStart && d <= monthEnd) return 'month';
+        return 'older';
+    }
+
+    const bucketLabels = {
+        today: "Aujourd'hui",
+        week: 'Cette semaine',
+        month: 'Ce mois',
+        older: 'Plus ancien'
+    };
+
+    // ── group mails by bucket, preserving order ──
+    const buckets = ['today', 'week', 'month', 'older'];
+    const groups = { today: [], week: [], month: [], older: [] };
+    mails.forEach(m => {
+        const d = parseMailDate(m.date);
+        const bucket = getDateBucket(d);
+        groups[bucket].push(m);
+    });
+
+    let html = '';
+    for (const bucket of buckets) {
+        const grp = groups[bucket];
+        if (!grp.length) continue;
+
+        html += `<div class="inbox-date-separator">${bucketLabels[bucket]}</div>`;
+
+        grp.forEach(m => {
+            const isSelected = selectedInboxId === m.id;
+            const isSent = m.folder === 'sent';
+            const fromDisplay = isSent ? ('→ ' + (m.to || '').split(',')[0].trim()) : (m.from_name || m.from_email || 'Inconnu');
+            const preview = (m.body || '').substring(0, 80).replace(/\n/g, ' ');
+            const hasAttach = m.attachments && m.attachments.length > 0;
+            const isUnprocessed = !isSent && !m.processed;
+
+            let colorClass = '';
+            if (bucket === 'today') colorClass = 'inbox-today';
+            else if (bucket === 'week') colorClass = 'inbox-this-week';
+            else if (bucket === 'month') colorClass = 'inbox-this-month';
+
+            html += `
+            <div class="inbox-item ${isSelected ? 'selected' : ''} ${colorClass}" onclick="openInboxMail('${esc(m.id)}')">
+                <div class="inbox-item-content">
+                    <div class="inbox-item-top">
+                        <span class="inbox-item-from">${isUnprocessed ? '<span class="inbox-item-unprocessed-dot"></span>' : ''}${esc(fromDisplay)}</span>
+                        <span class="inbox-item-date">${esc(m.date || '')}</span>
+                    </div>
+                    <div class="inbox-item-subject">${esc(m.subject || 'Sans sujet')}</div>
+                    <div class="inbox-item-preview">${esc(preview)}</div>
+                    ${hasAttach ? '<div class="inbox-item-attach"><i class="icon-paperclip"></i> ' + m.attachments.length + ' pièce(s) jointe(s)</div>' : ''}
                 </div>
-                <div class="inbox-item-subject">${esc(m.subject || 'Sans sujet')}</div>
-                <div class="inbox-item-preview">${esc(preview)}</div>
-                ${hasAttach ? '<div class="inbox-item-attach"><i class="icon-paperclip"></i> ' + m.attachments.length + ' pièce(s) jointe(s)</div>' : ''}
-            </div>
-        </div>`;
-    }).join('');
+            </div>`;
+        });
+    }
+
+    container.innerHTML = html;
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -2965,6 +3201,11 @@ async function fetchEmails() {
 function processMyMails() {
     const ids = inboxMails
         .filter(m => !m.deleted && m.folder !== 'sent' && !m.processed)
+        .sort((a, b) => {
+            const da = a.date ? new Date(a.date).getTime() : 0;
+            const db = b.date ? new Date(b.date).getTime() : 0;
+            return (isNaN(db) ? 0 : db) - (isNaN(da) ? 0 : da);
+        })
         .map(m => m.id);
     if (!ids.length) {
         showToast('Aucun mail à traiter.', 'warning', 2500);

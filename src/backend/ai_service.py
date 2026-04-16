@@ -1,3 +1,4 @@
+import re
 import json
 import logging
 import os
@@ -12,7 +13,7 @@ GEMINI_MODEL = (os.getenv("GEMINI_MODEL", "gemma-4-31b-it") or "").strip() or "g
 # Liste des modèles Gemini de secours
 GEMINI_FALLBACK_MODELS = [
     m.strip()
-    for m in (os.getenv("GEMINI_FALLBACK_MODELS", "gemini-2.5-flash") or "").split(",")
+    for m in (os.getenv("GEMINI_FALLBACK_MODELS", "gemma-3.1-flash-lite") or "").split(",")
     if m.strip()
 ]
 
@@ -23,7 +24,7 @@ def _gemini_model_candidates():
     for model in [GEMINI_MODEL, *GEMINI_FALLBACK_MODELS]:
         if model and model not in models:
             models.append(model)
-    return models or ["gemma-4-31b-it", "gemini-2.5-flash"]
+    return models or ["gemma-4-31b-it", "gemma-3.1-flash-lite"]
 
 
 # Effectue un appel générique à l'API Google Gemini et retourne le texte généré
@@ -50,7 +51,13 @@ def ai_call(token, prompt):
                 result = json.loads(r.read())
             if model != GEMINI_MODEL:
                 logger.warning("Gemini fallback model used: %s", model)
-            return result["candidates"][0]["content"]["parts"][0]["text"]
+            # Pour les modèles "thinking" (ex: Gemma 4), les parts contiennent
+            # d'abord le raisonnement (thought=true) puis la réponse finale.
+            parts = result["candidates"][0]["content"]["parts"]
+            for part in reversed(parts):
+                if not part.get("thought"):
+                    return part["text"]
+            return parts[-1]["text"]
         except urllib.error.HTTPError as e:
             error_body = e.read().decode()
             try:
@@ -149,4 +156,14 @@ def ai_summarize_mail(payload):
         "MAIL À RÉSUMER :\n"
         f"{body}"
     )
-    return ai_call(token, prompt)
+    raw = ai_call(token, prompt)
+    # Supprime le markdown résiduel que le modèle ajoute malgré les consignes
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", raw)   # gras **...**
+    text = re.sub(r"\*([^*]+)\*", r"\1", text)       # italique *...*
+    text = re.sub(r"_([^_]+)_", r"\1", text)         # italique _..._
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)  # titres #
+    text = re.sub(r"^\s*[-*•]\s+", "", text, flags=re.MULTILINE) # bullet points
+    text = re.sub(r"^\s*\d+[.)]\s+", "", text, flags=re.MULTILINE) # listes numérotées
+    text = re.sub(r"\n+", " ", text)                  # retours à la ligne → espace
+    text = re.sub(r"  +", " ", text).strip()          # espaces multiples
+    return text
