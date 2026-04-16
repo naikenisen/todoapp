@@ -8,7 +8,7 @@ import urllib.request
 logger = logging.getLogger("todoapp")
 
 # Modèle Gemini principal utilisé pour les appels IA
-GEMINI_MODEL = (os.getenv("GEMINI_MODEL", "gemma-3-27b-it") or "").strip() or "gemma-3-27b-it"
+GEMINI_MODEL = (os.getenv("GEMINI_MODEL", "gemma-4-31b-it") or "").strip() or "gemma-4-31b-it"
 # Liste des modèles Gemini de secours
 GEMINI_FALLBACK_MODELS = [
     m.strip()
@@ -23,7 +23,7 @@ def _gemini_model_candidates():
     for model in [GEMINI_MODEL, *GEMINI_FALLBACK_MODELS]:
         if model and model not in models:
             models.append(model)
-    return models or ["gemma-3-27b-it", "gemini-2.5-flash"]
+    return models or ["gemma-4-31b-it", "gemini-2.5-flash"]
 
 
 # Effectue un appel générique à l'API Google Gemini et retourne le texte généré
@@ -135,6 +135,18 @@ def ai_summarize_mail(payload):
     token = payload.get("token", "")
     body = payload.get("body", "")
     prompt = (
-        "Tu es un assistant de documentation. Produis un résumé détaillé et exhaustif du mail ci-dessous. Le résumé doit capturer tous les points importants, les dates, les noms, les chiffres, les actions demandées et les décisions. Rédige en prose continue, sans bullet points, sans titres, sans mise en forme. Le résumé doit lire comme un paragraphe de compte-rendu rédigé, avec des phrases complètes et enchaînées. Intègre tous les éléments factuels (chiffres, noms d'auteurs, noms de journaux, noms de fichiers) naturellement dans le texte. Va directement aux faits, sans phrase introductive du type : Dans ce mail OU L'expéditeur indique. N'inclus pas les mentions de rendez-vous, réunions ou visioconférences, ni les références aux pièces jointes. Ces éléments sont gérés séparément. Réponds UNIQUEMENT avec le résumé, sans commentaire ni explication supplémentaire."
+        "CONSIGNE DE FORMAT STRICTE : ta réponse ENTIÈRE doit être UN SEUL PARAGRAPHE "
+        "de prose continue, SANS AUCUN retour à la ligne.\n"
+        "INTERDIT : titres, sous-titres, gras (**), bullet points (- ou *), "
+        "listes numérotées, sections, sauts de ligne, markdown.\n"
+        "INTERDIT : métadonnées (date, expéditeur, destinataire, objet), "
+        "noms des personnes qui envoient ou reçoivent le mail.\n"
+        "OBLIGATOIRE : phrases complètes enchaînées, style compte-rendu narratif, "
+        "tous les faits (chiffres, noms d'auteurs, journaux, fichiers) intégrés "
+        "dans le texte. Va directement aux faits sans introduction.\n"
+        "Ignore les rendez-vous, réunions, visioconférences et pièces jointes.\n"
+        "Réponds UNIQUEMENT avec le paragraphe.\n\n"
+        "MAIL À RÉSUMER :\n"
+        f"{body}"
     )
     return ai_call(token, prompt)
