@@ -133,14 +133,8 @@ def ai_generate_reply(payload):
 # Génère un résumé détaillé et exhaustif du corps d'un mail
 def ai_summarize_mail(payload):
     token = payload.get("token", "")
-    subject = payload.get("subject", "")
     body = payload.get("body", "")
     prompt = (
-        "Tu es un assistant de documentation. "
-        "Produis un résumé détaillé et exhaustif du mail ci-dessous. "
-        "Le résumé doit capturer tous les points importants, les dates, les noms, les actions demandées et les décisions. "
-        "Réponds UNIQUEMENT avec le résumé, sans commentaire ni explication supplémentaire.\n\n"
-        f"Sujet : {subject}\n\n"
-        f"Corps du mail :\n{body}"
+        "Tu es un assistant de documentation. Produis un résumé détaillé et exhaustif du mail ci-dessous. Le résumé doit capturer tous les points importants, les dates, les noms, les chiffres, les actions demandées et les décisions. Rédige en prose continue, sans bullet points, sans titres, sans mise en forme. Le résumé doit lire comme un paragraphe de compte-rendu rédigé, avec des phrases complètes et enchaînées. Intègre tous les éléments factuels (chiffres, noms d'auteurs, noms de journaux, noms de fichiers) naturellement dans le texte. Va directement aux faits, sans phrase introductive du type : Dans ce mail OU L'expéditeur indique. N'inclus pas les mentions de rendez-vous, réunions ou visioconférences, ni les références aux pièces jointes. Ces éléments sont gérés séparément. Réponds UNIQUEMENT avec le résumé, sans commentaire ni explication supplémentaire."
     )
     return ai_call(token, prompt)
