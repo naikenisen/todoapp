@@ -3046,8 +3046,10 @@ function updateMailBadge() {
     const tabBtn = document.querySelector('.tab-btn[data-tab="mail"]');
     if (tabBtn) {
         tabBtn.innerHTML = total > 0
-            ? `<i class="icon-send"></i> Rédiger <span style="font-size:0.7em;color:var(--accent-orange)">● ${total}</span>`
-            : '<i class="icon-send"></i> Rédiger';
+            ? `<i class="icon-send"></i><span style="font-size:0.72em;color:var(--accent-orange)">● ${total}</span>`
+            : '<i class="icon-send"></i>';
+        tabBtn.setAttribute('aria-label', total > 0 ? `Rédiger (${total})` : 'Rédiger');
+        tabBtn.setAttribute('title', total > 0 ? `Rédiger (${total})` : 'Rédiger');
     }
 }
 
@@ -4339,7 +4341,11 @@ function updateInboxBadge() {
     const count = inboxMails.filter(m => !m.deleted).length;
     const tabBtn = document.querySelector('.tab-btn[data-tab="inbox"]');
     if (tabBtn) {
-        tabBtn.innerHTML = count > 0 ? `<i class="icon-inbox"></i> Inbox <span style="font-size:0.75em;color:var(--accent-blue)">(${count})</span>` : '<i class="icon-inbox"></i> Inbox';
+        tabBtn.innerHTML = count > 0
+            ? `<i class="icon-inbox"></i><span style="font-size:0.75em;color:var(--accent-blue)">(${count})</span>`
+            : '<i class="icon-inbox"></i>';
+        tabBtn.setAttribute('aria-label', count > 0 ? `Inbox (${count})` : 'Inbox');
+        tabBtn.setAttribute('title', count > 0 ? `Inbox (${count})` : 'Inbox');
     }
 }
 
