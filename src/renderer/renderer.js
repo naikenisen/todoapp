@@ -77,7 +77,10 @@ function switchTab(tab) {
     }
     if (tab === 'mail') renderMailTab();
     if (tab === 'inbox') loadInbox();
-    if (tab === 'mail-process') refreshMailProcessSummary();
+    if (tab === 'mail-process') {
+        refreshMailProcessSummary();
+        processMyMails({ silentWhenEmpty: true });
+    }
     if (tab === 'downloads') {
         ensureDownloadsAutoRefresh();
         loadDownloadsManager();
@@ -1727,6 +1730,9 @@ async function closeMailProcess(completed = false) {
     mpDeleteInFlight = null;
     mpClearPreparedAttachment();
     refreshMailProcessSummary();
+    if (currentTab === 'mail-process') {
+        switchTab('inbox');
+    }
 }
 
 function mpGetRelevantAttachments(attachments) {
@@ -3123,8 +3129,26 @@ let downloadsRoot = '/home/naiken/Téléchargements';
 let dlPreparedFile = null;
 let downloadsPreviewToken = 0;
 let downloadsAutoRefreshTimer = null;
+const INBOX_CACHE_PREFIX = 'neurail-inbox-cache-';
+const DOWNLOADS_CACHE_KEY = 'neurail-downloads-cache';
 const DOWNLOAD_NATIVE_PREVIEW_EXTS = new Set(['.pdf', '.txt']);
 const DOWNLOAD_ONLYOFFICE_EXTS = new Set(['.odt', '.xlsx', '.pptx', '.docx', '.csv']);
+
+function readLocalSnapshot(key) {
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+}
+
+function writeLocalSnapshot(key, payload) {
+    try {
+        localStorage.setItem(key, JSON.stringify(payload));
+    } catch {}
+}
 
 function setCollapsibleHeaderField(elementId, value, maxLength = 110) {
     const el = document.getElementById(elementId);
@@ -3177,9 +3201,15 @@ function selectDownloadFileEncoded(encodedPath) {
         if (!decoded) return;
         selectedDownloadPath = decoded;
         dlPreparedFile = null;
-        renderDownloadsList();
-        renderDownloadsDetail();
+        renderDownloadsWorkbench();
+        renderDownloadsNativePreview(getSelectedDownloadFile());
     } catch {}
+}
+
+function selectDownloadFileEncodedFromEvent(event, encodedPath) {
+    const target = event?.target;
+    if (target?.closest('button, input, textarea, a')) return;
+    selectDownloadFileEncoded(encodedPath);
 }
 
 function getSelectedDownloadFile() {
@@ -3208,12 +3238,26 @@ function getFilteredDownloadsFiles() {
     if (!query) return downloadsFiles;
     return downloadsFiles.filter((f) =>
         (f.name || '').toLowerCase().includes(query) ||
-        (f.ext || '').toLowerCase().includes(query)
+        (f.ext || '').toLowerCase().includes(query) ||
+        (f.name1 || '').toLowerCase().includes(query) ||
+        (f.name2 || '').toLowerCase().includes(query) ||
+        (f.description || '').toLowerCase().includes(query)
     );
 }
 
 async function loadDownloadsManager(options = {}) {
     const { silent = false } = options;
+    if (downloadsFiles.length === 0) {
+        const cached = readLocalSnapshot(DOWNLOADS_CACHE_KEY);
+        if (cached && Array.isArray(cached.files)) {
+            downloadsFiles = cached.files;
+            downloadsRoot = cached.root || downloadsRoot;
+            renderDownloadsList();
+            renderDownloadsWorkbench();
+            renderDownloadsNativePreview(getSelectedDownloadFile());
+        }
+    }
+
     const statusEl = document.getElementById('downloads-status');
     if (!silent && statusEl) {
         statusEl.style.display = 'block';
@@ -3234,14 +3278,23 @@ async function loadDownloadsManager(options = {}) {
 
         downloadsFiles = Array.isArray(result.files) ? result.files : [];
         downloadsRoot = result.root || downloadsRoot;
+        writeLocalSnapshot(DOWNLOADS_CACHE_KEY, {
+            files: downloadsFiles,
+            root: downloadsRoot,
+            ts: Date.now(),
+        });
 
         if (selectedDownloadPath && !downloadsFiles.some(f => f.path === selectedDownloadPath)) {
             selectedDownloadPath = null;
             dlPreparedFile = null;
         }
+        if (!selectedDownloadPath && downloadsFiles.length) {
+            selectedDownloadPath = downloadsFiles[0].path;
+        }
 
         renderDownloadsList();
-        renderDownloadsDetail();
+        renderDownloadsWorkbench();
+        renderDownloadsNativePreview(getSelectedDownloadFile());
 
         if (!silent && statusEl) {
             statusEl.className = 'inbox-status success';
@@ -3264,32 +3317,7 @@ function ensureDownloadsAutoRefresh() {
     }, 4000);
 }
 
-function renderDownloadsList() {
-    const container = document.getElementById('downloadsList');
-    if (!container) return;
-    const list = getFilteredDownloadsFiles();
-
-    if (!list.length) {
-        container.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-muted)">Aucun fichier correspondant.</div>`;
-        return;
-    }
-
-    container.innerHTML = list.map((f) => {
-        const isSelected = selectedDownloadPath === f.path;
-        const encoded = encodeURIComponent(f.path || '');
-        const isDeposited = !!f.deposited;
-        return `
-            <div class="inbox-item ${isSelected ? 'selected' : ''} ${isDeposited ? 'is-deposited' : ''}" onclick="selectDownloadFileEncoded('${encoded}')">
-                <div class="inbox-item-content">
-                    <div class="inbox-item-top">
-                        <span class="inbox-item-from">${esc(f.name || 'fichier')}</span>
-                        <span class="inbox-item-date">${esc(f.date || '')}</span>
-                    </div>
-                    <div class="inbox-item-subject">${esc((f.ext || '').replace('.', '').toUpperCase())} • ${esc(formatDownloadSize(f.size || 0))}${isDeposited ? ' • Déposé' : ''}</div>
-                </div>
-            </div>`;
-    }).join('');
-}
+function renderDownloadsList() {}
 
 function updateDownloadFilenamePreview() {
     const file = getSelectedDownloadFile();
@@ -3379,68 +3407,176 @@ function renderDownloadsPreparedZone() {
     });
 }
 
-function renderDownloadsDetail() {
-    const panel = document.getElementById('downloadsDetail');
-    if (!panel) return;
-    const file = getSelectedDownloadFile();
+function renderDownloadsDetail() {}
 
-    if (!file) {
-        panel.className = 'downloads-detail-empty';
-        panel.innerHTML = `
-            <i class="icon-folder-down inbox-empty-icon"></i>
-            <p>Sélectionne un fichier pour le traiter</p>`;
+function isDownloadReadyForDrop(file) {
+    return !!(String(file?.name1 || '').trim() && String(file?.name2 || '').trim() && String(file?.description || '').trim());
+}
+
+function renderDownloadsWorkbench() {
+    const panel = document.getElementById('downloadsWorkbench');
+    if (!panel) return;
+    const list = getFilteredDownloadsFiles();
+
+    if (!list.length) {
+        panel.innerHTML = `<div class="downloads-workbench-empty">Aucun fichier correspondant.</div>`;
+        renderDownloadsNativePreview(null);
         return;
     }
 
-    panel.className = 'downloads-detail-card';
-    const preferOnlyOffice = shouldOpenInOnlyOffice(file);
+    if (!selectedDownloadPath || !list.some((f) => f.path === selectedDownloadPath)) {
+        selectedDownloadPath = list[0].path;
+    }
+
+    const rows = list.map((f) => {
+        const ready = isDownloadReadyForDrop(f);
+        const deposited = !!f.deposited;
+        const canDrag = ready && !deposited;
+        const isSelected = selectedDownloadPath === f.path;
+        const pathEncoded = encodeURIComponent(f.path || '');
+        const openBtn = shouldOpenInOnlyOffice(f)
+            ? `<button onclick="openDownloadFileInOnlyOfficeEncoded('${pathEncoded}')">OnlyOffice</button>`
+            : `<button onclick="openDownloadFileExternallyEncoded('${pathEncoded}')">Ouvrir</button>`;
+
+        return `
+            <tr class="${deposited ? 'is-deposited' : ''} ${isSelected ? 'is-selected' : ''}" data-path="${esc(f.path || '')}" onclick="selectDownloadFileEncodedFromEvent(event, '${pathEncoded}')">
+                <td class="file-col" title="${esc(f.name || '')}">${esc(f.name || '')}</td>
+                <td><input class="dw-input" data-field="name1" value="${esc(f.name1 || '')}" placeholder="Nom 1" onblur="saveDownloadRowMetadata(this)"></td>
+                <td><input class="dw-input" data-field="name2" value="${esc(f.name2 || '')}" placeholder="Nom 2" onblur="saveDownloadRowMetadata(this)"></td>
+                <td><textarea class="dw-input dw-textarea" data-field="description" placeholder="Description longue" onblur="saveDownloadRowMetadata(this)">${esc(f.description || '')}</textarea></td>
+                <td class="state-col ${deposited ? 'state-deposited' : ''}">${deposited ? 'Déposé' : (ready ? 'Prêt' : 'À compléter')}</td>
+                <td class="actions-col">
+                    <button ${canDrag ? '' : 'disabled'} draggable="true" ondragstart="startDownloadRowDrag(event, '${pathEncoded}')" ondragend="finishDownloadRowDrag(event, '${pathEncoded}')">Glisser</button>
+                    ${openBtn}
+                </td>
+            </tr>`;
+    }).join('');
+
     panel.innerHTML = `
-        <div class="downloads-file-title">${esc(file.name || 'fichier')}</div>
-        <div class="downloads-meta">
-            <div><strong>Date:</strong> ${esc(file.date || '')}</div>
-            <div><strong>Taille:</strong> ${esc(formatDownloadSize(file.size || 0))}</div>
-            <div><strong>Type:</strong> ${esc((file.ext || '').replace('.', '').toUpperCase())}</div>
-            <div><strong>Racine:</strong> ${esc(downloadsRoot)}</div>
-        </div>
+        <table class="downloads-workbench-table">
+            <thead>
+                <tr>
+                    <th>Fichier</th>
+                    <th>Nom 1</th>
+                    <th>Nom 2</th>
+                    <th>Description longue</th>
+                    <th>État</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>`;
 
-        <div class="downloads-form">
-            <div class="downloads-columns-grid">
-                <div>
-                    <label>Nom 1</label>
-                    <input type="text" id="dlName1" maxlength="60" value="${esc(file.name1 || '')}" placeholder="Ex: Facture" oninput="updateDownloadFilenamePreview()" onblur="saveDownloadMetadataOnBlur()">
-                </div>
-                <div>
-                    <label>Nom 2</label>
-                    <input type="text" id="dlName2" maxlength="60" value="${esc(file.name2 || '')}" placeholder="Ex: EDF" oninput="updateDownloadFilenamePreview()" onblur="saveDownloadMetadataOnBlur()">
-                </div>
-            </div>
-            <div class="downloads-filename-preview">Nom de fichier: <strong id="dlFilenamePreview">Nom1_Nom2${esc(String(file.ext || '').toLowerCase())}</strong></div>
+    renderDownloadsNativePreview(getSelectedDownloadFile());
+}
 
-            <label>Description longue (obligatoire)</label>
-            <textarea id="dlDescription" placeholder="Décrivez précisément le contenu du document..." onblur="saveDownloadMetadataOnBlur()">${esc(file.description || '')}</textarea>
+function collectDownloadRowData(row) {
+    return {
+        path: String(row?.dataset?.path || '').trim(),
+        name1: String(row?.querySelector('[data-field="name1"]')?.value || '').trim(),
+        name2: String(row?.querySelector('[data-field="name2"]')?.value || '').trim(),
+        description: String(row?.querySelector('[data-field="description"]')?.value || '').trim(),
+    };
+}
 
-            <div class="downloads-prepared-zone">
-                <p id="downloadsPreparedPlaceholder" class="attachment-placeholder" style="margin:0">Prépare le fichier puis glisse-dépose le chip vers Storga.</p>
-                <div id="downloadsPreparedAttachment" class="attachment-list"></div>
-            </div>
-        </div>
+async function saveDownloadRowMetadata(el) {
+    const row = el?.closest('tr[data-path]');
+    if (!row) return;
+    const data = collectDownloadRowData(row);
+    if (!data.path) return;
 
-        <div class="downloads-preview-panel">
-            <h4>Aperçu</h4>
-            <div id="downloadsNativePreview" class="downloads-native-preview">Chargement de l'aperçu...</div>
-        </div>
+    try {
+        const r = await fetch('/api/downloads/update-metadata', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        const result = await r.json();
+        if (!r.ok || !result.ok) {
+            showToast('Erreur : ' + (result.error || 'enregistrement impossible'), 'error', 3200);
+            return;
+        }
+        await loadDownloadsManager({ silent: true });
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 3200);
+    }
+}
 
-        <div class="downloads-actions">
-            <button onclick="savePreparedDownloadAs()"><i class="icon-download"></i> Enregistrer sous...</button>
-            ${preferOnlyOffice
-                ? '<button onclick="openSelectedDownloadInOnlyOffice()"><i class="icon-file-edit"></i> Ouvrir dans OnlyOffice</button>'
-                : '<button onclick="openSelectedDownloadExternally()"><i class="icon-eye"></i> Ouvrir</button>'}
-            <button class="danger" onclick="trashSelectedDownload()"><i class="icon-trash-2"></i> Mettre à la corbeille</button>
-        </div>`;
+function openDownloadFileExternallyEncoded(encodedPath) {
+    try {
+        const decoded = decodeURIComponent(encodedPath || '');
+        if (!decoded) return;
+        const file = downloadsFiles.find((f) => f.path === decoded);
+        if (!file) return;
+        selectedDownloadPath = file.path;
+        openSelectedDownloadExternally();
+    } catch {}
+}
 
-    updateDownloadFilenamePreview();
-    renderDownloadsPreparedZone();
-    renderDownloadsNativePreview(file);
+function openDownloadFileInOnlyOfficeEncoded(encodedPath) {
+    try {
+        const decoded = decodeURIComponent(encodedPath || '');
+        if (!decoded) return;
+        const file = downloadsFiles.find((f) => f.path === decoded);
+        if (!file) return;
+        selectedDownloadPath = file.path;
+        openSelectedDownloadInOnlyOffice();
+    } catch {}
+}
+
+function startDownloadRowDrag(event, encodedPath) {
+    try {
+        const decoded = decodeURIComponent(encodedPath || '');
+        if (!decoded) {
+            event.preventDefault();
+            return;
+        }
+        if (window.electronAPI?.startDragOut) {
+            event.preventDefault();
+            window.electronAPI.startDragOut(decoded);
+        }
+    } catch {
+        event.preventDefault();
+    }
+}
+
+async function finishDownloadRowDrag(_event, encodedPath) {
+    try {
+        const decoded = decodeURIComponent(encodedPath || '');
+        if (!decoded) return;
+        await fetch('/api/downloads/mark-deposited', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: decoded, deposited: true }),
+        });
+        await loadDownloadsManager({ silent: true });
+    } catch {}
+}
+
+async function trashAllDepositedDownloads() {
+    const depositedCount = downloadsFiles.filter((f) => !!f.deposited).length;
+    if (!depositedCount) {
+        showToast('Aucun fichier déposé à envoyer à la corbeille.', 'warning', 2800);
+        return;
+    }
+
+    if (!confirm(`Mettre à la corbeille ${depositedCount} fichier(s) déjà déposés dans Storga ?`)) return;
+
+    showLoading('Déplacement en masse vers la corbeille...');
+    try {
+        const r = await fetch('/api/downloads/trash-deposited', { method: 'POST' });
+        const result = await r.json();
+        if (!r.ok || !result.ok) {
+            showToast('Erreur : ' + (result.error || 'échec'), 'error', 3800);
+            return;
+        }
+        await loadDownloadsManager();
+        showToast(`${result.deleted || 0} fichier(s) déplacé(s) à la corbeille.`, 'success', 2800);
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 3800);
+    } finally {
+        hideLoading();
+    }
 }
 
 async function openDownloadsBatchDropWindow() {
@@ -3662,11 +3798,28 @@ async function trashSelectedDownload() {
    Inbox — Load & Render
    ═══════════════════════════════════════════════════════ */
 async function loadInbox() {
+    if (inboxMails.length === 0) {
+        const cacheKey = INBOX_CACHE_PREFIX + inboxFolder;
+        const cached = readLocalSnapshot(cacheKey);
+        if (cached && Array.isArray(cached.mails)) {
+            inboxMails = cached.mails;
+            renderInboxList();
+            updateInboxBadge();
+            updateInboxFolderActions();
+        }
+    }
+
     try {
         let endpoint = '/api/inbox';
         if (inboxFolder === 'commercial') endpoint = '/api/inbox/commercial';
         const r = await fetch(endpoint);
-        if (r.ok) inboxMails = await r.json();
+        if (r.ok) {
+            inboxMails = await r.json();
+            writeLocalSnapshot(INBOX_CACHE_PREFIX + inboxFolder, {
+                mails: inboxMails,
+                ts: Date.now(),
+            });
+        }
     } catch {}
     renderInboxList();
     updateInboxBadge();
@@ -4033,7 +4186,14 @@ async function deleteAllCommercialMails() {
     }
 }
 
-async function processMyMails() {
+async function processMyMails(options = {}) {
+    const { silentWhenEmpty = false } = options;
+
+    const modal = document.getElementById('mailProcessModal');
+    if (modal?.classList.contains('show')) {
+        return;
+    }
+
     if (inboxFolder !== 'inbox') {
         inboxFolder = 'inbox';
         await loadInbox();
@@ -4047,7 +4207,9 @@ async function processMyMails() {
 
     const ids = getProcessableInboxIds();
     if (!ids.length) {
-        showToast('Aucun mail à traiter.', 'warning', 2500);
+        if (!silentWhenEmpty) {
+            showToast('Aucun mail à traiter.', 'warning', 2500);
+        }
         clearMailProcessProgress();
         refreshMailProcessSummary();
         return;
@@ -4790,8 +4952,6 @@ function startAutoFetchLoop() {
     autoSave();
     updateMailBadge();
     startAutoFetchLoop();
-    fetchEmails({ silent: true }).catch(() => {});
-    fetch('/api/mail/reclassify-commercial', { method: 'POST' }).catch(() => {});
     loadInbox().then(() => {
         updateInboxBadge();
         // Populate From dropdown with account emails
@@ -4800,6 +4960,12 @@ function startAutoFetchLoop() {
             updateMailFromOptions();
         }).catch(() => {});
     });
+    setTimeout(() => {
+        loadDownloadsManager({ silent: true }).catch(() => {});
+    }, 800);
+    setTimeout(() => {
+        fetchEmails({ silent: true }).catch(() => {});
+    }, 12000);
     if (currentTab === 'mail') renderMailTab();
 })();
 

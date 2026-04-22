@@ -24,12 +24,12 @@
     <div class="tab-bar" id="mainTabBar">
         <div class="workspace-brand" aria-label="NeuRail">NeuRail</div>
         <div class="tab-bar-fixed">
-            <button class="tab-btn active" data-tab="todo" onclick="switchTab('todo')"><i class="icon-list-checks"></i> Todo</button>
-            <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')"><i class="icon-inbox"></i> Inbox</button>
-            <button class="tab-btn" data-tab="mail-process" onclick="switchTab('mail-process')"><i class="icon-sparkles"></i> Traitement</button>
-            <button class="tab-btn" data-tab="downloads" onclick="switchTab('downloads')"><i class="icon-folder-down"></i> Téléchargements</button>
-            <button class="tab-btn" data-tab="mail" onclick="switchTab('mail')"><i class="icon-send"></i> Rédiger</button>
-            <button class="tab-btn" data-tab="annuaire" onclick="switchTab('annuaire')"><i class="icon-users"></i> Annuaire</button>
+            <button class="tab-btn active" data-tab="todo" onclick="switchTab('todo')" title="Todo" aria-label="Todo"><i class="icon-list-checks"></i></button>
+            <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')" title="Inbox" aria-label="Inbox"><i class="icon-inbox"></i></button>
+            <button class="tab-btn" data-tab="mail-process" onclick="switchTab('mail-process')" title="Traitement" aria-label="Traitement"><i class="icon-sparkles"></i></button>
+            <button class="tab-btn" data-tab="downloads" onclick="switchTab('downloads')" title="Téléchargements" aria-label="Téléchargements"><i class="icon-folder-down"></i></button>
+            <button class="tab-btn" data-tab="mail" onclick="switchTab('mail')" title="Rédiger" aria-label="Rédiger"><i class="icon-send"></i></button>
+            <button class="tab-btn" data-tab="annuaire" onclick="switchTab('annuaire')" title="Annuaire" aria-label="Annuaire"><i class="icon-users"></i></button>
         </div>
         <div class="tab-bar-scroll" id="siteTabButtons"></div>
         <button class="tab-btn tab-btn-add-site tab-btn-add-site-accent" onclick="openAddSiteModal()" title="Ajouter un site"><i class="icon-plus"></i></button>
@@ -88,18 +88,10 @@
 
     <!-- MAIL PROCESS TAB -->
     <div class="tab-content" id="tab-mail-process">
-        <header>
-            <div class="header-actions">
-                <button onclick="processMyMails()" id="btnProcessMailsFromTab"><i class="icon-sparkles"></i> Traiter mes mails</button>
-            </div>
-        </header>
         <div class="mail-process-shell">
             <div class="mail-process-card">
                 <h3><i class="icon-sparkles"></i> Traitement guidé des mails</h3>
-                <p id="mailProcessSummaryText">Chargement des mails à traiter...</p>
-                <div class="mail-process-actions">
-                    <button class="btn-primary" onclick="processMyMails()" id="btnProcessMailsMain">Lancer le traitement</button>
-                </div>
+                <p id="mailProcessSummaryText">Ouverture automatique du traitement...</p>
             </div>
         </div>
     </div>
@@ -110,24 +102,24 @@
             <div class="header-actions">
                 <button onclick="loadDownloadsManager()"><i class="icon-refresh-cw"></i> Rafraîchir</button>
                 <button onclick="openDownloadsBatchDropWindow()"><i class="icon-paperclip"></i> Préparer pour glisser-déposer</button>
+                <button onclick="trashAllDepositedDownloads()"><i class="icon-trash-2"></i> Mettre tout à la corbeille</button>
             </div>
         </header>
 
         <div id="downloads-status" class="inbox-status is-hidden"></div>
 
-        <div class="downloads-layout">
-            <div class="downloads-list-panel">
+        <div class="downloads-layout downloads-layout-wide">
+            <div class="downloads-workbench-panel">
                 <div class="inbox-search">
-                    <input type="text" id="downloadsSearch" placeholder="Rechercher dans les téléchargements…" oninput="renderDownloadsList()">
+                    <input type="text" id="downloadsSearch" placeholder="Rechercher fichier, nom 1, nom 2, description…" oninput="renderDownloadsWorkbench()">
                 </div>
-                <div id="downloadsList" class="inbox-list"></div>
+                <div id="downloadsWorkbench" class="downloads-workbench"></div>
             </div>
-
-            <div class="downloads-detail-panel" id="downloadsDetailPanel">
-                <div id="downloadsDetail" class="downloads-detail-empty">
-                    <i class="icon-folder-down inbox-empty-icon"></i>
-                    <p>Sélectionne un fichier pour le traiter</p>
+            <div class="downloads-preview-panel">
+                <div class="downloads-preview-header">
+                    <h4><i class="icon-eye"></i> Aperçu natif</h4>
                 </div>
+                <div id="downloadsNativePreview" class="downloads-native-preview">Sélectionne un fichier pour afficher un aperçu PDF/TXT.</div>
             </div>
         </div>
     </div>

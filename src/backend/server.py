@@ -15,6 +15,7 @@ import sys
 import time
 import urllib.parse
 import hashlib
+import threading
 from urllib.parse import parse_qs, urlparse
 from datetime import datetime
 from email import policy as email_policy
@@ -679,6 +680,15 @@ ONLYOFFICE_CANDIDATE_CMDS = [
     "desktopeditors",
 ]
 
+_MAILBOX_REFRESH_LOCK = threading.Lock()
+_MAILBOX_REFRESH_RUNNING = False
+_MAILBOX_REFRESH_LAST_START = 0.0
+
+_DOWNLOADS_CACHE_LOCK = threading.Lock()
+_DOWNLOADS_CACHE_FILES = []
+_DOWNLOADS_CACHE_TS = 0.0
+_DOWNLOADS_CACHE_RUNNING = False
+
 
 def _is_subpath(path_value: str, root_dir: str) -> bool:
     try:
@@ -699,6 +709,31 @@ def _safe_download_path(path_value: str) -> str:
     if not os.path.isfile(abs_path):
         raise ValueError("Fichier introuvable")
     return abs_path
+
+
+def _schedule_mailbox_refresh(min_interval_seconds: int = 20) -> bool:
+    global _MAILBOX_REFRESH_RUNNING, _MAILBOX_REFRESH_LAST_START
+    now = time.time()
+    with _MAILBOX_REFRESH_LOCK:
+        if _MAILBOX_REFRESH_RUNNING:
+            return False
+        if (now - _MAILBOX_REFRESH_LAST_START) < float(min_interval_seconds):
+            return False
+        _MAILBOX_REFRESH_RUNNING = True
+        _MAILBOX_REFRESH_LAST_START = now
+
+    def _worker():
+        global _MAILBOX_REFRESH_RUNNING
+        try:
+            refresh_and_classify_local_mailboxes()
+        except Exception:
+            pass
+        finally:
+            with _MAILBOX_REFRESH_LOCK:
+                _MAILBOX_REFRESH_RUNNING = False
+
+    threading.Thread(target=_worker, daemon=True, name="neurail-mailbox-refresh").start()
+    return True
 
 
 def _downloads_metadata_csv_path() -> str:
@@ -830,7 +865,54 @@ def update_download_metadata(path_value: str, name1: str, name2: str, descriptio
     }
 
 
-def list_download_candidates():
+def mark_download_deposited(path_value: str, deposited: bool = True) -> dict:
+    file_path = _safe_download_path(path_value)
+    filename = os.path.basename(file_path)
+
+    metadata = _read_downloads_metadata()
+    row = dict(metadata.get(filename) or {})
+    row["filename"] = filename
+    row["name1"] = str(row.get("name1", "") or "").strip()
+    row["name2"] = str(row.get("name2", "") or "").strip()
+    row["description"] = str(row.get("description", "") or "").strip()
+    row["deposited"] = bool(deposited)
+    metadata[filename] = row
+    _write_downloads_metadata(metadata)
+    return row
+
+
+def trash_deposited_downloads() -> dict:
+    files = list_download_candidates(force_refresh=True)
+    deposited_files = [f for f in files if bool(f.get("deposited", False))]
+    if not deposited_files:
+        return {"ok": True, "deleted": 0, "errors": []}
+
+    deleted = 0
+    errors = []
+    moved_names = set()
+
+    for f in deposited_files:
+        path_value = str(f.get("path", "") or "").strip()
+        name = str(f.get("name", "") or "").strip()
+        try:
+            move_file_to_trash(path_value)
+            deleted += 1
+            if name:
+                moved_names.add(name)
+        except Exception as e:
+            errors.append(f"{name or path_value}: {e}")
+
+    if moved_names:
+        metadata = _read_downloads_metadata()
+        for name in moved_names:
+            metadata.pop(name, None)
+        _write_downloads_metadata(metadata)
+
+    _schedule_downloads_refresh()
+    return {"ok": True, "deleted": deleted, "errors": errors}
+
+
+def _compute_download_candidates():
     files = []
     if not os.path.isdir(DOWNLOADS):
         return files
@@ -868,6 +950,51 @@ def list_download_candidates():
 
     files.sort(key=lambda x: x.get("mtime", 0), reverse=True)
     return files
+
+
+def _schedule_downloads_refresh() -> bool:
+    global _DOWNLOADS_CACHE_RUNNING, _DOWNLOADS_CACHE_FILES, _DOWNLOADS_CACHE_TS
+    with _DOWNLOADS_CACHE_LOCK:
+        if _DOWNLOADS_CACHE_RUNNING:
+            return False
+        _DOWNLOADS_CACHE_RUNNING = True
+
+    def _worker():
+        global _DOWNLOADS_CACHE_RUNNING, _DOWNLOADS_CACHE_FILES, _DOWNLOADS_CACHE_TS
+        try:
+            fresh = _compute_download_candidates()
+            with _DOWNLOADS_CACHE_LOCK:
+                _DOWNLOADS_CACHE_FILES = fresh
+                _DOWNLOADS_CACHE_TS = time.time()
+        finally:
+            with _DOWNLOADS_CACHE_LOCK:
+                _DOWNLOADS_CACHE_RUNNING = False
+
+    threading.Thread(target=_worker, daemon=True, name="neurail-downloads-refresh").start()
+    return True
+
+
+def list_download_candidates(force_refresh: bool = False):
+    global _DOWNLOADS_CACHE_FILES, _DOWNLOADS_CACHE_TS
+    now = time.time()
+    with _DOWNLOADS_CACHE_LOCK:
+        cache_age = now - _DOWNLOADS_CACHE_TS
+        has_cache = bool(_DOWNLOADS_CACHE_FILES)
+        should_refresh = force_refresh or (cache_age > 10.0)
+        cached = list(_DOWNLOADS_CACHE_FILES)
+
+    if should_refresh:
+        _schedule_downloads_refresh()
+
+    if has_cache:
+        return cached
+
+    # Premier appel: calcul synchrone unique pour amorcer le cache.
+    fresh = _compute_download_candidates()
+    with _DOWNLOADS_CACHE_LOCK:
+        _DOWNLOADS_CACHE_FILES = fresh
+        _DOWNLOADS_CACHE_TS = time.time()
+    return list(fresh)
 
 
 def prepare_download_for_drag(path_value: str, short_name: str):
@@ -1106,12 +1233,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
         if self.path == "/api/inbox":
-            # Indexe aussi les .eml locaux lors de l'ouverture de la boite
-            # pour afficher les mails de /mails sans action manuelle "Relever".
-            try:
-                refresh_and_classify_local_mailboxes()
-            except Exception:
-                pass
+            # Rafraîchit en arrière-plan pour garder une UI instantanée.
+            _schedule_mailbox_refresh()
             inbox = load_inbox_index()
             visible = [
                 m for m in inbox
@@ -1120,10 +1243,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             visible.sort(key=lambda m: m.get("date_ts", 0), reverse=True)
             return self._json(visible)
         if self.path == "/api/inbox/commercial":
-            try:
-                refresh_and_classify_local_mailboxes()
-            except Exception:
-                pass
+            _schedule_mailbox_refresh()
             inbox = load_inbox_index()
             visible = [
                 m for m in inbox
@@ -1492,6 +1612,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             try:
                 path_value = data.get("path", "")
                 move_file_to_trash(path_value)
+                _schedule_downloads_refresh()
                 return self._json({"ok": True})
             except ValueError as ve:
                 return self._json({"error": str(ve)}, 400)
@@ -1515,9 +1636,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 name2 = data.get("name2", "")
                 description = data.get("description", "")
                 file_data = update_download_metadata(path_value, name1, name2, description)
+                _schedule_downloads_refresh()
                 return self._json({"ok": True, "file": file_data})
             except ValueError as ve:
                 return self._json({"error": str(ve)}, 400)
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
+        if self.path == "/api/downloads/mark-deposited":
+            try:
+                path_value = data.get("path", "")
+                deposited = bool(data.get("deposited", True))
+                row = mark_download_deposited(path_value, deposited)
+                _schedule_downloads_refresh()
+                return self._json({"ok": True, "row": row})
+            except ValueError as ve:
+                return self._json({"error": str(ve)}, 400)
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
+        if self.path == "/api/downloads/trash-deposited":
+            try:
+                result = trash_deposited_downloads()
+                return self._json(result)
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
@@ -1685,7 +1826,7 @@ if __name__ == "__main__":
     print(f"🚀 Todo → http://localhost:{PORT}", flush=True)
     try:
         socketserver.TCPServer.allow_reuse_address = True
-        server = http.server.HTTPServer(("", PORT), Handler)
+        server = http.server.ThreadingHTTPServer(("", PORT), Handler)
         print(f"✅ Server bound to port {PORT}, serving…", flush=True)
         server.serve_forever()
     except SystemExit as se:
