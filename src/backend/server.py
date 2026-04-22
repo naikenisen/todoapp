@@ -887,6 +887,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         except Exception as del_err:
                             remote_error = str(del_err)
 
+                if delete_on_server and remote_error:
+                    return self._json({
+                        "ok": False,
+                        "error": f"Suppression distante impossible: {remote_error}",
+                        "remote": {
+                            "already_missing": remote_missing,
+                            "error": remote_error,
+                        },
+                    }, 502)
+
                 eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
                 if os.path.isfile(eml_path):
                     os.remove(eml_path)
@@ -929,6 +939,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     if not mail:
                         errors.append(mail_id)
                         continue
+                    remote_ok_for_local_delete = True
                     if delete_on_server and mail.get("uid") and mail.get("account"):
                         account = find_account_by_email(mail["account"])
                         if account:
@@ -939,6 +950,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                             except Exception as del_err:
                                 logger.warning("Batch delete on server failed for %s: %s", mail_id, del_err)
                                 remote_failed.append({"id": mail_id, "error": str(del_err)})
+                                remote_ok_for_local_delete = False
+                    if delete_on_server and not remote_ok_for_local_delete:
+                        errors.append(mail_id)
+                        continue
                     eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
                     if os.path.isfile(eml_path):
                         os.remove(eml_path)

@@ -1475,9 +1475,9 @@ let mpRelevantAtts = [];
 let mpAttIndex = 0;
 let mpSkipStep1 = false;
 let mpSkipAttachments = false;
-let mpDeferredServerDeleteIds = [];
 let mpPreparedAttachment = null;
 let mpPendingDeleteCurrentMail = false;
+let mpDeleteInFlight = null;
 
 function mpShowStep(stepId) {
     document.querySelectorAll('#mailProcessContent .mp-step').forEach(el => el.classList.add('is-hidden'));
@@ -1532,8 +1532,8 @@ function startMailProcess(mailIds, skipDeleteStep, skipAttachmentStep = false) {
     mpIndex = 0;
     mpSkipStep1 = !!skipDeleteStep;
     mpSkipAttachments = !!skipAttachmentStep;
-    mpDeferredServerDeleteIds = [];
     mpPendingDeleteCurrentMail = false;
+    mpDeleteInFlight = null;
     const modal = document.getElementById('mailProcessModal');
     modal.classList.add('show');
     mpProcessCurrent();
@@ -1552,13 +1552,31 @@ async function markMailProcessed(mailId) {
     } catch {}
 }
 
-function closeMailProcess(completed = false) {
+async function closeMailProcess(completed = false) {
     const aborted = !completed && mpQueue.length > 0 && mpIndex < mpQueue.length;
 
-    // A cancellation must never trigger deferred deletion for the current mail.
-    if (aborted) {
-        mpPendingDeleteCurrentMail = false;
-        showToast('Traitement annule : le mail courant reste non traite et non supprime.', 'warning', 3200);
+    // If user asked to delete the current mail, finish that deletion before closing.
+    if (aborted && mpPendingDeleteCurrentMail) {
+        showLoading('Finalisation de la suppression serveur...');
+        try {
+            await mpDeleteCurrentMailOnServerAndLocally();
+            showToast('Suppression demandée finalisée avant fermeture.', 'success', 2600);
+        } finally {
+            hideLoading();
+            mpPendingDeleteCurrentMail = false;
+        }
+    } else if (aborted) {
+        showToast('Traitement annulé : le mail courant reste non traité.', 'warning', 3200);
+    }
+
+    // If a server deletion is currently running, wait for completion before closing.
+    if (mpDeleteInFlight) {
+        showLoading('Finalisation de la suppression serveur...');
+        try {
+            await mpDeleteInFlight;
+        } finally {
+            hideLoading();
+        }
     }
 
     document.getElementById('mailProcessModal').classList.remove('show');
@@ -1568,8 +1586,8 @@ function closeMailProcess(completed = false) {
     mpIndex = 0;
     mpSkipAttachments = false;
     mpCurrentMail = null;
-    mpDeferredServerDeleteIds = [];
     mpPendingDeleteCurrentMail = false;
+    mpDeleteInFlight = null;
     mpClearPreparedAttachment();
 }
 
@@ -1585,30 +1603,50 @@ function mpGetRelevantAttachments(attachments) {
     return relevant;
 }
 
-async function mpDeleteCurrentMailLocallyAndQueueRemote() {
+async function mpDeleteCurrentMailOnServerAndLocally() {
     if (!mpCurrentMail || !mpCurrentMail.id) return false;
-    try {
+    const mailId = mpCurrentMail.id;
+    const deletePromise = (async () => {
         const r = await fetch('/api/mail/delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: mpCurrentMail.id, delete_on_server: false })
+            body: JSON.stringify({ id: mailId, delete_on_server: true })
         });
-        const result = await r.json();
+
+        let result = {};
+        try {
+            result = await r.json();
+        } catch {}
+
         if (!r.ok || !result.ok) {
-            showToast('Suppression locale impossible: ' + (result.error || 'Erreur inconnue'), 'warning', 3500);
+            showToast('Suppression serveur impossible: ' + (result.error || 'Erreur inconnue'), 'warning', 3500);
             return false;
         }
-        mpDeferredServerDeleteIds.push(mpCurrentMail.id);
+
+        const remoteMissing = !!result.remote?.already_missing;
+        if (remoteMissing) {
+            showToast('Mail déjà absent du serveur distant.', 'success', 2600);
+        }
         return true;
+    })();
+
+    mpDeleteInFlight = deletePromise;
+    try {
+        return await deletePromise;
     } catch {
-        showToast('Suppression locale impossible.', 'warning', 3000);
+        showToast('Suppression serveur impossible.', 'warning', 3000);
         return false;
+    } finally {
+        if (mpDeleteInFlight === deletePromise) {
+            mpDeleteInFlight = null;
+        }
+        await loadInbox();
     }
 }
 
 async function mpFinalizeCurrentMailAfterAttachmentStep() {
     if (mpPendingDeleteCurrentMail) {
-        await mpDeleteCurrentMailLocallyAndQueueRemote();
+        await mpDeleteCurrentMailOnServerAndLocally();
         mpPendingDeleteCurrentMail = false;
     }
     mpNextMail();
@@ -1750,43 +1788,9 @@ function mpBlobToBase64(blob) {
     });
 }
 
-async function mpFlushDeferredServerDeletes() {
-    const ids = [...new Set(mpDeferredServerDeleteIds)];
-    if (!ids.length) return;
-
-    showLoading('Suppression distante en cours…');
-    try {
-        const r = await fetch('/api/mail/delete-batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ids, delete_on_server: true })
-        });
-        const result = await r.json();
-        if (result.ok) {
-            const missing = result.remote?.already_missing || 0;
-            const failed = (result.remote?.failed || []).length;
-            if (failed > 0) {
-                showToast(`Suppression distante partielle: ${failed} erreur(s), ${missing} déjà supprimé(s).`, 'warning', 4500);
-            } else if (missing > 0) {
-                showToast(`Suppression distante terminée (${missing} déjà supprimé(s) sur le serveur).`, 'success', 3500);
-            } else {
-                showToast('Suppression distante terminée.', 'success', 2500);
-            }
-        } else {
-            showToast('Erreur suppression distante: ' + (result.error || 'Erreur inconnue'), 'error', 4500);
-        }
-    } catch (e) {
-        showToast('Erreur suppression distante: ' + e.message, 'error', 4500);
-    } finally {
-        hideLoading();
-        mpDeferredServerDeleteIds = [];
-        await loadInbox();
-    }
-}
-
 async function mpProcessCurrent() {
     if (mpIndex >= mpQueue.length) {
-        await mpFlushDeferredServerDeletes();
+        await loadInbox();
         mpShowStep('mpStepDone');
         return;
     }
@@ -1833,7 +1837,7 @@ async function mpDeleteFromServer() {
         return;
     }
 
-    await mpDeleteCurrentMailLocallyAndQueueRemote();
+    await mpDeleteCurrentMailOnServerAndLocally();
     mpPendingDeleteCurrentMail = false;
     mpNextMail();
 }
@@ -2204,9 +2208,9 @@ function mpAddN2DuringProcess() {
     showToast(`N2 ajouté: ${newN2}`, 'success', 2200);
 }
 
-function mpCancelClassification() {
+async function mpCancelClassification() {
     mpClearPreparedAttachment();
-    closeMailProcess(false);
+    await closeMailProcess(false);
 }
 
 async function mpPrepareAttachmentForDrop() {
