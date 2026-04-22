@@ -23,6 +23,7 @@ let composerReplyContext = null;
 let leadsFilter = 'all';
 let respondedMailsExpanded = false;
 let appInstallConfig = null;
+let commercialSendersSettings = [];
 
 const DEFAULT_MAIL_N2_MAP = {
     'EV': ['Congrès REVE 2024 TNE','Poster ISEV 2024 TNE','article_cart','exosarc','alcina','tne','exodiag','lymphome','exomel','pseudoprogression','evolve','krasipanc','thèse pharmacie','etude_observationnelle','memoire_des'],
@@ -746,6 +747,7 @@ function openSettings() {
     document.getElementById('settingsModal').classList.add('show');
     switchSettingsTab('general');
     loadInstallLocalSettings();
+    loadCommercialSendersSettings();
     renderMailTaxonomySettingsForm();
     const contactsCount = document.getElementById('contactsCount');
     if (contactsCount) contactsCount.textContent = `${contacts.length} contacts chargés`;
@@ -823,7 +825,73 @@ function switchSettingsTab(tabKey, btn = null) {
     });
     if (key === 'data') {
     }
+    if (key === 'commercial') {
+        loadCommercialSendersSettings();
+    }
     if (btn) btn.blur();
+}
+
+function renderCommercialSendersSettings() {
+    const container = document.getElementById('commercialSendersList');
+    if (!container) return;
+
+    if (!Array.isArray(commercialSendersSettings) || !commercialSendersSettings.length) {
+        container.innerHTML = '<div class="commercial-senders-empty">Aucune adresse commerciale enregistrée.</div>';
+        return;
+    }
+
+    container.innerHTML = commercialSendersSettings.map((item) => {
+        const email = String(item?.email || '').trim().toLowerCase();
+        const count = Number(item?.count || 0);
+        const encodedEmail = encodeURIComponent(email);
+        return `
+            <div class="commercial-sender-row">
+                <div class="commercial-sender-meta">
+                    <div class="commercial-sender-email">${esc(email)}</div>
+                    <div class="commercial-sender-count">${count} mail(s) indexé(s)</div>
+                </div>
+                <button class="stg-btn stg-btn-danger stg-btn-sm" onclick="removeCommercialSender('${encodedEmail}')"><i class="icon-trash-2"></i> Retirer</button>
+            </div>`;
+    }).join('');
+}
+
+async function loadCommercialSendersSettings() {
+    try {
+        const r = await fetch('/api/commercial/senders');
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.error || 'Chargement impossible');
+        commercialSendersSettings = Array.isArray(data.senders) ? data.senders : [];
+        renderCommercialSendersSettings();
+    } catch (e) {
+        const container = document.getElementById('commercialSendersList');
+        if (container) {
+            container.innerHTML = `<div class="commercial-senders-empty">Erreur: ${esc(e.message || String(e))}</div>`;
+        }
+    }
+}
+
+async function removeCommercialSender(email) {
+    const sender = decodeURIComponent(String(email || '')).trim().toLowerCase();
+    if (!sender) return;
+    if (!confirm(`Retirer ${sender} des adresses commerciales automatiques ?`)) return;
+
+    showLoading('Mise à jour des adresses commerciales...');
+    try {
+        const r = await fetch('/api/commercial/senders/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: sender, reclassify: true }),
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.error || 'Suppression impossible');
+        await loadCommercialSendersSettings();
+        await loadInbox();
+        showToast('Adresse retirée des expéditeurs commerciaux.', 'success', 2600);
+    } catch (e) {
+        showToast(`Erreur: ${e.message || e}`, 'error', 3600);
+    } finally {
+        hideLoading();
+    }
 }
 
 function renderInstallStorageList(paths = {}) {

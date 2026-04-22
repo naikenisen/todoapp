@@ -387,6 +387,9 @@
                 <button class="settings-fs-nav-item" data-settings-tab="data" onclick="switchSettingsTab('data', this)">
                     <i class="icon-database"></i><span>Données &amp; Stockage</span>
                 </button>
+                <button class="settings-fs-nav-item" data-settings-tab="commercial" onclick="switchSettingsTab('commercial', this)">
+                    <i class="icon-tag"></i><span>Adresses commerciales</span>
+                </button>
             </nav>
 
             <main class="settings-fs-main">
@@ -559,6 +562,25 @@
                         <span class="stg-hint" style="align-self:center;margin-left:.75rem">Un redémarrage peut être nécessaire</span>
                     </div>
 
+                </section>
+
+                <!-- ── Adresses commerciales ───────── -->
+                <section class="settings-fs-tab" id="settings-tab-commercial">
+                    <h2 class="settings-fs-title">Adresses commerciales</h2>
+
+                    <div class="stg-section">
+                        <div class="stg-section-header">
+                            <div class="stg-section-icon"><i class="icon-tag"></i></div>
+                            <div class="stg-section-text">
+                                <h3>Expéditeurs classés commercial</h3>
+                                <p>Supprime une adresse de cette liste pour arrêter le classement automatique en commercial.</p>
+                            </div>
+                            <button class="stg-btn stg-btn-ghost" onclick="loadCommercialSendersSettings()"><i class="icon-refresh-cw"></i> Rafraîchir</button>
+                        </div>
+                        <div class="stg-section-body">
+                            <div id="commercialSendersList" class="commercial-senders-list"></div>
+                        </div>
+                    </div>
                 </section>
 
             </main>

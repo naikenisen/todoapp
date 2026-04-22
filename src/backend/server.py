@@ -534,6 +534,11 @@ def _move_mail_to_storage(mail: dict, target_dir: str, target_mailbox: str, proc
     mail["eml_file"] = target_name
     mail["storage_dir"] = target_dir
     mail["mailbox"] = target_mailbox
+    if target_mailbox == "commercial":
+        if not int(mail.get("commercial_since_ts") or 0):
+            mail["commercial_since_ts"] = int(time.time())
+    else:
+        mail.pop("commercial_since_ts", None)
     if processed_override is not None:
         mail["processed"] = bool(processed_override)
     return True
@@ -563,6 +568,8 @@ def apply_commercial_filter(inbox: list[dict]) -> int:
                     changed += 1
             else:
                 mail["processed"] = True
+                if not int(mail.get("commercial_since_ts") or 0):
+                    mail["commercial_since_ts"] = int(time.time())
         else:
             if current_mailbox == "commercial":
                 moved = _move_mail_to_storage(mail, MAILS_DIR, "inbox", processed_override=False)
@@ -571,6 +578,7 @@ def apply_commercial_filter(inbox: list[dict]) -> int:
             else:
                 mail["mailbox"] = "inbox"
                 mail["storage_dir"] = MAILS_DIR
+                mail.pop("commercial_since_ts", None)
     return changed
 
 
@@ -610,7 +618,7 @@ def refresh_and_classify_local_mailboxes():
     return total_new, all_errors, changed
 
 
-def delete_mails_batch(ids, delete_on_server=True):
+def delete_mails_batch(ids, delete_on_server=True, allow_local_on_remote_error=False):
     if not ids or not isinstance(ids, list):
         return {"ok": False, "error": "ids manquants"}, 400
 
@@ -642,8 +650,11 @@ def delete_mails_batch(ids, delete_on_server=True):
                     remote_ok_for_local_delete = False
 
         if delete_on_server and not remote_ok_for_local_delete:
-            errors.append(mail_id)
-            continue
+            if allow_local_on_remote_error:
+                remote_ok_for_local_delete = True
+            else:
+                errors.append(mail_id)
+                continue
 
         eml_path = resolve_eml_path(mail)
         if os.path.isfile(eml_path):
@@ -671,6 +682,35 @@ def delete_mails_batch(ids, delete_on_server=True):
     }, 200
 
 
+def purge_expired_commercial_mails(max_age_seconds: int) -> dict:
+    inbox = load_inbox_index()
+    cutoff = int(time.time()) - int(max_age_seconds)
+
+    ids = []
+    for mail in inbox:
+        if mail.get("deleted") or mail.get("folder") == "sent":
+            continue
+        if _mailbox_of(mail) != "commercial":
+            continue
+
+        commercial_since = int(mail.get("commercial_since_ts") or 0)
+        if commercial_since <= 0:
+            commercial_since = int(mail.get("date_ts") or 0)
+        if commercial_since <= 0:
+            continue
+        if commercial_since <= cutoff:
+            mail_id = str(mail.get("id") or "").strip()
+            if mail_id:
+                ids.append(mail_id)
+
+    if not ids:
+        return {"ok": True, "eligible": 0, "deleted": 0, "errors": []}
+
+    result, _ = delete_mails_batch(ids, delete_on_server=True, allow_local_on_remote_error=False)
+    result["eligible"] = len(ids)
+    return result
+
+
 DOWNLOAD_RELEVANT_EXTS = {".docx", ".xlsx", ".csv", ".pdf", ".odt", ".txt", ".pptx"}
 DOWNLOADS_METADATA_FILE = "data.csv"
 DOWNLOADS_METADATA_FIELDS = ["filename", "name1", "name2", "description", "deposited"]
@@ -690,6 +730,7 @@ _BG_MAIL_MAINTENANCE_THREAD = None
 
 BG_CLASSIFY_INTERVAL_SECONDS = max(45, int(os.environ.get("NEURAIL_BG_CLASSIFY_INTERVAL", "180") or "180"))
 BG_FETCH_INTERVAL_SECONDS = max(120, int(os.environ.get("NEURAIL_BG_FETCH_INTERVAL", "600") or "600"))
+COMMERCIAL_RETENTION_SECONDS = max(3600, int(os.environ.get("NEURAIL_COMMERCIAL_RETENTION_SECONDS", str(2 * 24 * 60 * 60)) or str(2 * 24 * 60 * 60)))
 
 _DOWNLOADS_CACHE_LOCK = threading.Lock()
 _DOWNLOADS_CACHE_FILES = []
@@ -1145,6 +1186,7 @@ def _background_mail_maintenance_loop():
         if now >= next_classify_at:
             try:
                 refresh_and_classify_local_mailboxes()
+                purge_expired_commercial_mails(COMMERCIAL_RETENTION_SECONDS)
             except Exception:
                 pass
             next_classify_at = now + float(BG_CLASSIFY_INTERVAL_SECONDS)
@@ -1303,6 +1345,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             ]
             visible.sort(key=lambda m: m.get("date_ts", 0), reverse=True)
             return self._json(visible)
+        if self.path == "/api/commercial/senders":
+            try:
+                senders = sorted(_load_commercial_senders())
+                inbox = load_inbox_index()
+                counts = {}
+                for m in inbox:
+                    if m.get("deleted") or m.get("folder") == "sent":
+                        continue
+                    sender = str(m.get("from_email", "") or "").strip().lower()
+                    if not sender:
+                        continue
+                    counts[sender] = int(counts.get(sender, 0)) + 1
+                return self._json({
+                    "ok": True,
+                    "senders": [
+                        {"email": s, "count": int(counts.get(s, 0))}
+                        for s in senders
+                    ],
+                })
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
         if self.path == "/api/inbox/sent":
             inbox = load_inbox_index()
             sent = [m for m in inbox if m.get("folder") == "sent" and not m.get("deleted")]
@@ -1636,8 +1699,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 ]
                 if not ids:
                     return self._json({"ok": True, "deleted": 0, "errors": []})
-                result, code = delete_mails_batch(ids, delete_on_server=True)
+                result, code = delete_mails_batch(ids, delete_on_server=True, allow_local_on_remote_error=True)
                 return self._json(result, code)
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
+        if self.path == "/api/commercial/senders/remove":
+            try:
+                email_addr = str(data.get("email", "") or "").strip().lower()
+                if not email_addr or "@" not in email_addr:
+                    return self._json({"error": "Adresse invalide"}, 400)
+
+                sender_rules = _load_commercial_senders()
+                removed = email_addr in sender_rules
+                if removed:
+                    sender_rules.remove(email_addr)
+                    _save_commercial_senders(sender_rules)
+
+                moved = 0
+                if bool(data.get("reclassify", True)):
+                    _, _, moved = refresh_and_classify_local_mailboxes()
+
+                return self._json({"ok": True, "removed": removed, "moved": moved})
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
