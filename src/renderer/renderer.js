@@ -24,6 +24,8 @@ let leadsFilter = 'all';
 let respondedMailsExpanded = false;
 let appInstallConfig = null;
 let commercialSendersSettings = [];
+let bgActivitySeq = 0;
+const bgActivities = new Map();
 
 const DEFAULT_MAIL_N2_MAP = {
     'EV': ['Congrès REVE 2024 TNE','Poster ISEV 2024 TNE','article_cart','exosarc','alcina','tne','exodiag','lymphome','exomel','pseudoprogression','evolve','krasipanc','thèse pharmacie','etude_observationnelle','memoire_des'],
@@ -203,7 +205,7 @@ function render() {
     const app = document.getElementById('app');
     const scrollY = window.scrollY;
     app.innerHTML = renderHeader() + renderProgress() + renderSections()
-        + (editMode ? '<button class="add-section-btn" onclick="openSectionModal()">+ Nouvelle section</button>' : '')
+        + '<button class="add-section-btn" onclick="openSectionModal()"><i class="icon-plus"></i> Nouvelle section</button>'
         + renderArchives();
     updateProgress();
     setupDragDrop();
@@ -211,14 +213,7 @@ function render() {
 }
 
 function renderHeader() {
-    return `
-    <header>
-        <div class="header-actions">
-            <button onclick="toggleEdit()" class="${editMode ? 'active' : ''}">
-                ${editMode ? '<i class="icon-check"></i> Terminer' : '<i class="icon-pencil"></i> Éditer'}
-            </button>
-        </div>
-    </header>`;
+    return '';
 }
 
 function renderProgress() {
@@ -246,9 +241,8 @@ function renderSections() {
     return state.sections.map(s => {
         const totalTasks = s.tasks.length;
         const tasksHtml = s.tasks.map((t, idx) => renderTask(t, s.id, idx, totalTasks)).join('');
-        const editBtns = `
-            <button class="btn-icon" onclick="event.stopPropagation();openSectionModal('${s.id}')" title="Modifier"><i class="icon-pencil"></i></button>
-        `;
+        const modeBtn = `<button class="btn-section-mode ${editMode ? 'active' : ''}" onclick="event.stopPropagation();toggleEdit()" title="${editMode ? 'Terminer édition' : 'Éditer'}">${editMode ? 'Terminer' : 'Éditer'}</button>`;
+        const editBtns = `<button class="btn-icon" onclick="event.stopPropagation();openSectionModal('${s.id}')" title="Modifier la section"><i class="icon-pencil"></i></button>`;
         const dangerBtns = editMode ? `
             <button class="btn-icon" onclick="event.stopPropagation();deleteSection('${s.id}')" title="Supprimer"><i class="icon-trash-2"></i></button>
         ` : '';
@@ -269,6 +263,7 @@ function renderSections() {
                     <span class="section-badge">${esc(s.badge || '')}</span>
                 </span>
                 <div class="section-header-right">
+                    ${modeBtn}
                     ${editBtns}
                     ${dangerBtns}
                     <div class="section-progress-mini">
@@ -337,10 +332,6 @@ function renderTask(t, sid, index, total) {
                 <input type="text" class="task-input" value="${esc(t.label)}"
                     onchange="updateTask('${sid}','${t.id}','label',this.value)"
                     onkeydown="if(event.key==='Enter'){this.blur()}">
-                <input type="text" class="task-note-input" value="${esc(t.note || '')}"
-                    placeholder="Note (optionnel)"
-                    onchange="updateTask('${sid}','${t.id}','note',this.value)"
-                    onkeydown="if(event.key==='Enter'){this.blur()}">
             </div>
             <div class="edit-actions">
                 ${typeBadge}
@@ -355,9 +346,53 @@ function renderTask(t, sid, index, total) {
         ${priorityBadge}
         ${check}
         <span class="task-label" onclick="toggleTask('${sid}','${t.id}')">
-            ${esc(t.label)}${t.note ? `<span class="task-note">${esc(t.note)}</span>` : ''}
+            ${esc(t.label)}
         </span>
     </div>`;
+}
+
+function startBackgroundActivity(label) {
+    const text = String(label || '').trim() || 'Tâche en arrière-plan';
+    const id = `bg-${++bgActivitySeq}`;
+    bgActivities.set(id, { label: text, startTs: Date.now() });
+    renderBackgroundActivityIndicator();
+    return id;
+}
+
+function stopBackgroundActivity(id) {
+    if (!id) return;
+    bgActivities.delete(id);
+    renderBackgroundActivityIndicator();
+}
+
+function renderBackgroundActivityIndicator() {
+    const holder = document.getElementById('bgActivityIndicator');
+    const countEl = document.getElementById('bgActivityCount');
+    if (!holder || !countEl) return;
+
+    const items = Array.from(bgActivities.values());
+    if (!items.length) {
+        holder.classList.remove('is-active');
+        holder.title = 'Aucune activité en arrière-plan';
+        holder.setAttribute('aria-label', 'Aucune activité en arrière-plan');
+        countEl.textContent = '';
+        return;
+    }
+
+    const groups = new Map();
+    for (const item of items) {
+        groups.set(item.label, (groups.get(item.label) || 0) + 1);
+    }
+
+    const lines = [];
+    for (const [label, count] of groups.entries()) {
+        lines.push(`- ${label}${count > 1 ? ` (x${count})` : ''}`);
+    }
+
+    holder.classList.add('is-active');
+    holder.title = `Activités en arrière-plan:\n${lines.join('\n')}`;
+    holder.setAttribute('aria-label', `Activités en arrière-plan (${items.length})`);
+    countEl.textContent = String(items.length);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -3313,6 +3348,7 @@ function getFilteredDownloadsFiles() {
 
 async function loadDownloadsManager(options = {}) {
     const { silent = false } = options;
+    const bgToken = silent ? startBackgroundActivity('Analyse des téléchargements') : '';
     if (downloadsFiles.length === 0) {
         const cached = readLocalSnapshot(DOWNLOADS_CACHE_KEY);
         if (cached && Array.isArray(cached.files)) {
@@ -3372,6 +3408,8 @@ async function loadDownloadsManager(options = {}) {
             statusEl.className = 'inbox-status error';
             statusEl.textContent = 'Erreur : ' + e.message;
         }
+    } finally {
+        if (bgToken) stopBackgroundActivity(bgToken);
     }
 }
 
@@ -3503,6 +3541,7 @@ function renderDownloadsWorkbench() {
         const openBtn = shouldOpenInOnlyOffice(f)
             ? `<button onclick="openDownloadFileInOnlyOfficeEncoded('${pathEncoded}')">OnlyOffice</button>`
             : `<button onclick="openDownloadFileExternallyEncoded('${pathEncoded}')">Ouvrir</button>`;
+        const trashBtn = `<button onclick="trashDownloadFileEncoded('${pathEncoded}')">Supprimer</button>`;
 
         return `
             <tr class="${deposited ? 'is-deposited' : ''} ${isSelected ? 'is-selected' : ''}" data-path="${esc(f.path || '')}" onclick="selectDownloadFileEncodedFromEvent(event, '${pathEncoded}')">
@@ -3514,6 +3553,7 @@ function renderDownloadsWorkbench() {
                 <td class="actions-col">
                     <button ${canDrag ? '' : 'disabled'} draggable="true" ondragstart="startDownloadRowDrag(event, '${pathEncoded}')" ondragend="finishDownloadRowDrag(event, '${pathEncoded}')">Glisser</button>
                     ${openBtn}
+                    ${trashBtn}
                 </td>
             </tr>`;
     }).join('');
@@ -3588,6 +3628,30 @@ function openDownloadFileInOnlyOfficeEncoded(encodedPath) {
         selectedDownloadPath = file.path;
         openSelectedDownloadInOnlyOffice();
     } catch {}
+}
+
+async function trashDownloadFileEncoded(encodedPath) {
+    try {
+        const decoded = decodeURIComponent(encodedPath || '');
+        if (!decoded) return;
+        const r = await fetch('/api/downloads/trash', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: decoded }),
+        });
+        const result = await r.json();
+        if (!r.ok || !result.ok) {
+            showToast('Erreur : ' + (result.error || 'échec suppression'), 'error', 3600);
+            return;
+        }
+        if (selectedDownloadPath === decoded) {
+            selectedDownloadPath = null;
+        }
+        await loadDownloadsManager({ silent: true });
+        showToast('Fichier déplacé dans la corbeille.', 'success', 2200);
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 3600);
+    }
 }
 
 function startDownloadRowDrag(event, encodedPath) {
@@ -4159,6 +4223,8 @@ function openInboxAttachment(mailId, idx, name) {
    ═══════════════════════════════════════════════════════ */
 async function fetchEmails(options = {}) {
     const { silent = false } = options;
+    const bgLabel = String(options.backgroundLabel || '').trim();
+    const bgToken = (silent || bgLabel) ? startBackgroundActivity(bgLabel || 'Récupération des mails') : '';
     const statusEl = document.getElementById('inbox-status');
     if (!silent && statusEl) {
         statusEl.style.display = 'block';
@@ -4189,6 +4255,8 @@ async function fetchEmails(options = {}) {
             statusEl.className = 'inbox-status error';
             statusEl.textContent = 'Erreur réseau : ' + e.message;
         }
+    } finally {
+        if (bgToken) stopBackgroundActivity(bgToken);
     }
 
     if (!silent && statusEl) {
@@ -4988,7 +5056,7 @@ function startAutoFetchLoop() {
     if (autoFetchTimer) clearInterval(autoFetchTimer);
     autoFetchTimer = setInterval(() => {
         if (document.hidden) return;
-        fetchEmails({ silent: true }).catch(() => {});
+        fetchEmails({ silent: true, backgroundLabel: 'Récupération automatique des mails' }).catch(() => {});
     }, 90 * 1000);
 }
 
@@ -5007,6 +5075,7 @@ function startAutoFetchLoop() {
     }
 
     render();
+    renderBackgroundActivityIndicator();
     if (!state.settings) state.settings = {};
     applyThemeMode(state.settings.uiTheme || 'dark');
 
@@ -5031,7 +5100,7 @@ function startAutoFetchLoop() {
         loadDownloadsManager({ silent: true }).catch(() => {});
     }, 800);
     setTimeout(() => {
-        fetchEmails({ silent: true }).catch(() => {});
+        fetchEmails({ silent: true, backgroundLabel: 'Initialisation des mails' }).catch(() => {});
     }, 4000);
     if (currentTab === 'mail') renderMailTab();
 })();
