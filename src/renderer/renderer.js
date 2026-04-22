@@ -77,6 +77,7 @@ function switchTab(tab) {
     }
     if (tab === 'mail') renderMailTab();
     if (tab === 'inbox') loadInbox();
+    if (tab === 'mail-process') refreshMailProcessSummary();
     if (tab === 'downloads') loadDownloadsManager();
     if (tab === 'annuaire') loadAnnuaire();
     updateSiteTabViewVisibility();
@@ -1864,8 +1865,8 @@ async function mpProcessCurrent() {
     } catch { mpNextMail(); return; }
 
     document.getElementById('mpFrom').textContent = (mpCurrentMail.from_name || '') + ' <' + (mpCurrentMail.from_email || '') + '>';
-    document.getElementById('mpTo').textContent = mpCurrentMail.to || '-';
-    document.getElementById('mpCc').textContent = mpCurrentMail.cc || '-';
+    setCollapsibleHeaderField('mpTo', mpCurrentMail.to || '');
+    setCollapsibleHeaderField('mpCc', mpCurrentMail.cc || '');
     document.getElementById('mpSubject').textContent = mpCurrentMail.subject || 'Sans sujet';
     document.getElementById('mpDate').textContent = mpCurrentMail.date || '';
     mpRenderMailPreview(mpCurrentMail);
@@ -3007,12 +3008,49 @@ function launchConfetti() {
 let inboxMails = [];
 let selectedInboxId = null;
 let deleteMailTarget = null;
-let inboxFolder = 'inbox'; // 'inbox' | 'commercial' | 'sent'
+let inboxFolder = 'inbox'; // 'inbox' | 'commercial'
 let autoFetchTimer = null;
 let downloadsFiles = [];
 let selectedDownloadPath = null;
 let downloadsRoot = '/home/naiken/Téléchargements';
 let dlPreparedFile = null;
+
+function setCollapsibleHeaderField(elementId, value, maxLength = 110) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+
+    const raw = String(value || '').trim();
+    if (!raw) {
+        el.textContent = '-';
+        return;
+    }
+
+    if (raw.length <= maxLength) {
+        el.textContent = raw;
+        return;
+    }
+
+    const shortValue = raw.slice(0, maxLength).trimEnd() + '...';
+    el.innerHTML = `<span class="collapsible-field" data-expanded="0" data-short="${esc(shortValue)}" data-full="${esc(raw)}"><span class="collapsible-value">${esc(shortValue)}</span><button class="collapsible-toggle" onclick="toggleCollapsibleField(this)">voir +</button></span>`;
+}
+
+function toggleCollapsibleField(button) {
+    const holder = button?.closest('.collapsible-field');
+    if (!holder) return;
+    const valueEl = holder.querySelector('.collapsible-value');
+    if (!valueEl) return;
+
+    const expanded = holder.dataset.expanded === '1';
+    if (expanded) {
+        valueEl.textContent = holder.dataset.short || '';
+        holder.dataset.expanded = '0';
+        button.textContent = 'voir +';
+    } else {
+        valueEl.textContent = holder.dataset.full || '';
+        holder.dataset.expanded = '1';
+        button.textContent = 'réduire';
+    }
+}
 
 function formatDownloadSize(bytes) {
     const n = Number(bytes || 0);
@@ -3329,7 +3367,6 @@ async function trashSelectedDownload() {
 async function loadInbox() {
     try {
         let endpoint = '/api/inbox';
-        if (inboxFolder === 'sent') endpoint = '/api/inbox/sent';
         if (inboxFolder === 'commercial') endpoint = '/api/inbox/commercial';
         const r = await fetch(endpoint);
         if (r.ok) inboxMails = await r.json();
@@ -3337,18 +3374,13 @@ async function loadInbox() {
     renderInboxList();
     updateInboxBadge();
     updateInboxFolderActions();
+    refreshMailProcessSummary();
 }
 
-function toggleInboxFolder() {
-    inboxFolder = inboxFolder === 'inbox'
-        ? 'commercial'
-        : (inboxFolder === 'commercial' ? 'sent' : 'inbox');
-    const btn = document.getElementById('inboxFolderBtn');
-    if (btn) {
-        if (inboxFolder === 'inbox') btn.innerHTML = '<i class="icon-inbox"></i> Reçus';
-        else if (inboxFolder === 'commercial') btn.innerHTML = '<i class="icon-tag"></i> Commercial';
-        else btn.innerHTML = '<i class="icon-send"></i> Envoyés';
-    }
+function setInboxFolder(folder) {
+    if (folder !== 'inbox' && folder !== 'commercial') return;
+    if (inboxFolder === folder) return;
+    inboxFolder = folder;
     selectedInboxId = null;
     document.getElementById('inboxReader').innerHTML = `
         <div class="inbox-reader-empty">
@@ -3360,12 +3392,40 @@ function toggleInboxFolder() {
 
 function updateInboxFolderActions() {
     const isCommercial = inboxFolder === 'commercial';
-    const processBtn = document.getElementById('btnProcessMails');
+    const inboxBtn = document.getElementById('inboxFolderInboxBtn');
+    const commercialBtn = document.getElementById('inboxFolderCommercialBtn');
     const keepBtn = document.getElementById('btnKeepCommercial');
     const deleteCommercialBtn = document.getElementById('btnDeleteCommercial');
-    if (processBtn) processBtn.classList.toggle('is-hidden', isCommercial || inboxFolder === 'sent');
+    if (inboxBtn) inboxBtn.classList.toggle('active', inboxFolder === 'inbox');
+    if (commercialBtn) commercialBtn.classList.toggle('active', isCommercial);
     if (keepBtn) keepBtn.classList.toggle('is-hidden', !isCommercial);
     if (deleteCommercialBtn) deleteCommercialBtn.classList.toggle('is-hidden', !isCommercial);
+}
+
+async function refreshMailProcessSummary() {
+    const textEl = document.getElementById('mailProcessSummaryText');
+    const mainBtn = document.getElementById('btnProcessMailsMain');
+    const topBtn = document.getElementById('btnProcessMailsFromTab');
+    if (!textEl && !mainBtn && !topBtn) return;
+
+    try {
+        const r = await fetch('/api/inbox');
+        if (!r.ok) throw new Error('Lecture Inbox impossible');
+        const mails = await r.json();
+        const pending = (Array.isArray(mails) ? mails : []).filter(m => !m.deleted && m.folder !== 'sent' && !m.processed && (m.mailbox || 'inbox') !== 'commercial');
+        const pendingCount = pending.length;
+        if (textEl) {
+            textEl.textContent = pendingCount > 0
+                ? `${pendingCount} mail(s) non traité(s) dans Reçus.`
+                : 'Aucun mail à traiter pour le moment.';
+        }
+        if (mainBtn) mainBtn.disabled = pendingCount === 0;
+        if (topBtn) topBtn.disabled = pendingCount === 0;
+    } catch (e) {
+        if (textEl) textEl.textContent = 'Impossible de charger le statut de traitement: ' + e.message;
+        if (mainBtn) mainBtn.disabled = false;
+        if (topBtn) topBtn.disabled = false;
+    }
 }
 
 function filterInbox() {
@@ -3493,7 +3553,7 @@ async function openInboxMail(mailId) {
     if (!mail) return;
 
     if (inboxFolder === 'inbox' && !mail.processed) {
-        showToast('Ce mail doit être traité via "Traiter mes mails" avant ouverture.', 'warning', 3000);
+        showToast('Ce mail doit être traité via l\'onglet "Traitement" avant ouverture.', 'warning', 3000);
         return;
     }
 
@@ -3538,8 +3598,8 @@ function renderInboxReader(mail) {
             <div class="inbox-reader-subject">${esc(mail.subject || 'Sans sujet')}</div>
             <div class="inbox-reader-meta">
                 <span><strong>De :</strong> ${esc(mail.from_name || '')} &lt;${esc(mail.from_email || '')}&gt;</span>
-                <span><strong>À :</strong> ${esc(mail.to || '')}</span>
-                ${mail.cc ? `<span><strong>Cc :</strong> ${esc(mail.cc)}</span>` : ''}
+                <span><strong>À :</strong> <span id="readerToField"></span></span>
+                ${mail.cc ? '<span><strong>Cc :</strong> <span id="readerCcField"></span></span>' : ''}
                 <span><strong>Date :</strong> ${esc(mail.date || '')}</span>
                 <span><strong>Compte :</strong> ${esc(mail.account || '')}</span>
                 ${mail.folder === 'sent' ? '<span style="color:var(--accent-green);font-weight:600">📤 Envoyé</span>' : ''}
@@ -3558,6 +3618,8 @@ function renderInboxReader(mail) {
         const frame = document.getElementById('mailHtmlFrame');
         if (frame) frame.srcdoc = mail.body_html;
     }
+    setCollapsibleHeaderField('readerToField', mail.to || '');
+    if (mail.cc) setCollapsibleHeaderField('readerCcField', mail.cc || '');
 }
 
 function openInboxAttachment(mailId, idx, name) {
@@ -3681,7 +3743,12 @@ async function deleteAllCommercialMails() {
     }
 }
 
-function processMyMails() {
+async function processMyMails() {
+    if (inboxFolder !== 'inbox') {
+        inboxFolder = 'inbox';
+        await loadInbox();
+    }
+
     const ids = inboxMails
         .filter(m => !m.deleted && m.folder !== 'sent' && !m.processed && (m.mailbox || 'inbox') !== 'commercial')
         .sort((a, b) => {

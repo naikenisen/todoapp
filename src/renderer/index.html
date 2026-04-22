@@ -26,6 +26,7 @@
         <div class="tab-bar-fixed">
             <button class="tab-btn active" data-tab="todo" onclick="switchTab('todo')"><i class="icon-list-checks"></i> Todo</button>
             <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')"><i class="icon-inbox"></i> Inbox</button>
+            <button class="tab-btn" data-tab="mail-process" onclick="switchTab('mail-process')"><i class="icon-sparkles"></i> Traitement</button>
             <button class="tab-btn" data-tab="downloads" onclick="switchTab('downloads')"><i class="icon-folder-down"></i> Téléchargements</button>
             <button class="tab-btn" data-tab="mail" onclick="switchTab('mail')"><i class="icon-send"></i> Rédiger</button>
             <button class="tab-btn" data-tab="annuaire" onclick="switchTab('annuaire')"><i class="icon-users"></i> Annuaire</button>
@@ -56,9 +57,11 @@
         <header>
             <div class="header-actions">
                 <button onclick="fetchEmails()"><i class="icon-refresh-cw"></i> Relever les mails</button>
-                <button onclick="processMyMails()" id="btnProcessMails"><i class="icon-sparkles"></i> Traiter mes mails</button>
                 <button onclick="openAccountsModal()"><i class="icon-user"></i> Comptes</button>
-                <button onclick="toggleInboxFolder()" id="inboxFolderBtn"><i class="icon-inbox"></i> Reçus</button>
+                <div class="inbox-folder-switch" id="inboxFolderSwitch">
+                    <button onclick="setInboxFolder('inbox')" id="inboxFolderInboxBtn" class="active"><i class="icon-inbox"></i> Reçus</button>
+                    <button onclick="setInboxFolder('commercial')" id="inboxFolderCommercialBtn"><i class="icon-tag"></i> Commercial</button>
+                </div>
                 <button onclick="reclassifyCommercialMails()" id="btnReclassifyCommercial"><i class="icon-filter"></i> Filtrer commercial</button>
                 <button onclick="keepSelectedCommercialMail()" id="btnKeepCommercial" class="is-hidden"><i class="icon-bookmark"></i> Garder en reçus</button>
                 <button onclick="deleteAllCommercialMails()" id="btnDeleteCommercial" class="is-hidden"><i class="icon-trash-2"></i> Vider commercial</button>
@@ -80,6 +83,26 @@
                         <i class="icon-mail-open inbox-empty-icon"></i>
                         <p>Sélectionne un mail pour le lire</p>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIL PROCESS TAB -->
+    <div class="tab-content" id="tab-mail-process">
+        <header>
+            <div class="header-actions">
+                <button onclick="fetchEmails()"><i class="icon-refresh-cw"></i> Relever les mails</button>
+                <button onclick="processMyMails()" id="btnProcessMailsFromTab"><i class="icon-sparkles"></i> Traiter mes mails</button>
+            </div>
+        </header>
+        <div class="mail-process-shell">
+            <div class="mail-process-card">
+                <h3><i class="icon-sparkles"></i> Traitement guidé des mails</h3>
+                <p id="mailProcessSummaryText">Chargement des mails à traiter...</p>
+                <div class="mail-process-actions">
+                    <button class="btn-primary" onclick="processMyMails()" id="btnProcessMailsMain">Lancer le traitement</button>
+                    <button onclick="switchTab('inbox')">Ouvrir l'Inbox</button>
                 </div>
             </div>
         </div>

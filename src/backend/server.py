@@ -28,6 +28,7 @@ from app_config import (
     CONTACTS_CSV,
     DATA,
     DIR,
+    DOWNLOADS,
     GOOGLE_MAIL_SCOPE,
     LOG_FILE,
     MAILS_DIR,
@@ -471,6 +472,19 @@ def _looks_commercial(mail):
     return score >= 2
 
 
+def _known_commercial_senders(inbox: list[dict]) -> set[str]:
+    senders = set()
+    for mail in inbox:
+        if mail.get("deleted") or mail.get("folder") == "sent":
+            continue
+        if _mailbox_of(mail) != "commercial":
+            continue
+        sender = str(mail.get("from_email", "") or "").strip().lower()
+        if sender:
+            senders.add(sender)
+    return senders
+
+
 def _ensure_unique_filename_in_dir(filename: str, target_dir: str) -> str:
     base = os.path.basename(filename or "")
     if not base:
@@ -507,14 +521,18 @@ def _move_mail_to_storage(mail: dict, target_dir: str, target_mailbox: str, proc
 
 def apply_commercial_filter(inbox: list[dict]) -> int:
     changed = 0
+    known_commercial = _known_commercial_senders(inbox)
     for mail in inbox:
         if mail.get("deleted") or mail.get("folder") == "sent":
             continue
 
+        sender = str(mail.get("from_email", "") or "").strip().lower()
+        sender_marked_commercial = bool(sender and sender in known_commercial)
+
         if str(mail.get("commercial_override", "") or "").lower() == "keep":
             target_mailbox = "inbox"
         else:
-            target_mailbox = "commercial" if _looks_commercial(mail) else "inbox"
+            target_mailbox = "commercial" if (sender_marked_commercial or _looks_commercial(mail)) else "inbox"
         current_mailbox = _mailbox_of(mail)
 
         if target_mailbox == "commercial":
@@ -522,8 +540,12 @@ def apply_commercial_filter(inbox: list[dict]) -> int:
                 moved = _move_mail_to_storage(mail, COMMERCIAL_DIR, "commercial", processed_override=True)
                 if moved:
                     changed += 1
+                    if sender:
+                        known_commercial.add(sender)
             else:
                 mail["processed"] = True
+                if sender:
+                    known_commercial.add(sender)
         else:
             if current_mailbox == "commercial":
                 moved = _move_mail_to_storage(mail, MAILS_DIR, "inbox", processed_override=False)
