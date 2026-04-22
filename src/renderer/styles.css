@@ -498,6 +498,16 @@
             justify-content: center;
             padding: 1rem;
         }
+        .mail-process-panel {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 0.6rem 0.6rem 0.8rem;
+        }
+        .mail-process-panel.is-hidden {
+            display: none;
+        }
         .mail-process-card {
             width: min(720px, 96%);
             background: var(--bg-surface);
@@ -890,6 +900,13 @@
             display: flex;
             flex-direction: column;
             padding: 0.7rem 1rem;
+        }
+
+        .mail-process-panel #mailProcessContent.modal {
+            width: 100%;
+            height: 100%;
+            max-height: none;
+            margin: 0;
         }
 
         #mailProcessModal .mp-mail-info {

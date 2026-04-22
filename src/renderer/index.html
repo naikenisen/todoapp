@@ -93,10 +93,105 @@
 
     <!-- MAIL PROCESS TAB -->
     <div class="tab-content" id="tab-mail-process">
-        <div class="mail-process-shell">
+        <div class="mail-process-shell" id="mailProcessShell">
             <div class="mail-process-card">
                 <h3><i class="icon-sparkles"></i> Traitement guidé des mails</h3>
                 <p id="mailProcessSummaryText">Ouverture automatique du traitement...</p>
+            </div>
+        </div>
+
+        <div class="mail-process-panel is-hidden" id="mailProcessModal">
+            <div class="modal modal-w-900" id="mailProcessContent">
+                <!-- Progress header -->
+                <div class="mp-progress">
+                    <span id="mpCounter">Mail 1/1</span>
+                    <button class="mp-close-btn" onclick="closeMailProcess()">&times;</button>
+                </div>
+
+                <!-- Always-visible mail info + preview -->
+                <div class="mp-mail-info" id="mpMailInfoBlock">
+                    <div class="mp-mail-meta">
+                        <div><strong>De :</strong> <span id="mpFrom"></span></div>
+                        <div><strong>À :</strong> <span id="mpTo"></span></div>
+                        <div><strong>Cc :</strong> <span id="mpCc"></span></div>
+                        <div><strong>Sujet :</strong> <span id="mpSubject"></span></div>
+                        <div><strong>Date :</strong> <span id="mpDate"></span></div>
+                    </div>
+                    <div class="mp-preview" id="mpPreview"></div>
+                </div>
+
+                <!-- Step 1: Keep or Delete -->
+                <div class="mp-step" id="mpStep1">
+                    <div class="modal-actions mp-actions-center">
+                        <button class="btn-danger" onclick="mpDeleteFromServer()"><i class="icon-trash-2"></i> Supprimer du serveur</button>
+                        <button class="btn-reply-delete" onclick="mpReplyAndDelete()"><i class="icon-reply"></i> Répondre à tous &amp; Supprimer</button>
+                        <button class="btn-reply-keep" onclick="mpReplyAndKeep()"><i class="icon-reply"></i> Répondre à tous &amp; Conserver</button>
+                        <button onclick="mpClassifyCommercial()"><i class="icon-tag"></i> Classer en commercial</button>
+                        <button class="btn-primary" onclick="mpKeepMail()"><i class="icon-check"></i> Conserver</button>
+                    </div>
+                </div>
+
+                <!-- Step 2: Copy text / optional AI summary -->
+                <div class="mp-step is-hidden" id="mpStep2">
+                    <div id="mpSummaryBlock" style="display:none">
+                        <div id="mpSummaryLoading" class="mp-loading">Génération du résumé en cours…</div>
+                        <textarea id="mpSummaryText" class="mp-summary-textarea" readonly></textarea>
+                    </div>
+                    <div class="modal-actions mp-actions-center">
+                        <button onclick="mpTextImportant()" id="mpBtnSummarize"><i class="icon-sparkles"></i> Résumer avec IA</button>
+                        <button id="mpBtnCopySummary" style="display:none" onclick="mpCopySummary()"><i class="icon-copy"></i> Copier le résumé</button>
+                        <button class="btn-primary" onclick="mpAfterSummary()"><i class="icon-arrow-right"></i> Suivant</button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Attachment processing -->
+                <div class="mp-step is-hidden" id="mpStep3">
+                    <div class="mp-att-info">
+                        <div><strong>Fichier :</strong> <span id="mpAttName"></span></div>
+                    </div>
+                    <div class="modal-actions mp-actions-center">
+                        <button onclick="mpOpenAttachment()"><i class="icon-eye"></i> Ouvrir</button>
+                        <button class="btn-danger" onclick="mpDiscardAttachment()"><i class="icon-trash-2"></i> Jeter</button>
+                        <button class="btn-primary" onclick="mpKeepAttachment()"><i class="icon-check"></i> Conserver</button>
+                    </div>
+                </div>
+
+                <!-- Step 3b: Classification form -->
+                <div class="mp-step is-hidden" id="mpStep3b">
+                    <div class="mp-classify-form">
+                        <div class="form-group">
+                            <label>Nom court (2 mots séparés par _)</label>
+                            <input type="text" id="mpShortName" maxlength="40" placeholder="Ex: Facture_EDF" pattern="^[A-Za-zÀ-ÿ0-9]+_[A-Za-zÀ-ÿ0-9]+$" style="max-width:260px">
+                            <small style="color:var(--text-muted);display:block;margin-top:0.2rem">Fichier renommé en : <code id="mpFilenamePreview">AAAA_MM_JJ_Mot1_Mot2.ext</code></small>
+                        </div>
+                        <div class="form-group">
+                            <label>Description longue (obligatoire)</label>
+                            <textarea id="mpAttachmentDescription" rows="3" maxlength="500" placeholder="Décrivez précisément le contenu du document..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label>Fichier prêt à glisser-déposer</label>
+                            <div id="mpPreparedDropZone" class="attachment-zone" style="min-height:56px;cursor:default">
+                                <p id="mpPreparedPlaceholder" class="attachment-placeholder" style="margin:0">Prépare le fichier puis glisse-le directement dans ton logiciel documentaire.</p>
+                                <div id="mpPreparedAttachment" class="attachment-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-actions mp-actions-center">
+                        <button onclick="mpCancelClassification()">Annuler</button>
+                        <button onclick="mpPrepareAttachmentForDrop()"><i class="icon-paperclip"></i> Préparer pour glisser-déposer</button>
+                        <button onclick="mpClickDepositAttachment()"><i class="icon-download"></i> Enregistrer sous...</button>
+                        <button class="btn-primary" onclick="mpSaveAttachment()"><i class="icon-arrow-right"></i> Suivant</button>
+                    </div>
+                </div>
+
+                <!-- Step Done -->
+                <div class="mp-step is-hidden" id="mpStepDone">
+                    <h2><i class="icon-check"></i> Traitement terminé</h2>
+                    <p>Tous les mails ont été traités.</p>
+                    <div class="modal-actions mp-actions-center">
+                        <button class="btn-primary" onclick="closeMailProcess(true)">Fermer</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -631,102 +726,6 @@
         <div class="modal-actions">
             <button onclick="closeAccountsModal()">Annuler</button>
             <button class="btn-primary" onclick="saveAccountsFromModal()"><i class="icon-save"></i> Enregistrer</button>
-        </div>
-    </div>
-</div>
-
-<!-- Mail Processing Wizard Modal -->
-<div class="modal-overlay" id="mailProcessModal">
-    <div class="modal modal-w-900" id="mailProcessContent">
-        <!-- Progress header -->
-        <div class="mp-progress">
-            <span id="mpCounter">Mail 1/1</span>
-            <button class="mp-close-btn" onclick="closeMailProcess()">&times;</button>
-        </div>
-
-        <!-- Always-visible mail info + preview -->
-        <div class="mp-mail-info" id="mpMailInfoBlock">
-            <div class="mp-mail-meta">
-                <div><strong>De :</strong> <span id="mpFrom"></span></div>
-                <div><strong>À :</strong> <span id="mpTo"></span></div>
-                <div><strong>Cc :</strong> <span id="mpCc"></span></div>
-                <div><strong>Sujet :</strong> <span id="mpSubject"></span></div>
-                <div><strong>Date :</strong> <span id="mpDate"></span></div>
-            </div>
-            <div class="mp-preview" id="mpPreview"></div>
-        </div>
-
-        <!-- Step 1: Keep or Delete -->
-        <div class="mp-step" id="mpStep1">
-            <div class="modal-actions mp-actions-center">
-                <button class="btn-danger" onclick="mpDeleteFromServer()"><i class="icon-trash-2"></i> Supprimer du serveur</button>
-                <button class="btn-reply-delete" onclick="mpReplyAndDelete()"><i class="icon-reply"></i> Répondre à tous &amp; Supprimer</button>
-                <button class="btn-reply-keep" onclick="mpReplyAndKeep()"><i class="icon-reply"></i> Répondre à tous &amp; Conserver</button>
-                <button onclick="mpClassifyCommercial()"><i class="icon-tag"></i> Classer en commercial</button>
-                <button class="btn-primary" onclick="mpKeepMail()"><i class="icon-check"></i> Conserver</button>
-            </div>
-        </div>
-
-        <!-- Step 2: Copy text / optional AI summary -->
-        <div class="mp-step is-hidden" id="mpStep2">
-            <div id="mpSummaryBlock" style="display:none">
-                <div id="mpSummaryLoading" class="mp-loading">Génération du résumé en cours…</div>
-                <textarea id="mpSummaryText" class="mp-summary-textarea" readonly></textarea>
-            </div>
-            <div class="modal-actions mp-actions-center">
-                <button onclick="mpTextImportant()" id="mpBtnSummarize"><i class="icon-sparkles"></i> Résumer avec IA</button>
-                <button id="mpBtnCopySummary" style="display:none" onclick="mpCopySummary()"><i class="icon-copy"></i> Copier le résumé</button>
-                <button class="btn-primary" onclick="mpAfterSummary()"><i class="icon-arrow-right"></i> Suivant</button>
-            </div>
-        </div>
-
-        <!-- Step 3: Attachment processing -->
-        <div class="mp-step is-hidden" id="mpStep3">
-            <div class="mp-att-info">
-                <div><strong>Fichier :</strong> <span id="mpAttName"></span></div>
-            </div>
-            <div class="modal-actions mp-actions-center">
-                <button onclick="mpOpenAttachment()"><i class="icon-eye"></i> Ouvrir</button>
-                <button class="btn-danger" onclick="mpDiscardAttachment()"><i class="icon-trash-2"></i> Jeter</button>
-                <button class="btn-primary" onclick="mpKeepAttachment()"><i class="icon-check"></i> Conserver</button>
-            </div>
-        </div>
-
-        <!-- Step 3b: Classification form -->
-        <div class="mp-step is-hidden" id="mpStep3b">
-            <div class="mp-classify-form">
-                <div class="form-group">
-                    <label>Nom court (2 mots séparés par _)</label>
-                    <input type="text" id="mpShortName" maxlength="40" placeholder="Ex: Facture_EDF" pattern="^[A-Za-zÀ-ÿ0-9]+_[A-Za-zÀ-ÿ0-9]+$" style="max-width:260px">
-                    <small style="color:var(--text-muted);display:block;margin-top:0.2rem">Fichier renommé en : <code id="mpFilenamePreview">AAAA_MM_JJ_Mot1_Mot2.ext</code></small>
-                </div>
-                <div class="form-group">
-                    <label>Description longue (obligatoire)</label>
-                    <textarea id="mpAttachmentDescription" rows="3" maxlength="500" placeholder="Décrivez précisément le contenu du document..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Fichier prêt à glisser-déposer</label>
-                    <div id="mpPreparedDropZone" class="attachment-zone" style="min-height:56px;cursor:default">
-                        <p id="mpPreparedPlaceholder" class="attachment-placeholder" style="margin:0">Prépare le fichier puis glisse-le directement dans ton logiciel documentaire.</p>
-                        <div id="mpPreparedAttachment" class="attachment-list"></div>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-actions mp-actions-center">
-                <button onclick="mpCancelClassification()">Annuler</button>
-                <button onclick="mpPrepareAttachmentForDrop()"><i class="icon-paperclip"></i> Préparer pour glisser-déposer</button>
-                <button onclick="mpClickDepositAttachment()"><i class="icon-download"></i> Enregistrer sous...</button>
-                <button class="btn-primary" onclick="mpSaveAttachment()"><i class="icon-arrow-right"></i> Suivant</button>
-            </div>
-        </div>
-
-        <!-- Step Done -->
-        <div class="mp-step is-hidden" id="mpStepDone">
-            <h2><i class="icon-check"></i> Traitement terminé</h2>
-            <p>Tous les mails ont été traités.</p>
-            <div class="modal-actions mp-actions-center">
-                <button class="btn-primary" onclick="closeMailProcess(true)">Fermer</button>
-            </div>
         </div>
     </div>
 </div>

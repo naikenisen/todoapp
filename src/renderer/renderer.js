@@ -81,8 +81,9 @@ function switchTab(tab) {
     if (tab === 'mail') renderMailTab();
     if (tab === 'inbox') loadInbox();
     if (tab === 'mail-process') {
+        clearMailProcessProgress();
         refreshMailProcessSummary();
-        processMyMails({ silentWhenEmpty: true });
+        processMyMails({ silentWhenEmpty: true, restartFromLatest: true });
     }
     if (tab === 'downloads') {
         ensureDownloadsAutoRefresh();
@@ -1774,8 +1775,10 @@ function startMailProcess(mailIds, skipDeleteStep, skipAttachmentStep = false, s
     mpPendingDeleteCurrentMail = false;
     mpDeleteInFlight = null;
     saveMailProcessProgress();
-    const modal = document.getElementById('mailProcessModal');
-    modal.classList.add('show');
+    const panel = document.getElementById('mailProcessModal');
+    const shell = document.getElementById('mailProcessShell');
+    if (shell) shell.classList.add('is-hidden');
+    if (panel) panel.classList.remove('is-hidden');
     mpProcessCurrent();
 }
 
@@ -1819,7 +1822,10 @@ async function closeMailProcess(completed = false) {
         }
     }
 
-    document.getElementById('mailProcessModal').classList.remove('show');
+    const panel = document.getElementById('mailProcessModal');
+    const shell = document.getElementById('mailProcessShell');
+    if (panel) panel.classList.add('is-hidden');
+    if (shell) shell.classList.remove('is-hidden');
     document.getElementById('mpReplyModal').style.display = 'none';
     mpReplyMode = null;
     if (!aborted) {
@@ -1835,9 +1841,6 @@ async function closeMailProcess(completed = false) {
     mpDeleteInFlight = null;
     mpClearPreparedAttachment();
     refreshMailProcessSummary();
-    if (currentTab === 'mail-process') {
-        switchTab('inbox');
-    }
 }
 
 function mpGetRelevantAttachments(attachments) {
@@ -4328,19 +4331,25 @@ async function deleteAllCommercialMails() {
 }
 
 async function processMyMails(options = {}) {
-    const { silentWhenEmpty = false } = options;
+    const { silentWhenEmpty = false, restartFromLatest = false } = options;
 
-    const modal = document.getElementById('mailProcessModal');
-    if (modal?.classList.contains('show')) {
+    const panel = document.getElementById('mailProcessModal');
+    if (panel && !panel.classList.contains('is-hidden')) {
         return;
+    }
+
+    if (restartFromLatest) {
+        clearMailProcessProgress();
     }
 
     if (inboxFolder !== 'inbox') {
         inboxFolder = 'inbox';
-        await loadInbox();
     }
 
-    const resumeState = getResumeMailProcessState();
+    // Always refresh inbox before starting so new mails are considered.
+    await loadInbox();
+
+    const resumeState = restartFromLatest ? null : getResumeMailProcessState();
     if (resumeState) {
         startMailProcess(resumeState.queue, resumeState.skipStep1, resumeState.skipAttachments, resumeState.index);
         return;
