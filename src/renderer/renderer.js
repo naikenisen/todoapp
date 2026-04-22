@@ -3109,17 +3109,11 @@ async function sendReminderSMTP() {
 }
 
 function updateMailBadge() {
-    const now = Date.now();
-    const pending = getAllMailTasks().filter(m => !m.sentAt);
-    const dueReminders = (state.reminders || []).filter(r => r.status === 'pending' && r.remindAt <= now);
-    const total = pending.length + dueReminders.length;
     const tabBtn = document.querySelector('.tab-btn[data-tab="mail"]');
     if (tabBtn) {
-        tabBtn.innerHTML = total > 0
-            ? `<i class="icon-send"></i><span style="font-size:0.72em;color:var(--accent-orange)">● ${total}</span>`
-            : '<i class="icon-send"></i>';
-        tabBtn.setAttribute('aria-label', total > 0 ? `Rédiger (${total})` : 'Rédiger');
-        tabBtn.setAttribute('title', total > 0 ? `Rédiger (${total})` : 'Rédiger');
+        tabBtn.innerHTML = '<i class="icon-send"></i>';
+        tabBtn.setAttribute('aria-label', 'Rédiger');
+        tabBtn.setAttribute('title', 'Rédiger');
     }
 }
 
@@ -4408,14 +4402,11 @@ async function confirmDeleteMail() {
    Inbox — Badge
    ═══════════════════════════════════════════════════════ */
 function updateInboxBadge() {
-    const count = inboxMails.filter(m => !m.deleted).length;
     const tabBtn = document.querySelector('.tab-btn[data-tab="inbox"]');
     if (tabBtn) {
-        tabBtn.innerHTML = count > 0
-            ? `<i class="icon-inbox"></i><span style="font-size:0.75em;color:var(--accent-blue)">(${count})</span>`
-            : '<i class="icon-inbox"></i>';
-        tabBtn.setAttribute('aria-label', count > 0 ? `Inbox (${count})` : 'Inbox');
-        tabBtn.setAttribute('title', count > 0 ? `Inbox (${count})` : 'Inbox');
+        tabBtn.innerHTML = '<i class="icon-inbox"></i>';
+        tabBtn.setAttribute('aria-label', 'Inbox');
+        tabBtn.setAttribute('title', 'Inbox');
     }
 }
 
@@ -4998,7 +4989,7 @@ function startAutoFetchLoop() {
     autoFetchTimer = setInterval(() => {
         if (document.hidden) return;
         fetchEmails({ silent: true }).catch(() => {});
-    }, 5 * 60 * 1000);
+    }, 90 * 1000);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -5041,7 +5032,7 @@ function startAutoFetchLoop() {
     }, 800);
     setTimeout(() => {
         fetchEmails({ silent: true }).catch(() => {});
-    }, 12000);
+    }, 4000);
     if (currentTab === 'mail') renderMailTab();
 })();
 
