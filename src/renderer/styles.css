@@ -413,6 +413,11 @@
         #tab-inbox .inbox-status { flex-shrink: 0; }
         #tab-inbox .terminal-output { flex-shrink: 0; }
 
+        /* Downloads tab */
+        #tab-downloads.active { display: flex; flex-direction: column; }
+        #tab-downloads header { flex-shrink: 0; }
+        #tab-downloads .inbox-status { flex-shrink: 0; }
+
         /* ─── Header ─────────────────────────────────── */
         header { text-align: left; margin-bottom: 0.85rem; }
         header h1 { font-size: 1.3rem; font-weight: 600; margin-bottom: 0.4rem; display: flex; align-items: center; gap: 0.5rem; justify-content: center; }
@@ -1862,6 +1867,136 @@
         .inbox-reader-attach .att-item-btn:hover {
             border-color: var(--accent-blue);
             background: rgba(74,144,244,0.14);
+        }
+
+        /* ─── Downloads Manager ─────────────────────── */
+        .downloads-layout {
+            display: flex;
+            gap: 0;
+            flex: 1;
+            min-height: 0;
+            background: var(--bg-surface);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+        .downloads-list-panel {
+            width: 400px;
+            min-width: 320px;
+            border-right: 1px solid var(--card-border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .downloads-detail-panel {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg-secondary);
+            padding: 1rem 1.25rem;
+        }
+        .downloads-detail-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            gap: 0.5rem;
+        }
+        .downloads-detail-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            height: 100%;
+            min-height: 0;
+        }
+        .downloads-file-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .downloads-meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.4rem 1rem;
+            font-size: 0.82rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .downloads-form {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+        .downloads-form label {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .downloads-form input,
+        .downloads-form textarea {
+            width: 100%;
+            border: 1px solid var(--card-border);
+            border-radius: var(--radius-sm);
+            background: var(--bg-surface);
+            color: var(--text);
+            padding: 0.45rem 0.6rem;
+            font-size: 0.82rem;
+            font-family: inherit;
+        }
+        .downloads-form textarea {
+            min-height: 88px;
+            resize: vertical;
+        }
+        .downloads-filename-preview {
+            font-size: 0.76rem;
+            color: var(--text-muted);
+        }
+        .downloads-prepared-zone {
+            background: var(--bg-tertiary);
+            border: 1px dashed var(--card-border);
+            border-radius: var(--radius-sm);
+            min-height: 72px;
+            padding: 0.6rem;
+            display: flex;
+            align-items: center;
+        }
+        .downloads-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .downloads-actions button {
+            padding: 0.4rem 0.85rem;
+            border: 1px solid var(--card-border);
+            border-radius: 999px;
+            background: var(--progress-bg);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.78rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        .downloads-actions button:hover {
+            border-color: var(--accent-blue);
+            color: var(--text);
+        }
+        .downloads-actions .danger:hover {
+            border-color: #ef4444;
+            color: #ef4444;
+            background: rgba(239,68,68,0.08);
         }
         /* ─── Inbox: unprocessed red dot ───────────── */
         .inbox-item-unprocessed-dot {

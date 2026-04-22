@@ -77,6 +77,7 @@ function switchTab(tab) {
     }
     if (tab === 'mail') renderMailTab();
     if (tab === 'inbox') loadInbox();
+    if (tab === 'downloads') loadDownloadsManager();
     if (tab === 'annuaire') loadAnnuaire();
     updateSiteTabViewVisibility();
 }
@@ -3008,6 +3009,319 @@ let selectedInboxId = null;
 let deleteMailTarget = null;
 let inboxFolder = 'inbox'; // 'inbox' | 'commercial' | 'sent'
 let autoFetchTimer = null;
+let downloadsFiles = [];
+let selectedDownloadPath = null;
+let downloadsRoot = '/home/naiken/Téléchargements';
+let dlPreparedFile = null;
+
+function formatDownloadSize(bytes) {
+    const n = Number(bytes || 0);
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+    if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(n / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+function selectDownloadFileEncoded(encodedPath) {
+    try {
+        const decoded = decodeURIComponent(encodedPath || '');
+        if (!decoded) return;
+        selectedDownloadPath = decoded;
+        dlPreparedFile = null;
+        renderDownloadsList();
+        renderDownloadsDetail();
+    } catch {}
+}
+
+function getSelectedDownloadFile() {
+    if (!selectedDownloadPath) return null;
+    return downloadsFiles.find(f => f.path === selectedDownloadPath) || null;
+}
+
+function getFilteredDownloadsFiles() {
+    const query = (document.getElementById('downloadsSearch')?.value || '').toLowerCase().trim();
+    if (!query) return downloadsFiles;
+    return downloadsFiles.filter((f) =>
+        (f.name || '').toLowerCase().includes(query) ||
+        (f.ext || '').toLowerCase().includes(query)
+    );
+}
+
+async function loadDownloadsManager() {
+    const statusEl = document.getElementById('downloads-status');
+    if (statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.className = 'inbox-status loading';
+        statusEl.textContent = 'Analyse du dossier Téléchargements...';
+    }
+
+    try {
+        const r = await fetch('/api/downloads/files');
+        const result = await r.json();
+        if (!r.ok || result.error) {
+            if (statusEl) {
+                statusEl.className = 'inbox-status error';
+                statusEl.textContent = 'Erreur : ' + (result.error || 'Chargement impossible');
+            }
+            return;
+        }
+
+        downloadsFiles = Array.isArray(result.files) ? result.files : [];
+        downloadsRoot = result.root || downloadsRoot;
+
+        if (selectedDownloadPath && !downloadsFiles.some(f => f.path === selectedDownloadPath)) {
+            selectedDownloadPath = null;
+            dlPreparedFile = null;
+        }
+
+        renderDownloadsList();
+        renderDownloadsDetail();
+
+        if (statusEl) {
+            statusEl.className = 'inbox-status success';
+            statusEl.textContent = `${downloadsFiles.length} fichier(s) à traiter dans ${downloadsRoot}`;
+            setTimeout(() => { statusEl.style.display = 'none'; }, 3200);
+        }
+    } catch (e) {
+        if (statusEl) {
+            statusEl.className = 'inbox-status error';
+            statusEl.textContent = 'Erreur : ' + e.message;
+        }
+    }
+}
+
+function renderDownloadsList() {
+    const container = document.getElementById('downloadsList');
+    if (!container) return;
+    const list = getFilteredDownloadsFiles();
+
+    if (!list.length) {
+        container.innerHTML = `<div style="padding:2rem;text-align:center;color:var(--text-muted)">Aucun fichier correspondant.</div>`;
+        return;
+    }
+
+    container.innerHTML = list.map((f) => {
+        const isSelected = selectedDownloadPath === f.path;
+        const encoded = encodeURIComponent(f.path || '');
+        return `
+            <div class="inbox-item ${isSelected ? 'selected' : ''}" onclick="selectDownloadFileEncoded('${encoded}')">
+                <div class="inbox-item-content">
+                    <div class="inbox-item-top">
+                        <span class="inbox-item-from">${esc(f.name || 'fichier')}</span>
+                        <span class="inbox-item-date">${esc(f.date || '')}</span>
+                    </div>
+                    <div class="inbox-item-subject">${esc((f.ext || '').replace('.', '').toUpperCase())} • ${esc(formatDownloadSize(f.size || 0))}</div>
+                </div>
+            </div>`;
+    }).join('');
+}
+
+function updateDownloadFilenamePreview() {
+    const file = getSelectedDownloadFile();
+    const preview = document.getElementById('dlFilenamePreview');
+    if (!file || !preview) return;
+
+    const shortName = String(document.getElementById('dlShortName')?.value || '').trim();
+    const date = new Date(Number(file.mtime || 0));
+    const yyyy = Number.isNaN(date.getTime()) ? 'AAAA' : String(date.getFullYear());
+    const mm = Number.isNaN(date.getTime()) ? 'MM' : String(date.getMonth() + 1).padStart(2, '0');
+    const dd = Number.isNaN(date.getTime()) ? 'JJ' : String(date.getDate()).padStart(2, '0');
+    const ext = String(file.ext || '').toLowerCase();
+    if (shortName && /^[^\s_]+_[^\s_]+$/.test(shortName)) {
+        preview.textContent = `${yyyy}_${mm}_${dd}_${shortName}${ext}`;
+    } else {
+        preview.textContent = `${yyyy}_${mm}_${dd}_Mot1_Mot2${ext}`;
+    }
+}
+
+function renderDownloadsPreparedZone() {
+    const holder = document.getElementById('downloadsPreparedAttachment');
+    const ph = document.getElementById('downloadsPreparedPlaceholder');
+    if (!holder) return;
+
+    if (!dlPreparedFile) {
+        holder.innerHTML = '';
+        if (ph) ph.style.display = '';
+        return;
+    }
+
+    if (ph) ph.style.display = 'none';
+    holder.innerHTML = `
+        <a id="downloadsPreparedLink" class="attachment-chip" href="#" draggable="true" title="Glisse ce fichier vers Storga">
+            <span class="attachment-chip-name"><i class="icon-paperclip"></i> ${esc(dlPreparedFile.filename || 'document')}</span>
+            <span class="attachment-chip-size">Prêt à déposer</span>
+        </a>`;
+
+    const link = document.getElementById('downloadsPreparedLink');
+    if (!link) return;
+    link.addEventListener('dragstart', (e) => {
+        if (window.electronAPI?.startDragOut && dlPreparedFile.filePath) {
+            e.preventDefault();
+            window.electronAPI.startDragOut(dlPreparedFile.filePath);
+        }
+    });
+}
+
+function renderDownloadsDetail() {
+    const panel = document.getElementById('downloadsDetail');
+    if (!panel) return;
+    const file = getSelectedDownloadFile();
+
+    if (!file) {
+        panel.className = 'downloads-detail-empty';
+        panel.innerHTML = `
+            <i class="icon-folder-down inbox-empty-icon"></i>
+            <p>Sélectionne un fichier pour le traiter</p>`;
+        return;
+    }
+
+    panel.className = 'downloads-detail-card';
+    panel.innerHTML = `
+        <div class="downloads-file-title">${esc(file.name || 'fichier')}</div>
+        <div class="downloads-meta">
+            <div><strong>Date:</strong> ${esc(file.date || '')}</div>
+            <div><strong>Taille:</strong> ${esc(formatDownloadSize(file.size || 0))}</div>
+            <div><strong>Type:</strong> ${esc((file.ext || '').replace('.', '').toUpperCase())}</div>
+            <div><strong>Racine:</strong> ${esc(downloadsRoot)}</div>
+        </div>
+
+        <div class="downloads-form">
+            <label>Nom court (2 mots séparés par _)</label>
+            <input type="text" id="dlShortName" maxlength="40" placeholder="Ex: Facture_EDF" oninput="updateDownloadFilenamePreview()">
+            <div class="downloads-filename-preview">Fichier final: <strong id="dlFilenamePreview">AAAA_MM_JJ_Mot1_Mot2${esc(String(file.ext || '').toLowerCase())}</strong></div>
+
+            <label>Description longue (obligatoire)</label>
+            <textarea id="dlDescription" placeholder="Décrivez précisément le contenu du document..."></textarea>
+
+            <div class="downloads-prepared-zone">
+                <p id="downloadsPreparedPlaceholder" class="attachment-placeholder" style="margin:0">Prépare le fichier puis glisse-dépose le chip vers Storga.</p>
+                <div id="downloadsPreparedAttachment" class="attachment-list"></div>
+            </div>
+        </div>
+
+        <div class="downloads-actions">
+            <button onclick="prepareDownloadForDrop()"><i class="icon-paperclip"></i> Préparer pour glisser-déposer</button>
+            <button onclick="savePreparedDownloadAs()"><i class="icon-download"></i> Enregistrer sous...</button>
+            <button onclick="openSelectedDownloadExternally()"><i class="icon-eye"></i> Ouvrir</button>
+            <button class="danger" onclick="trashSelectedDownload()"><i class="icon-trash-2"></i> Mettre à la corbeille</button>
+        </div>`;
+
+    updateDownloadFilenamePreview();
+    renderDownloadsPreparedZone();
+}
+
+async function prepareDownloadForDrop() {
+    const file = getSelectedDownloadFile();
+    if (!file) return;
+
+    const shortName = String(document.getElementById('dlShortName')?.value || '').trim();
+    const description = String(document.getElementById('dlDescription')?.value || '').trim();
+
+    if (!shortName || !/^[^\s_]+_[^\s_]+$/.test(shortName)) {
+        showToast('Le nom court doit contenir exactement 2 mots séparés par _.', 'error');
+        return;
+    }
+    if (!description) {
+        showToast('La description longue est obligatoire.', 'error');
+        return;
+    }
+
+    showLoading('Préparation du fichier...');
+    try {
+        const r = await fetch('/api/downloads/prepare-drop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: file.path, short_name: shortName, description }),
+        });
+        const result = await r.json();
+        if (!r.ok || !result.ok) {
+            showToast('Erreur : ' + (result.error || 'échec préparation'), 'error', 3800);
+            return;
+        }
+
+        dlPreparedFile = {
+            filename: result.filename,
+            filePath: result.prepared_path,
+            description,
+        };
+        renderDownloadsPreparedZone();
+
+        if (window.electronAPI?.launchDragHelper && dlPreparedFile.filePath) {
+            window.electronAPI.launchDragHelper({ filePath: dlPreparedFile.filePath, displayName: dlPreparedFile.filename });
+            showToast('Fenêtre native de drag ouverte: glisse le fichier vers Storga.', 'success', 4200);
+        } else {
+            showToast('Fichier prêt au glisser-déposer.', 'success', 2800);
+        }
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 3800);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function savePreparedDownloadAs() {
+    if (!dlPreparedFile || !dlPreparedFile.filePath) {
+        showToast('Prépare d\'abord le fichier.', 'warning', 2600);
+        return;
+    }
+    try {
+        const result = await window.electronAPI.saveFileDialog({ defaultPath: dlPreparedFile.filename || 'document' });
+        if (result.canceled || !result.filePath) return;
+        const copy = await window.electronAPI.copyTempFileTo({
+            sourcePath: dlPreparedFile.filePath,
+            destinationPath: result.filePath,
+        });
+        if (copy?.ok) showToast('Fichier enregistré.', 'success', 2600);
+        else showToast('Erreur : ' + (copy?.error || 'échec copie'), 'error', 3200);
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 3200);
+    }
+}
+
+async function openSelectedDownloadExternally() {
+    const file = getSelectedDownloadFile();
+    if (!file?.path) return;
+    try {
+        const fileUrl = `file://${encodeURI(file.path)}`;
+        if (window.electronAPI?.openExternal) {
+            await window.electronAPI.openExternal(fileUrl);
+        }
+    } catch (e) {
+        showToast('Erreur ouverture : ' + e.message, 'error', 3200);
+    }
+}
+
+async function trashSelectedDownload() {
+    const file = getSelectedDownloadFile();
+    if (!file?.path) {
+        showToast('Sélectionne un fichier.', 'warning', 2400);
+        return;
+    }
+
+    if (!confirm(`Mettre ce fichier à la corbeille ?\n\n${file.name}`)) return;
+
+    showLoading('Déplacement vers la corbeille...');
+    try {
+        const r = await fetch('/api/downloads/trash', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: file.path }),
+        });
+        const result = await r.json();
+        if (!r.ok || !result.ok) {
+            showToast('Erreur : ' + (result.error || 'échec suppression'), 'error', 3600);
+            return;
+        }
+        selectedDownloadPath = null;
+        dlPreparedFile = null;
+        await loadDownloadsManager();
+        showToast('Fichier déplacé dans la corbeille.', 'success', 2600);
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 3600);
+    } finally {
+        hideLoading();
+    }
+}
 
 /* ═══════════════════════════════════════════════════════
    Inbox — Load & Render

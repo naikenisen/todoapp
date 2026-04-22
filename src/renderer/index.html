@@ -26,6 +26,7 @@
         <div class="tab-bar-fixed">
             <button class="tab-btn active" data-tab="todo" onclick="switchTab('todo')"><i class="icon-list-checks"></i> Todo</button>
             <button class="tab-btn" data-tab="inbox" onclick="switchTab('inbox')"><i class="icon-inbox"></i> Inbox</button>
+            <button class="tab-btn" data-tab="downloads" onclick="switchTab('downloads')"><i class="icon-folder-down"></i> Téléchargements</button>
             <button class="tab-btn" data-tab="mail" onclick="switchTab('mail')"><i class="icon-send"></i> Rédiger</button>
             <button class="tab-btn" data-tab="annuaire" onclick="switchTab('annuaire')"><i class="icon-users"></i> Annuaire</button>
         </div>
@@ -79,6 +80,33 @@
                         <i class="icon-mail-open inbox-empty-icon"></i>
                         <p>Sélectionne un mail pour le lire</p>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DOWNLOADS TAB -->
+    <div class="tab-content" id="tab-downloads">
+        <header>
+            <div class="header-actions">
+                <button onclick="loadDownloadsManager()"><i class="icon-refresh-cw"></i> Rafraîchir</button>
+            </div>
+        </header>
+
+        <div id="downloads-status" class="inbox-status is-hidden"></div>
+
+        <div class="downloads-layout">
+            <div class="downloads-list-panel">
+                <div class="inbox-search">
+                    <input type="text" id="downloadsSearch" placeholder="Rechercher dans les téléchargements…" oninput="renderDownloadsList()">
+                </div>
+                <div id="downloadsList" class="inbox-list"></div>
+            </div>
+
+            <div class="downloads-detail-panel" id="downloadsDetailPanel">
+                <div id="downloadsDetail" class="downloads-detail-empty">
+                    <i class="icon-folder-down inbox-empty-icon"></i>
+                    <p>Sélectionne un fichier pour le traiter</p>
                 </div>
             </div>
         </div>

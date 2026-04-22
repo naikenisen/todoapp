@@ -14,6 +14,7 @@ import subprocess
 import sys
 import time
 import urllib.parse
+import hashlib
 from urllib.parse import parse_qs, urlparse
 from datetime import datetime
 from email import policy as email_policy
@@ -631,6 +632,114 @@ def delete_mails_batch(ids, delete_on_server=True):
     }, 200
 
 
+DOWNLOAD_RELEVANT_EXTS = {".docx", ".xlsx", ".csv", ".pdf", ".odt", ".txt", ".pptx"}
+
+
+def _is_subpath(path_value: str, root_dir: str) -> bool:
+    try:
+        path_abs = os.path.abspath(path_value)
+        root_abs = os.path.abspath(root_dir)
+        return os.path.commonpath([path_abs, root_abs]) == root_abs
+    except Exception:
+        return False
+
+
+def _safe_download_path(path_value: str) -> str:
+    raw = str(path_value or "").strip()
+    if not raw:
+        raise ValueError("Chemin manquant")
+    abs_path = os.path.abspath(raw)
+    if not _is_subpath(abs_path, DOWNLOADS):
+        raise ValueError("Chemin hors du dossier Téléchargements")
+    if not os.path.isfile(abs_path):
+        raise ValueError("Fichier introuvable")
+    return abs_path
+
+
+def list_download_candidates():
+    files = []
+    if not os.path.isdir(DOWNLOADS):
+        return files
+
+    for current_root, _, filenames in os.walk(DOWNLOADS):
+        for name in filenames:
+            ext = os.path.splitext(name)[1].lower()
+            if ext not in DOWNLOAD_RELEVANT_EXTS:
+                continue
+            full_path = os.path.join(current_root, name)
+            if not os.path.isfile(full_path):
+                continue
+            try:
+                st = os.stat(full_path)
+                files.append({
+                    "id": hashlib.sha1(full_path.encode("utf-8", errors="ignore")).hexdigest()[:16],
+                    "path": full_path,
+                    "name": name,
+                    "ext": ext,
+                    "size": int(st.st_size),
+                    "mtime": int(st.st_mtime * 1000),
+                    "date": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M"),
+                })
+            except Exception:
+                continue
+
+    files.sort(key=lambda x: x.get("mtime", 0), reverse=True)
+    return files
+
+
+def prepare_download_for_drag(path_value: str, short_name: str):
+    source_path = _safe_download_path(path_value)
+    short = str(short_name or "").strip()
+    if not re.match(r"^[^\s_]+_[^\s_]+$", short):
+        raise ValueError("Nom court invalide (format attendu: Mot1_Mot2)")
+
+    st = os.stat(source_path)
+    dt = datetime.fromtimestamp(st.st_mtime)
+    date_part = dt.strftime("%Y_%m_%d")
+    ext = os.path.splitext(source_path)[1].lower()
+    staged_name = f"{date_part}_{short}{ext}"
+
+    staging_dir = os.path.join(APP_DATA_DIR, "download_staging")
+    os.makedirs(staging_dir, exist_ok=True)
+
+    candidate = staged_name
+    stem, ext_only = os.path.splitext(staged_name)
+    i = 1
+    while os.path.exists(os.path.join(staging_dir, candidate)):
+        candidate = f"{stem}_{i}{ext_only}"
+        i += 1
+
+    target_path = os.path.join(staging_dir, candidate)
+    shutil.copy2(source_path, target_path)
+    return target_path, candidate
+
+
+def move_file_to_trash(path_value: str):
+    file_path = _safe_download_path(path_value)
+
+    if shutil.which("gio"):
+        proc = subprocess.run(["gio", "trash", file_path], capture_output=True, text=True)
+        if proc.returncode == 0:
+            return True
+
+    if shutil.which("trash-put"):
+        proc = subprocess.run(["trash-put", file_path], capture_output=True, text=True)
+        if proc.returncode == 0:
+            return True
+
+    trash_dir = os.path.join(os.path.expanduser("~"), ".local", "share", "Trash", "files")
+    os.makedirs(trash_dir, exist_ok=True)
+    base = os.path.basename(file_path)
+    candidate = base
+    stem, ext = os.path.splitext(base)
+    i = 1
+    while os.path.exists(os.path.join(trash_dir, candidate)):
+        candidate = f"{stem}_{i}{ext}"
+        i += 1
+    shutil.move(file_path, os.path.join(trash_dir, candidate))
+    return True
+
+
 # Récupère les emails via POP3 pour un compte donné
 def fetch_pop3(account):
     return _fetch_pop3_impl(account, **_MAIL_DI_COMMON)
@@ -756,6 +865,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self._json({"error": str(e)}, 500)
         if self.path == "/api/accounts":
             return self._json(load_accounts())
+        if self.path == "/api/downloads/files":
+            try:
+                files = list_download_candidates()
+                return self._json({
+                    "ok": True,
+                    "root": DOWNLOADS,
+                    "count": len(files),
+                    "files": files,
+                })
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
         if self.path == "/api/inbox":
             # Indexe aussi les .eml locaux lors de l'ouverture de la boite
             # pour afficher les mails de /mails sans action manuelle "Relever".
@@ -1088,6 +1208,35 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                     return self._json({"ok": True, "deleted": 0, "errors": []})
                 result, code = delete_mails_batch(ids, delete_on_server=True)
                 return self._json(result, code)
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
+        if self.path == "/api/downloads/prepare-drop":
+            try:
+                path_value = data.get("path", "")
+                short_name = data.get("short_name", "")
+                description = data.get("description", "")
+                if not str(description or "").strip():
+                    return self._json({"error": "Description obligatoire"}, 400)
+
+                prepared_path, filename = prepare_download_for_drag(path_value, short_name)
+                return self._json({
+                    "ok": True,
+                    "prepared_path": prepared_path,
+                    "filename": filename,
+                })
+            except ValueError as ve:
+                return self._json({"error": str(ve)}, 400)
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
+        if self.path == "/api/downloads/trash":
+            try:
+                path_value = data.get("path", "")
+                move_file_to_trash(path_value)
+                return self._json({"ok": True})
+            except ValueError as ve:
+                return self._json({"error": str(ve)}, 400)
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
