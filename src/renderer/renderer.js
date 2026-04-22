@@ -3006,28 +3006,34 @@ function launchConfetti() {
 let inboxMails = [];
 let selectedInboxId = null;
 let deleteMailTarget = null;
-let inboxFolder = 'inbox'; // 'inbox' or 'sent'
+let inboxFolder = 'inbox'; // 'inbox' | 'commercial' | 'sent'
+let autoFetchTimer = null;
 
 /* ═══════════════════════════════════════════════════════
    Inbox — Load & Render
    ═══════════════════════════════════════════════════════ */
 async function loadInbox() {
     try {
-        const endpoint = inboxFolder === 'sent' ? '/api/inbox/sent' : '/api/inbox';
+        let endpoint = '/api/inbox';
+        if (inboxFolder === 'sent') endpoint = '/api/inbox/sent';
+        if (inboxFolder === 'commercial') endpoint = '/api/inbox/commercial';
         const r = await fetch(endpoint);
         if (r.ok) inboxMails = await r.json();
     } catch {}
     renderInboxList();
     updateInboxBadge();
+    updateInboxFolderActions();
 }
 
 function toggleInboxFolder() {
-    inboxFolder = inboxFolder === 'inbox' ? 'sent' : 'inbox';
+    inboxFolder = inboxFolder === 'inbox'
+        ? 'commercial'
+        : (inboxFolder === 'commercial' ? 'sent' : 'inbox');
     const btn = document.getElementById('inboxFolderBtn');
     if (btn) {
-        btn.innerHTML = inboxFolder === 'sent'
-            ? '<i class="icon-send"></i> Envoyés'
-            : '<i class="icon-inbox"></i> Reçus';
+        if (inboxFolder === 'inbox') btn.innerHTML = '<i class="icon-inbox"></i> Reçus';
+        else if (inboxFolder === 'commercial') btn.innerHTML = '<i class="icon-tag"></i> Commercial';
+        else btn.innerHTML = '<i class="icon-send"></i> Envoyés';
     }
     selectedInboxId = null;
     document.getElementById('inboxReader').innerHTML = `
@@ -3036,6 +3042,16 @@ function toggleInboxFolder() {
             <p>Sélectionne un mail pour le lire</p>
         </div>`;
     loadInbox();
+}
+
+function updateInboxFolderActions() {
+    const isCommercial = inboxFolder === 'commercial';
+    const processBtn = document.getElementById('btnProcessMails');
+    const keepBtn = document.getElementById('btnKeepCommercial');
+    const deleteCommercialBtn = document.getElementById('btnDeleteCommercial');
+    if (processBtn) processBtn.classList.toggle('is-hidden', isCommercial || inboxFolder === 'sent');
+    if (keepBtn) keepBtn.classList.toggle('is-hidden', !isCommercial);
+    if (deleteCommercialBtn) deleteCommercialBtn.classList.toggle('is-hidden', !isCommercial);
 }
 
 function filterInbox() {
@@ -3185,6 +3201,7 @@ async function openInboxMail(mailId) {
 function renderInboxReader(mail) {
     const reader = document.getElementById('inboxReader');
     if (!reader) return;
+    const isCommercial = inboxFolder === 'commercial';
 
     const attachHtml = mail.attachments && mail.attachments.length > 0
         ? `<div class="inbox-reader-attach">
@@ -3216,6 +3233,7 @@ function renderInboxReader(mail) {
             <div class="inbox-reader-actions">
                 <button onclick="replyToMail('${esc(mail.id)}')"><i class="icon-reply"></i> Répondre à tous</button>
                 <button onclick="forwardMail('${esc(mail.id)}')"><i class="icon-forward"></i> Transférer</button>
+                ${isCommercial ? `<button onclick="keepCommercialMail('${esc(mail.id)}')"><i class="icon-bookmark"></i> Garder en reçus</button>` : ''}
                 <button class="danger" onclick="openDeleteMailModal('${esc(mail.id)}')"><i class="icon-trash-2"></i> Supprimer</button>
             </div>
         </div>
@@ -3236,37 +3254,122 @@ function openInboxAttachment(mailId, idx, name) {
 /* ═══════════════════════════════════════════════════════
    Inbox — Actions
    ═══════════════════════════════════════════════════════ */
-async function fetchEmails() {
+async function fetchEmails(options = {}) {
+    const { silent = false } = options;
     const statusEl = document.getElementById('inbox-status');
-    statusEl.style.display = 'block';
-    statusEl.className = 'inbox-status loading';
-    statusEl.textContent = 'Connexion aux serveurs (POP3/IMAP/Gmail OAuth)…';
+    if (!silent && statusEl) {
+        statusEl.style.display = 'block';
+        statusEl.className = 'inbox-status loading';
+        statusEl.textContent = 'Connexion aux serveurs (POP3/IMAP/Gmail OAuth)…';
+    }
 
     try {
         const r = await fetch('/api/fetch-emails', { method: 'POST' });
         const result = await r.json();
         if (result.error) {
-            statusEl.className = 'inbox-status error';
-            statusEl.textContent = 'Erreur : ' + result.error;
+            if (!silent && statusEl) {
+                statusEl.className = 'inbox-status error';
+                statusEl.textContent = 'Erreur : ' + result.error;
+            }
         } else {
             await loadInbox();
             const errStr = result.errors && result.errors.length
                 ? ` (${result.errors.length} erreur(s))`
                 : '';
-            statusEl.className = 'inbox-status success';
-            statusEl.textContent = `${result.new_count} nouveau(x) mail(s) récupéré(s) dans /home/naiken/mails${errStr}`;
+            if (!silent && statusEl) {
+                statusEl.className = 'inbox-status success';
+                statusEl.textContent = `${result.new_count} nouveau(x) mail(s) récupéré(s), dont ${result.commercial_count || 0} classé(s) commercial${errStr}`;
+            }
         }
     } catch (e) {
-        statusEl.className = 'inbox-status error';
-        statusEl.textContent = 'Erreur réseau : ' + e.message;
+        if (!silent && statusEl) {
+            statusEl.className = 'inbox-status error';
+            statusEl.textContent = 'Erreur réseau : ' + e.message;
+        }
     }
 
-    setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+    if (!silent && statusEl) {
+        setTimeout(() => { statusEl.style.display = 'none'; }, 5000);
+    }
+}
+
+async function reclassifyCommercialMails() {
+    showLoading('Reclassification commerciale en cours…');
+    try {
+        const r = await fetch('/api/mail/reclassify-commercial', { method: 'POST' });
+        const result = await r.json();
+        if (!result.ok) {
+            showToast('Erreur : ' + (result.error || 'échec'), 'error', 4000);
+            return;
+        }
+        await loadInbox();
+        showToast(`${result.moved || 0} mail(s) reclassé(s).`, 'success', 2600);
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 4000);
+    } finally {
+        hideLoading();
+    }
+}
+
+async function keepCommercialMail(mailId) {
+    if (!mailId) return;
+    showLoading('Déplacement vers les reçus…');
+    try {
+        const r = await fetch('/api/commercial/keep', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: [mailId] }),
+        });
+        const result = await r.json();
+        if (!result.ok) {
+            showToast('Erreur : ' + (result.error || 'échec'), 'error', 4000);
+            return;
+        }
+        selectedInboxId = null;
+        await loadInbox();
+        showToast('Mail conservé dans les reçus.', 'success', 2400);
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 4000);
+    } finally {
+        hideLoading();
+    }
+}
+
+function keepSelectedCommercialMail() {
+    if (!selectedInboxId) {
+        showToast('Sélectionne un mail commercial.', 'warning', 2400);
+        return;
+    }
+    keepCommercialMail(selectedInboxId);
+}
+
+async function deleteAllCommercialMails() {
+    if (inboxFolder !== 'commercial') {
+        showToast('Passe sur le dossier Commercial pour utiliser cette action.', 'warning', 2600);
+        return;
+    }
+    if (!confirm('Supprimer TOUS les mails commerciaux localement et sur le serveur ?')) return;
+    showLoading('Suppression massive des mails commerciaux…');
+    try {
+        const r = await fetch('/api/commercial/delete-all', { method: 'POST' });
+        const result = await r.json();
+        if (!result.ok) {
+            showToast('Erreur : ' + (result.error || 'échec'), 'error', 5000);
+            return;
+        }
+        selectedInboxId = null;
+        await loadInbox();
+        showToast(`${result.deleted || 0} mail(s) commercial(aux) supprimé(s).`, 'success', 2800);
+    } catch (e) {
+        showToast('Erreur : ' + e.message, 'error', 5000);
+    } finally {
+        hideLoading();
+    }
 }
 
 function processMyMails() {
     const ids = inboxMails
-        .filter(m => !m.deleted && m.folder !== 'sent' && !m.processed)
+        .filter(m => !m.deleted && m.folder !== 'sent' && !m.processed && (m.mailbox || 'inbox') !== 'commercial')
         .sort((a, b) => {
             const da = a.date ? new Date(a.date).getTime() : 0;
             const db = b.date ? new Date(b.date).getTime() : 0;
@@ -3352,7 +3455,6 @@ function openDeleteMailModal(mailId) {
     const mail = inboxMails.find(m => m.id === mailId);
     if (titleEl) titleEl.textContent = 'Supprimer ce mail ?';
     if (subjectEl) subjectEl.textContent = mail ? mail.subject : '';
-    document.getElementById('deleteOnServer').checked = false;
     modal.classList.add('show');
 }
 
@@ -3362,8 +3464,6 @@ function closeDeleteMailModal() {
 }
 
 async function confirmDeleteMail() {
-    const deleteOnServer = document.getElementById('deleteOnServer').checked;
-
     if (!deleteMailTarget) return;
     const targetId = deleteMailTarget;
     closeDeleteMailModal();
@@ -3372,7 +3472,7 @@ async function confirmDeleteMail() {
         const r = await fetch('/api/mail/delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: targetId, delete_on_server: deleteOnServer })
+            body: JSON.stringify({ id: targetId })
         });
         const result = await r.json();
         if (result.ok) {
@@ -3983,6 +4083,14 @@ setInterval(() => {
     updateMailBadge();
 }, 30000);
 
+function startAutoFetchLoop() {
+    if (autoFetchTimer) clearInterval(autoFetchTimer);
+    autoFetchTimer = setInterval(() => {
+        if (document.hidden) return;
+        fetchEmails({ silent: true }).catch(() => {});
+    }, 5 * 60 * 1000);
+}
+
 /* ═══════════════════════════════════════════════════════
    Init
    ═══════════════════════════════════════════════════════ */
@@ -4009,6 +4117,9 @@ setInterval(() => {
 
     autoSave();
     updateMailBadge();
+    startAutoFetchLoop();
+    fetchEmails({ silent: true }).catch(() => {});
+    fetch('/api/mail/reclassify-commercial', { method: 'POST' }).catch(() => {});
     loadInbox().then(() => {
         updateInboxBadge();
         // Populate From dropdown with account emails

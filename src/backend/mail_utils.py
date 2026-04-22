@@ -1,6 +1,6 @@
+import base64
 import email as email_lib
 import email.policy
-import base64
 import hashlib
 import os
 import random
@@ -9,15 +9,14 @@ import string
 import time
 from datetime import datetime
 from email import policy as email_policy
-from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import getaddresses, parsedate_to_datetime
 
-from app_config import DOWNLOADS, INBOX_INDEX_FILE, MAILS_DIR, SEEN_UIDS_FILE
+from app_config import COMMERCIAL_DIR, DOWNLOADS, INBOX_INDEX_FILE, MAILS_DIR, SEEN_UIDS_FILE
 from json_store import atomic_write_json, read_json_with_backup
 
-# Indicateur de disponibilité de la bibliothèque html2text
+# Indicateur de disponibilite de la bibliotheque html2text
 try:
     import html2text
     HAS_HTML2TEXT = True
@@ -29,17 +28,45 @@ EML_NAME_LENGTH = 9
 EML_ALPHABET = string.ascii_uppercase + string.digits
 
 
-# Charge les UIDs déjà vus depuis le fichier de déduplication
+def resolve_storage_dir(mail):
+    explicit = str((mail or {}).get("storage_dir", "") or "").strip()
+    if explicit:
+        return explicit
+    mailbox = str((mail or {}).get("mailbox", "") or "").lower().strip()
+    if mailbox == "commercial":
+        return COMMERCIAL_DIR
+    return MAILS_DIR
+
+
+def resolve_eml_path(mail):
+    eml_file = str((mail or {}).get("eml_file", "") or "").strip()
+    if not eml_file:
+        return ""
+
+    storage_dir = resolve_storage_dir(mail)
+    primary = os.path.join(storage_dir, eml_file)
+    if os.path.isfile(primary):
+        return primary
+
+    for directory in (MAILS_DIR, COMMERCIAL_DIR):
+        candidate = os.path.join(directory, eml_file)
+        if os.path.isfile(candidate):
+            return candidate
+
+    return primary
+
+
+# Charge les UIDs deja vus depuis le fichier de deduplication
 def load_seen_uids():
     return read_json_with_backup(SEEN_UIDS_FILE, {})
 
 
-# Sauvegarde les UIDs vus dans le fichier de déduplication
+# Sauvegarde les UIDs vus dans le fichier de deduplication
 def save_seen_uids(seen):
     atomic_write_json(SEEN_UIDS_FILE, seen)
 
 
-# Charge l'index local de la boîte de réception en filtrant les entrées obsolètes
+# Charge l'index local de la boite de reception en filtrant les entrees obsoletes
 def load_inbox_index():
     index = read_json_with_backup(INBOX_INDEX_FILE, [])
     if not isinstance(index, list):
@@ -50,7 +77,7 @@ def load_inbox_index():
     for m in index:
         eml_file = m.get("eml_file", "")
         if eml_file:
-            eml_path = os.path.join(MAILS_DIR, eml_file)
+            eml_path = resolve_eml_path(m)
             if not os.path.isfile(eml_path):
                 changed = True
                 continue
@@ -61,18 +88,21 @@ def load_inbox_index():
     return filtered
 
 
-# Sauvegarde l'index de la boîte de réception
+# Sauvegarde l'index de la boite de reception
 def save_inbox_index(index):
     atomic_write_json(INBOX_INDEX_FILE, index)
 
 
-# Indexe les fichiers .eml déposés manuellement dans le dossier mails
-def ingest_manual_eml_files(*, load_inbox_index_fn, save_inbox_index_fn, compute_mail_id_fn, parse_email_metadata_fn, mails_dir):
+# Indexe les fichiers .eml deposes manuellement dans un dossier donne
+def ingest_manual_eml_files(*, load_inbox_index_fn, save_inbox_index_fn, compute_mail_id_fn, parse_email_metadata_fn, mails_dir, mailbox="inbox", processed_default=False):
     if not os.path.isdir(mails_dir):
         return 0, []
 
     inbox = load_inbox_index_fn()
-    known_files = {str(m.get("eml_file", "")).strip() for m in inbox if m.get("eml_file")}
+    known_files = {
+        (str(m.get("storage_dir", "") or "").strip(), str(m.get("eml_file", "")).strip())
+        for m in inbox if m.get("eml_file")
+    }
     known_ids = {str(m.get("id", "")).strip() for m in inbox if m.get("id")}
 
     added = 0
@@ -82,7 +112,7 @@ def ingest_manual_eml_files(*, load_inbox_index_fn, save_inbox_index_fn, compute
     for fname in os.listdir(mails_dir):
         if not fname.lower().endswith(".eml"):
             continue
-        if fname in known_files:
+        if (mails_dir, fname) in known_files:
             continue
 
         fpath = os.path.join(mails_dir, fname)
@@ -103,12 +133,14 @@ def ingest_manual_eml_files(*, load_inbox_index_fn, save_inbox_index_fn, compute
             meta["id"] = mail_id
             meta["uid"] = ""
             meta["eml_file"] = fname
-            meta["processed"] = False
+            meta["processed"] = bool(processed_default)
             meta["deleted"] = False
             meta["protocol"] = "local"
+            meta["mailbox"] = mailbox
+            meta["storage_dir"] = mails_dir
 
             inbox.append(meta)
-            known_files.add(fname)
+            known_files.add((mails_dir, fname))
             known_ids.add(mail_id)
             added += 1
             changed = True
@@ -121,28 +153,29 @@ def ingest_manual_eml_files(*, load_inbox_index_fn, save_inbox_index_fn, compute
     return added, errors
 
 
-# Calcule un hash stable pour la déduplication des emails
+# Calcule un hash stable pour la deduplication des emails
 def compute_mail_id(raw_bytes):
     return hashlib.sha256(raw_bytes).hexdigest()[:24]
 
 
-# Nettoie une chaîne en supprimant les caractères invalides pour les noms de fichiers
+# Nettoie une chaine en supprimant les caracteres invalides pour les noms de fichiers
 def clean_string_for_file(name):
     if not name:
         return ""
-    name = str(name).replace('\n', ' ').replace('\r', '')
-    return re.sub(r'[\\/*?:"<>|]', "", name).strip()
+    name = str(name).replace("\n", " ").replace("\r", "")
+    return re.sub(r"[\\/*?:\"<>|]", "", name).strip()
 
 
-# Génère un nom de fichier .eml unique à partir du sujet en ajoutant un suffixe numérique si nécessaire
-def unique_eml_filename_from_subject(subject, prefix=""):
+# Genere un nom de fichier .eml unique
+def unique_eml_filename_from_subject(subject, prefix="", target_dir=None):
+    base_dir = target_dir or MAILS_DIR
     while True:
         candidate = "".join(random.choices(EML_ALPHABET, k=EML_NAME_LENGTH)) + ".eml"
-        if not os.path.exists(os.path.join(MAILS_DIR, candidate)):
+        if not os.path.exists(os.path.join(base_dir, candidate)):
             return candidate
 
 
-# Extrait les corps texte brut et HTML d'un message email parsé
+# Extrait les corps texte brut et HTML d'un message email parse
 def extract_bodies(msg):
     body_text = ""
     body_html = ""
@@ -184,14 +217,14 @@ def extract_bodies(msg):
         if content_type == "text/plain":
             if not body_text:
                 try:
-                    charset = part.get_content_charset('utf-8') or 'utf-8'
-                    body_text = part.get_payload(decode=True).decode(charset, errors='replace')
+                    charset = part.get_content_charset("utf-8") or "utf-8"
+                    body_text = part.get_payload(decode=True).decode(charset, errors="replace")
                 except Exception:
                     pass
         elif content_type == "text/html":
             try:
-                charset = part.get_content_charset('utf-8') or 'utf-8'
-                body_html = part.get_payload(decode=True).decode(charset, errors='replace')
+                charset = part.get_content_charset("utf-8") or "utf-8"
+                body_html = part.get_payload(decode=True).decode(charset, errors="replace")
             except Exception:
                 pass
 
@@ -202,7 +235,6 @@ def extract_bodies(msg):
             body_text = ""
 
     if body_html and cid_payloads:
-        # Replace inline cid: links with data URLs so images render in previews.
         def _replace_cid(match):
             cid_key = str(match.group(1) or "").strip().strip("<>").lower()
             return cid_payloads.get(cid_key, match.group(0))
@@ -212,7 +244,8 @@ def extract_bodies(msg):
     return body_text, body_html
 
 
-# Retourne les données brutes, le nom de fichier et le type MIME d'une pièce jointe identifiée par index ou nom
+# Retourne les donnees brutes, le nom de fichier et le type MIME d'une piece jointe
+# identifiee par index ou nom
 def get_attachment_payload(msg, index=None, filename=None):
     found_idx = 0
     for part in msg.walk():
@@ -237,12 +270,12 @@ def get_attachment_payload(msg, index=None, filename=None):
     return None, None, None
 
 
-# Enrichit un mail avec le corps et les pièces jointes depuis le fichier .eml local correspondant
+# Enrichit un mail avec le corps et les pieces jointes depuis le fichier .eml local
 def enrich_mail_from_eml(mail):
     eml_file = mail.get("eml_file", "")
     if not eml_file:
         return mail
-    eml_path = os.path.join(MAILS_DIR, eml_file)
+    eml_path = resolve_eml_path(mail)
     if not os.path.isfile(eml_path):
         return mail
 
@@ -259,7 +292,7 @@ def enrich_mail_from_eml(mail):
     return mail
 
 
-# Retourne la liste des noms de pièces jointes d'un message email
+# Retourne la liste des noms de pieces jointes d'un message email
 def extract_attachments_info(msg):
     attachments = []
     for part in msg.walk():
@@ -270,23 +303,23 @@ def extract_attachments_info(msg):
     return attachments
 
 
-# Parse les octets bruts d'un email et retourne un dictionnaire de métadonnées
+# Parse les octets bruts d'un email et retourne un dictionnaire de metadonnees
 def parse_email_metadata(raw_bytes, account_email=""):
     msg = email_lib.message_from_bytes(raw_bytes, policy=email_policy.default)
 
-    subject = msg.get('Subject', 'Sans sujet') or 'Sans sujet'
-    from_hdr = msg.get('From', '')
-    to_hdr = msg.get('To', '')
-    cc_hdr = msg.get('Cc', '')
-    date_str = msg.get('Date', '')
-    message_id = msg.get('Message-ID', '') or ''
+    subject = msg.get("Subject", "Sans sujet") or "Sans sujet"
+    from_hdr = msg.get("From", "")
+    to_hdr = msg.get("To", "")
+    cc_hdr = msg.get("Cc", "")
+    date_str = msg.get("Date", "")
+    message_id = msg.get("Message-ID", "") or ""
 
     from_addrs = getaddresses([from_hdr])
-    sender_name = ''
-    sender_email = ''
+    sender_name = ""
+    sender_email = ""
     if from_addrs:
-        sender_name = from_addrs[0][0] or ''
-        sender_email = from_addrs[0][1] or ''
+        sender_name = from_addrs[0][0] or ""
+        sender_email = from_addrs[0][1] or ""
 
     date_ts = 0
     date_display = date_str
@@ -314,10 +347,11 @@ def parse_email_metadata(raw_bytes, account_email=""):
         "body_html": body_html,
         "attachments": attachments,
         "account": account_email,
+        "has_list_unsubscribe": bool(msg.get("List-Unsubscribe", "")),
     }
 
 
-# Construit une chaîne email RFC-2822 à partir des paramètres fournis
+# Construit une chaine email RFC-2822 a partir des parametres fournis
 def build_eml(from_addr, to_addr, subject, body_text, html_body=None):
     if html_body:
         msg = MIMEMultipart("alternative")
@@ -332,7 +366,7 @@ def build_eml(from_addr, to_addr, subject, body_text, html_body=None):
     return msg.as_string()
 
 
-# Sauvegarde un email en fichier .eml dans le dossier Téléchargements
+# Sauvegarde un email en fichier .eml dans le dossier Telechargements
 def save_eml_to_downloads(from_addr, to_addr, subject, body_text, html_body=None):
     eml_content = build_eml(from_addr, to_addr, subject, body_text, html_body=html_body)
     safe_subject = "".join(c for c in subject if c.isalnum() or c in " _-").strip()[:80] or "mail"

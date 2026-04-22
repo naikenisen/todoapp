@@ -23,6 +23,7 @@ from app_config import (
     APP_DATA_DIR,
     APP_ENV_FILE,
     APP_RUNTIME_CONFIG_FILE,
+    COMMERCIAL_DIR,
     CONTACTS_CSV,
     DATA,
     DIR,
@@ -51,6 +52,7 @@ from mail_utils import (
     load_inbox_index,
     load_seen_uids,
     parse_email_metadata,
+    resolve_eml_path,
     save_eml_to_downloads,
     save_inbox_index,
     save_seen_uids,
@@ -133,12 +135,14 @@ def _build_annuaire():
             if c["name"] and not directory[email_lower]["name"]:
                 directory[email_lower]["name"] = c["name"]
 
-    # 2) Extraire les personnes depuis les fichiers .eml du dossier mails
-    if os.path.isdir(MAILS_DIR):
-        for fname in os.listdir(MAILS_DIR):
+    # 2) Extraire les personnes depuis les fichiers .eml des dossiers mails + commercial
+    for source_dir in (MAILS_DIR, COMMERCIAL_DIR):
+        if not os.path.isdir(source_dir):
+            continue
+        for fname in os.listdir(source_dir):
             if not fname.lower().endswith(".eml"):
                 continue
-            fpath = os.path.join(MAILS_DIR, fname)
+            fpath = os.path.join(source_dir, fname)
             try:
                 with open(fpath, "rb") as f:
                     msg = email_lib.message_from_bytes(f.read(), policy=email_policy.default)
@@ -255,6 +259,7 @@ def _get_app_install_config() -> dict:
             "seen_uids_file": os.path.join(APP_DATA_DIR, "seen_uids.json"),
             "contacts_csv": CONTACTS_CSV,
             "mails_dir": MAILS_DIR,
+            "commercial_dir": COMMERCIAL_DIR,
             "vault_dir": MAILS_DIR,
             "log_file": LOG_FILE,
         },
@@ -282,17 +287,20 @@ def _save_app_install_config(payload: dict) -> None:
         return p
 
     mails_dir = _clean_path(paths_in.get("mails_dir", ""), MAILS_DIR)
+    commercial_dir = _clean_path(paths_in.get("commercial_dir", ""), COMMERCIAL_DIR)
     vault_dir = mails_dir
 
     runtime_cfg = _read_runtime_config_file()
     runtime_cfg["paths"] = {
         "mails_dir": mails_dir,
+        "commercial_dir": commercial_dir,
         "vault_dir": vault_dir,
     }
     runtime_cfg["updated_at"] = datetime.utcnow().isoformat() + "Z"
 
     os.makedirs(APP_DATA_DIR, exist_ok=True)
     os.makedirs(mails_dir, exist_ok=True)
+    os.makedirs(commercial_dir, exist_ok=True)
 
     with open(APP_RUNTIME_CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(runtime_cfg, f, ensure_ascii=False, indent=2)
@@ -421,6 +429,208 @@ _MAIL_DI_COMMON = dict(
 )
 
 
+_COMMERCIAL_SUBJECT_HINTS = [
+    "promo", "promotion", "offre", "offres", "soldes", "black friday", "cyber monday",
+    "newsletter", "marketing", "reduction", "-10%", "-20%", "code promo", "bon plan",
+    "deal", "deals", "vente privee", "destockage", "nouveautes", "collection", "catalogue",
+]
+_COMMERCIAL_SENDER_HINTS = [
+    "newsletter", "no-reply", "noreply", "marketing", "promo", "offers", "offres",
+]
+
+
+def _mailbox_of(mail):
+    if mail.get("folder") == "sent":
+        return "sent"
+    mb = str(mail.get("mailbox", "") or "").strip().lower()
+    if mb in ("inbox", "commercial", "sent"):
+        return mb
+    return "inbox"
+
+
+def _looks_commercial(mail):
+    if mail.get("folder") == "sent":
+        return False
+
+    if mail.get("has_list_unsubscribe"):
+        return True
+
+    subject = str(mail.get("subject", "") or "").lower()
+    sender = str(mail.get("from_email", "") or "").lower()
+    sender_name = str(mail.get("from_name", "") or "").lower()
+
+    score = 0
+    for hint in _COMMERCIAL_SUBJECT_HINTS:
+        if hint in subject:
+            score += 1
+    for hint in _COMMERCIAL_SENDER_HINTS:
+        if hint in sender or hint in sender_name:
+            score += 1
+
+    return score >= 2
+
+
+def _ensure_unique_filename_in_dir(filename: str, target_dir: str) -> str:
+    base = os.path.basename(filename or "")
+    if not base:
+        base = unique_eml_filename_from_subject("mail", target_dir=target_dir)
+    candidate = base
+    stem, ext = os.path.splitext(base)
+    i = 1
+    while os.path.exists(os.path.join(target_dir, candidate)):
+        candidate = f"{stem}_{i}{ext or '.eml'}"
+        i += 1
+    return candidate
+
+
+def _move_mail_to_storage(mail: dict, target_dir: str, target_mailbox: str, processed_override=None) -> bool:
+    os.makedirs(target_dir, exist_ok=True)
+    current_path = resolve_eml_path(mail)
+    if not current_path or not os.path.isfile(current_path):
+        return False
+
+    target_name = _ensure_unique_filename_in_dir(mail.get("eml_file", ""), target_dir)
+    target_path = os.path.join(target_dir, target_name)
+
+    same_path = os.path.abspath(current_path) == os.path.abspath(target_path)
+    if not same_path:
+        os.replace(current_path, target_path)
+
+    mail["eml_file"] = target_name
+    mail["storage_dir"] = target_dir
+    mail["mailbox"] = target_mailbox
+    if processed_override is not None:
+        mail["processed"] = bool(processed_override)
+    return True
+
+
+def apply_commercial_filter(inbox: list[dict]) -> int:
+    changed = 0
+    for mail in inbox:
+        if mail.get("deleted") or mail.get("folder") == "sent":
+            continue
+
+        if str(mail.get("commercial_override", "") or "").lower() == "keep":
+            target_mailbox = "inbox"
+        else:
+            target_mailbox = "commercial" if _looks_commercial(mail) else "inbox"
+        current_mailbox = _mailbox_of(mail)
+
+        if target_mailbox == "commercial":
+            if current_mailbox != "commercial":
+                moved = _move_mail_to_storage(mail, COMMERCIAL_DIR, "commercial", processed_override=True)
+                if moved:
+                    changed += 1
+            else:
+                mail["processed"] = True
+        else:
+            if current_mailbox == "commercial":
+                moved = _move_mail_to_storage(mail, MAILS_DIR, "inbox", processed_override=False)
+                if moved:
+                    changed += 1
+            else:
+                mail["mailbox"] = "inbox"
+                mail["storage_dir"] = MAILS_DIR
+    return changed
+
+
+def refresh_and_classify_local_mailboxes():
+    total_new = 0
+    all_errors = []
+
+    n1, e1 = ingest_manual_eml_files(
+        load_inbox_index_fn=load_inbox_index,
+        save_inbox_index_fn=save_inbox_index,
+        compute_mail_id_fn=compute_mail_id,
+        parse_email_metadata_fn=parse_email_metadata,
+        mails_dir=MAILS_DIR,
+        mailbox="inbox",
+        processed_default=False,
+    )
+    total_new += n1
+    all_errors.extend(e1)
+
+    n2, e2 = ingest_manual_eml_files(
+        load_inbox_index_fn=load_inbox_index,
+        save_inbox_index_fn=save_inbox_index,
+        compute_mail_id_fn=compute_mail_id,
+        parse_email_metadata_fn=parse_email_metadata,
+        mails_dir=COMMERCIAL_DIR,
+        mailbox="commercial",
+        processed_default=True,
+    )
+    total_new += n2
+    all_errors.extend(e2)
+
+    inbox = load_inbox_index()
+    changed = apply_commercial_filter(inbox)
+    if changed:
+        save_inbox_index(inbox)
+
+    return total_new, all_errors, changed
+
+
+def delete_mails_batch(ids, delete_on_server=True):
+    if not ids or not isinstance(ids, list):
+        return {"ok": False, "error": "ids manquants"}, 400
+
+    inbox = load_inbox_index()
+    seen = load_seen_uids()
+    seen_changed = False
+    deleted = 0
+    errors = []
+    remote_missing = 0
+    remote_failed = []
+
+    for mail_id in ids:
+        mail = next((m for m in inbox if m.get("id") == mail_id), None)
+        if not mail:
+            errors.append(mail_id)
+            continue
+
+        remote_ok_for_local_delete = True
+        if delete_on_server and mail.get("uid") and mail.get("account"):
+            account = find_account_by_email(mail["account"])
+            if account:
+                try:
+                    remote_deleted = delete_mail_on_server(account, mail["uid"])
+                    if remote_deleted is False:
+                        remote_missing += 1
+                except Exception as del_err:
+                    logger.warning("Batch delete on server failed for %s: %s", mail_id, del_err)
+                    remote_failed.append({"id": mail_id, "error": str(del_err)})
+                    remote_ok_for_local_delete = False
+
+        if delete_on_server and not remote_ok_for_local_delete:
+            errors.append(mail_id)
+            continue
+
+        eml_path = resolve_eml_path(mail)
+        if os.path.isfile(eml_path):
+            os.remove(eml_path)
+        if mail.get("uid"):
+            for _, uids in seen.items():
+                if mail["uid"] in uids:
+                    uids.remove(mail["uid"])
+                    seen_changed = True
+        mail["deleted"] = True
+        deleted += 1
+
+    if seen_changed:
+        save_seen_uids(seen)
+    save_inbox_index(inbox)
+
+    return {
+        "ok": True,
+        "deleted": deleted,
+        "errors": errors,
+        "remote": {
+            "already_missing": remote_missing,
+            "failed": remote_failed,
+        },
+    }, 200
+
+
 # Récupère les emails via POP3 pour un compte donné
 def fetch_pop3(account):
     return _fetch_pop3_impl(account, **_MAIL_DI_COMMON)
@@ -453,13 +663,7 @@ def fetch_all_accounts():
         except Exception as e:
             all_errors.append(f"{acc.get('email', '?')}: {e}")
 
-    local_new, local_errors = ingest_manual_eml_files(
-        load_inbox_index_fn=load_inbox_index,
-        save_inbox_index_fn=save_inbox_index,
-        compute_mail_id_fn=compute_mail_id,
-        parse_email_metadata_fn=parse_email_metadata,
-        mails_dir=MAILS_DIR,
-    )
+    local_new, local_errors, _ = refresh_and_classify_local_mailboxes()
     total_new += local_new
     all_errors.extend(local_errors)
 
@@ -556,17 +760,26 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             # Indexe aussi les .eml locaux lors de l'ouverture de la boite
             # pour afficher les mails de /mails sans action manuelle "Relever".
             try:
-                ingest_manual_eml_files(
-                    load_inbox_index_fn=load_inbox_index,
-                    save_inbox_index_fn=save_inbox_index,
-                    compute_mail_id_fn=compute_mail_id,
-                    parse_email_metadata_fn=parse_email_metadata,
-                    mails_dir=MAILS_DIR,
-                )
+                refresh_and_classify_local_mailboxes()
             except Exception:
                 pass
             inbox = load_inbox_index()
-            visible = [m for m in inbox if not m.get("deleted") and m.get("folder") != "sent"]
+            visible = [
+                m for m in inbox
+                if not m.get("deleted") and m.get("folder") != "sent" and _mailbox_of(m) == "inbox"
+            ]
+            visible.sort(key=lambda m: m.get("date_ts", 0), reverse=True)
+            return self._json(visible)
+        if self.path == "/api/inbox/commercial":
+            try:
+                refresh_and_classify_local_mailboxes()
+            except Exception:
+                pass
+            inbox = load_inbox_index()
+            visible = [
+                m for m in inbox
+                if not m.get("deleted") and m.get("folder") != "sent" and _mailbox_of(m) == "commercial"
+            ]
             visible.sort(key=lambda m: m.get("date_ts", 0), reverse=True)
             return self._json(visible)
         if self.path == "/api/inbox/sent":
@@ -592,12 +805,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if not mail:
                     safe_eml = os.path.basename(eml_file or "")
                     if safe_eml and safe_eml.lower().endswith(".eml"):
-                        eml_path = os.path.join(MAILS_DIR, safe_eml)
+                        inbox_match = next((m for m in inbox if m.get("eml_file") == safe_eml), None)
+                        if inbox_match:
+                            eml_path = resolve_eml_path(inbox_match)
+                        else:
+                            eml_path = os.path.join(MAILS_DIR, safe_eml)
                     else:
                         self.send_error(404)
                         return
                 else:
-                    eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
+                    eml_path = resolve_eml_path(mail)
 
                 if not os.path.isfile(eml_path):
                     self.send_error(404)
@@ -817,11 +1034,60 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/api/fetch-emails":
             try:
                 new_count, errors = fetch_all_accounts()
+                inbox = load_inbox_index()
+                commercial_count = len([
+                    m for m in inbox
+                    if not m.get("deleted") and m.get("folder") != "sent" and _mailbox_of(m) == "commercial"
+                ])
                 return self._json({
                     "ok": True,
                     "new_count": new_count,
-                    "errors": errors
+                    "errors": errors,
+                    "commercial_count": commercial_count,
                 })
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
+        if self.path == "/api/mail/reclassify-commercial":
+            try:
+                _, _, moved = refresh_and_classify_local_mailboxes()
+                return self._json({"ok": True, "moved": moved})
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
+        if self.path == "/api/commercial/keep":
+            try:
+                ids = data.get("ids", [])
+                if not isinstance(ids, list) or not ids:
+                    return self._json({"error": "ids manquants"}, 400)
+
+                inbox = load_inbox_index()
+                kept = 0
+                for mail in inbox:
+                    if mail.get("id") not in ids:
+                        continue
+                    if _mailbox_of(mail) != "commercial":
+                        continue
+                    if _move_mail_to_storage(mail, MAILS_DIR, "inbox", processed_override=False):
+                        mail["commercial_override"] = "keep"
+                        kept += 1
+
+                save_inbox_index(inbox)
+                return self._json({"ok": True, "kept": kept})
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
+        if self.path == "/api/commercial/delete-all":
+            try:
+                inbox = load_inbox_index()
+                ids = [
+                    m.get("id") for m in inbox
+                    if not m.get("deleted") and m.get("folder") != "sent" and _mailbox_of(m) == "commercial"
+                ]
+                if not ids:
+                    return self._json({"ok": True, "deleted": 0, "errors": []})
+                result, code = delete_mails_batch(ids, delete_on_server=True)
+                return self._json(result, code)
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 
@@ -868,7 +1134,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/api/mail/delete":
             try:
                 mail_id = data.get("id", "")
-                delete_on_server = data.get("delete_on_server", False)
+                delete_on_server = True
                 inbox = load_inbox_index()
                 mail = next((m for m in inbox if m.get("id") == mail_id), None)
                 if not mail:
@@ -897,7 +1163,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                         },
                     }, 502)
 
-                eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
+                eml_path = resolve_eml_path(mail)
                 if os.path.isfile(eml_path):
                     os.remove(eml_path)
 
@@ -924,58 +1190,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/api/mail/delete-batch":
             try:
                 ids = data.get("ids", [])
-                delete_on_server = data.get("delete_on_server", False)
-                if not ids or not isinstance(ids, list):
-                    return self._json({"error": "ids manquants"}, 400)
-                inbox = load_inbox_index()
-                seen = load_seen_uids()
-                seen_changed = False
-                deleted = 0
-                errors = []
-                remote_missing = 0
-                remote_failed = []
-                for mail_id in ids:
-                    mail = next((m for m in inbox if m.get("id") == mail_id), None)
-                    if not mail:
-                        errors.append(mail_id)
-                        continue
-                    remote_ok_for_local_delete = True
-                    if delete_on_server and mail.get("uid") and mail.get("account"):
-                        account = find_account_by_email(mail["account"])
-                        if account:
-                            try:
-                                remote_deleted = delete_mail_on_server(account, mail["uid"])
-                                if remote_deleted is False:
-                                    remote_missing += 1
-                            except Exception as del_err:
-                                logger.warning("Batch delete on server failed for %s: %s", mail_id, del_err)
-                                remote_failed.append({"id": mail_id, "error": str(del_err)})
-                                remote_ok_for_local_delete = False
-                    if delete_on_server and not remote_ok_for_local_delete:
-                        errors.append(mail_id)
-                        continue
-                    eml_path = os.path.join(MAILS_DIR, mail.get("eml_file", ""))
-                    if os.path.isfile(eml_path):
-                        os.remove(eml_path)
-                    if mail.get("uid"):
-                        for key, uids in seen.items():
-                            if mail["uid"] in uids:
-                                uids.remove(mail["uid"])
-                                seen_changed = True
-                    mail["deleted"] = True
-                    deleted += 1
-                if seen_changed:
-                    save_seen_uids(seen)
-                save_inbox_index(inbox)
-                return self._json({
-                    "ok": True,
-                    "deleted": deleted,
-                    "errors": errors,
-                    "remote": {
-                        "already_missing": remote_missing,
-                        "failed": remote_failed,
-                    },
-                })
+                result, code = delete_mails_batch(ids, delete_on_server=True)
+                return self._json(result, code)
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 

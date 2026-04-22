@@ -16,7 +16,7 @@ from email.mime.text import MIMEText
 def _save_eml_bytes_atomic(raw_bytes, subject, *, unique_eml_filename_from_subject, mails_dir, max_attempts=100):
     os.makedirs(mails_dir, exist_ok=True)
     for _ in range(max_attempts):
-        eml_filename = unique_eml_filename_from_subject(subject)
+        eml_filename = unique_eml_filename_from_subject(subject, target_dir=mails_dir)
         eml_path = os.path.join(mails_dir, eml_filename)
         try:
             with open(eml_path, "xb") as f:
@@ -118,6 +118,8 @@ def fetch_pop3(
                 meta["eml_file"] = eml_filename
                 meta["processed"] = False
                 meta["deleted"] = False
+                meta["mailbox"] = "inbox"
+                meta["storage_dir"] = mails_dir
 
                 inbox.append(meta)
                 seen[account_key].append(uid)
@@ -228,6 +230,8 @@ def fetch_imap(
                 meta["processed"] = False
                 meta["deleted"] = False
                 meta["protocol"] = "imap"
+                meta["mailbox"] = "inbox"
+                meta["storage_dir"] = mails_dir
 
                 inbox.append(meta)
                 seen[account_key].append(uid)
@@ -350,6 +354,8 @@ def send_email_smtp(
     meta["processed"] = True
     meta["deleted"] = False
     meta["folder"] = "sent"
+    meta["mailbox"] = "sent"
+    meta["storage_dir"] = mails_dir
     inbox = load_inbox_index()
     inbox.append(meta)
     save_inbox_index(inbox)

@@ -55,9 +55,12 @@
         <header>
             <div class="header-actions">
                 <button onclick="fetchEmails()"><i class="icon-refresh-cw"></i> Relever les mails</button>
-                <button onclick="processMyMails()"><i class="icon-sparkles"></i> Traiter mes mails</button>
+                <button onclick="processMyMails()" id="btnProcessMails"><i class="icon-sparkles"></i> Traiter mes mails</button>
                 <button onclick="openAccountsModal()"><i class="icon-user"></i> Comptes</button>
                 <button onclick="toggleInboxFolder()" id="inboxFolderBtn"><i class="icon-inbox"></i> Reçus</button>
+                <button onclick="reclassifyCommercialMails()" id="btnReclassifyCommercial"><i class="icon-filter"></i> Filtrer commercial</button>
+                <button onclick="keepSelectedCommercialMail()" id="btnKeepCommercial" class="is-hidden"><i class="icon-bookmark"></i> Garder en reçus</button>
+                <button onclick="deleteAllCommercialMails()" id="btnDeleteCommercial" class="is-hidden"><i class="icon-trash-2"></i> Vider commercial</button>
             </div>
         </header>
 
@@ -715,11 +718,7 @@
     <div class="modal modal-w-400">
         <h2><i class="icon-trash-2"></i> <span id="deleteMailModalTitle">Supprimer ce mail ?</span></h2>
         <p class="delete-mail-subject" id="deleteMailSubject"></p>
-        <div class="form-group">
-            <label>
-                <input type="checkbox" id="deleteOnServer"> Supprimer aussi sur le serveur distant
-            </label>
-        </div>
+        <div class="form-group"><small>La suppression s'applique automatiquement en local et sur le serveur IMAP/POP quand possible.</small></div>
         <div class="modal-actions">
             <button onclick="closeDeleteMailModal()">Annuler</button>
             <button class="btn-danger" onclick="confirmDeleteMail()"><i class="icon-trash-2"></i> Supprimer</button>
